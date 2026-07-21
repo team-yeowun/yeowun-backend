@@ -139,7 +139,6 @@ public class CultureExhibitionClient implements ExhibitionCatalogClient {
 							.build())
 					.retrieve()
 					.body(CultureDetail2Response.class);
-            System.out.println(response);
 			errorHandler.throwIfVendorError(response);
 			List<CultureDetail2Response.Item> items = response.items();
 			if (items.isEmpty()) {
