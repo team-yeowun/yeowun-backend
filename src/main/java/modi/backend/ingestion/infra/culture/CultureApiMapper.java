@@ -12,8 +12,6 @@ import org.springframework.stereotype.Component;
 import modi.backend.ingestion.domain.data.CatalogVendorItem;
 import org.springframework.web.util.HtmlUtils;
 
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-
 import modi.backend.domain.exhibition.catalog.CatalogDetailData;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
 import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
@@ -23,31 +21,37 @@ import modi.backend.support.error.CoreException;
 import modi.backend.support.text.HtmlTextExtractor;
 
 /**
- * 한눈에보는문화정보(15138937) realm2/detail2 XML 파싱 + 도메인 매핑 전담(SRP).
- * {@link CultureExhibitionClient}는 전송(HTTP 호출)·오케스트레이션(페이지네이션·키 미설정 스킵·전송 오류 변환)만 맡고,
- * "XML을 정상 응답으로 해석"·"응답 필드를 도메인으로 정규화"하는 책임은 이 컴포넌트가 단독으로 진다.
+ * 한눈에보는문화정보(15138937) realm2/detail2 응답의 <b>정상 여부 판정 + 도메인 매핑</b> 전담(SRP).
+ * <p>
+ * XML → 객체 역직렬화는 더 이상 여기서 하지 않는다 — Spring의 XML 메시지 컨버터가 맡는다
+ * ({@code RestClient.body(CultureApiResponse.class)}). 이 컴포넌트는 <b>그렇게 받은 객체</b>를 놓고
+ * "정상 응답인가"({@link #verify})와 "응답 필드를 도메인으로 정규화"를 담당한다.
  */
 @Component
 public class CultureApiMapper {
 
 	private static final Logger log = LoggerFactory.getLogger(CultureApiMapper.class);
 	private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd");
-	private static final XmlMapper xmlMapper = new XmlMapper();
 
-	public CultureApiResponse parse(String xml) {
-		CultureApiResponse body;
-		try {
-			body = xmlMapper.readValue(xml, CultureApiResponse.class);
-		} catch (Exception e) {
-			throw new CoreException(EXTERNAL_API_UNAVAILABLE, "외부 전시 API 응답 파싱 실패", e);
+	/**
+	 * 응답이 <b>정상인지</b> 검사한다 — 실패면 {@link ExhibitionErrorCode#EXTERNAL_API_UNAVAILABLE}로 던진다.
+	 * <p>
+	 * <b>왜 별도 단계인가</b>: 이 원천은 HTTP 200을 주면서 실패 사유를 본문 {@code <resultCode>}에 담는다
+	 * (키 오류·한도 초과 등). 역직렬화는 성공해도 내용은 실패일 수 있으므로, 응답을 객체로 받은 <b>직후</b>
+	 * 반드시 이 검사를 통과시켜야 한다. 빠뜨리면 한도 초과가 조용히 "0건 수집"으로 지나간다.
+	 * <p>
+	 * 응답 본문({@code <body>})이 통째로 없는 실패 응답도 있으므로 {@code header}만으로 판정한다.
+	 */
+	public void verify(CultureApiResponse response) {
+		if (response == null) {
+			throw new CoreException(EXTERNAL_API_UNAVAILABLE, "외부 전시 API 응답 없음");
 		}
-		if (!body.isSuccess()) {
+		if (!response.isSuccess()) {
 			// 표준 코드를 사람이 읽는 라벨로 남긴다 — 운영 로그에서 "왜 실패했나"(한도초과 vs 키오류)를 코드 암기 없이 판독.
-			String resultCode = body.header() == null ? null : body.header().resultCode();
+			String resultCode = response.header() == null ? null : response.header().resultCode();
 			throw new CoreException(EXTERNAL_API_UNAVAILABLE,
 					"외부 전시 API 비정상: " + CultureResultCode.describe(resultCode));
 		}
-		return body;
 	}
 
 	/**

@@ -18,6 +18,7 @@ import modi.backend.ingestion.domain.data.CatalogListData;
 import modi.backend.ingestion.domain.entity.IngestionRun;
 import modi.backend.ingestion.domain.outbox.OutboxMessageType;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
+import modi.backend.ingestion.properties.CatalogFetchProperties;
 
 /**
  * 외부 전시 API 수집 루프 — <b>트랜잭션 밖 조율자</b>다(enricher와 동형).
@@ -41,6 +42,8 @@ public class CatalogSynchronizer {
 	private final ExhibitionDraftFacade exhibitionDraftFacade;
 	private final ExhibitionOutboxFacade exhibitionOutboxFacade;
 	private final ExhibitionCatalogClient catalogClient;
+	/** 수집 요청 정책(무엇을 얼마나) — 어댑터가 아니라 이 유스케이스가 정해 포트 인자로 내려보낸다. */
+	private final CatalogFetchProperties fetchProperties;
 
 	/**
 	 * 정기(SCHEDULE) 동기화.
@@ -57,7 +60,7 @@ public class CatalogSynchronizer {
 		// 아이템마다 now()를 찍으면 그 경계가 흐려진다.
 		LocalDateTime syncedAt = LocalDateTime.now();
 		IngestionRun run = IngestionRun.started(trigger, syncedAt);
-		CatalogListData fetched = catalogClient.fetchAll();
+		CatalogListData fetched = catalogClient.fetchAll(fetchProperties.toCriteria());
 		List<CatalogExhibitionData> collected = fetched.items();
 		run.fetched(fetched.totalCount(), fetched.truncated(), collected.size());
 		if (fetched.truncated()) {

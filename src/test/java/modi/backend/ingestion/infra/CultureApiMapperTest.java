@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
+import tools.jackson.dataformat.xml.XmlMapper;
 import org.junit.jupiter.api.Test;
 
 import modi.backend.domain.exhibition.catalog.CatalogDetailData;
@@ -74,34 +75,46 @@ class CultureApiMapperTest {
 			+ "</items></body></response>";
 
 	private final CultureApiMapper mapper = new CultureApiMapper();
+	/** 역직렬화는 이제 운영에서 Spring XML 컨버터가 한다 — 테스트는 같은 Jackson 3 XmlMapper로 픽스처만 만든다. */
+	private static final XmlMapper XML = new XmlMapper();
+
+	private static CultureApiResponse parse(String xml) {
+		return XML.readValue(xml, CultureApiResponse.class);
+	}
 
 	@Test
-	@DisplayName("parse — 정상 응답이면 items 접근 가능")
-	void parse_성공() {
-		CultureApiResponse response = mapper.parse(REALM2_XML);
+	@DisplayName("verify — 정상 응답이면 통과하고 items 접근 가능")
+	void verify_성공() {
+		CultureApiResponse response = parse(REALM2_XML);
+
+		mapper.verify(response);
 
 		assertThat(response.isSuccess()).isTrue();
 		assertThat(response.items()).hasSize(1);
 	}
 
 	@Test
-	@DisplayName("parse — resultCode 비정상이면 EXTERNAL_API_UNAVAILABLE")
-	void parse_비정상_resultCode() {
-		assertThatThrownBy(() -> mapper.parse(ERROR_XML))
+	@DisplayName("verify — resultCode 비정상이면 EXTERNAL_API_UNAVAILABLE(역직렬화는 성공해도 내용은 실패)")
+	void verify_비정상_resultCode() {
+		assertThatThrownBy(() -> mapper.verify(parse(ERROR_XML)))
 				.isInstanceOf(CoreException.class);
 	}
 
 	@Test
-	@DisplayName("parse — XML 자체가 깨졌으면 EXTERNAL_API_UNAVAILABLE")
-	void parse_파싱실패() {
-		assertThatThrownBy(() -> mapper.parse("not-xml"))
-				.isInstanceOf(CoreException.class);
+	@DisplayName("verify — body 없이 header만 온 실패 응답에서도 한도초과 사유를 읽어낸다")
+	void verify_body결측_실패응답() {
+		String 한도초과 = "<response><header><resultCode>22</resultCode>"
+				+ "<resultMsg>서비스 요청제한횟수 초과</resultMsg></header></response>";
+
+		assertThatThrownBy(() -> mapper.verify(parse(한도초과)))
+				.isInstanceOf(CoreException.class)
+				.hasMessageContaining("LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR");
 	}
 
 	@Test
 	@DisplayName("vendorOf — 응답 아이템이 준 필드를 빠짐없이 원문 verbatim으로 옮긴다(실측 기준 무손실 — ADR-13)")
 	void vendorOf_전필드_원문() {
-		CultureApiResponse.Item item = mapper.parse(REALM2_XML).items().get(0);
+		CultureApiResponse.Item item = parse(REALM2_XML).items().get(0);
 
 		CatalogVendorItem vendor = mapper.vendorOf(item);
 
@@ -123,7 +136,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("vendorOf — 원천이 주지 않은 필드는 null(안 준 것이 그대로 보인다)")
 	void vendorOf_결측필드_null() {
-		CultureApiResponse.Item item = mapper.parse(REALM2_XML).items().get(0);
+		CultureApiResponse.Item item = parse(REALM2_XML).items().get(0);
 
 		CatalogVendorItem vendor = mapper.vendorOf(item);
 
@@ -136,7 +149,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("vendorOf — 상세의 워드프레스 HTML 본문을 도메인 변환 전 원문 그대로 보존한다(재추출 원료)")
 	void vendorOf_HTML원문_보존() {
-		CultureApiResponse.Item item = mapper.parse(DETAIL2_WORDPRESS_XML).items().get(0);
+		CultureApiResponse.Item item = parse(DETAIL2_WORDPRESS_XML).items().get(0);
 
 		CatalogVendorItem vendor = mapper.vendorOf(item);
 
@@ -154,7 +167,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("toCatalog — area→region=BUSAN·sigungu·realmName·areaText 매핑")
 	void toCatalog_매핑() {
-		CultureApiResponse.Item item = mapper.parse(REALM2_XML).items().get(0);
+		CultureApiResponse.Item item = parse(REALM2_XML).items().get(0);
 
 		CatalogExhibitionData data = mapper.toCatalog(item);
 
@@ -169,7 +182,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("toDetail — price·placeAddr·placeSeq 매핑")
 	void toDetail_매핑() {
-		CultureApiResponse.Item item = mapper.parse(DETAIL2_XML).items().get(0);
+		CultureApiResponse.Item item = parse(DETAIL2_XML).items().get(0);
 
 		CatalogDetailData detail = mapper.toDetail(item);
 
@@ -181,7 +194,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("toCatalog — 원본이 HTML 엔티티로 이스케이프돼 있으면 디코딩해 저장한다")
 	void toCatalog_HTML_엔티티_디코딩() {
-		CultureApiResponse.Item item = mapper.parse(REALM2_ESCAPED_XML).items().get(0);
+		CultureApiResponse.Item item = parse(REALM2_ESCAPED_XML).items().get(0);
 
 		CatalogExhibitionData data = mapper.toCatalog(item);
 
@@ -192,7 +205,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("toDetail — description의 HTML 엔티티를 디코딩하고 br 태그를 줄바꿈으로 정리한다")
 	void toDetail_HTML_엔티티_디코딩() {
-		CultureApiResponse.Item item = mapper.parse(DETAIL2_ESCAPED_XML).items().get(0);
+		CultureApiResponse.Item item = parse(DETAIL2_ESCAPED_XML).items().get(0);
 
 		CatalogDetailData detail = mapper.toDetail(item);
 
@@ -202,7 +215,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("toDetail — 워드프레스 블록 주석·<p>·<span> 태그를 벗겨 읽기 좋은 평문으로 만든다")
 	void toDetail_워드프레스_태그제거() {
-		CultureApiResponse.Item item = mapper.parse(DETAIL2_WORDPRESS_XML).items().get(0);
+		CultureApiResponse.Item item = parse(DETAIL2_WORDPRESS_XML).items().get(0);
 
 		CatalogDetailData detail = mapper.toDetail(item);
 
@@ -219,7 +232,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("toDetail — 이중 이스케이프(&lt;p&gt;)된 본문도 태그까지 완전히 벗겨낸다")
 	void toDetail_이중이스케이프_태그제거() {
-		CultureApiResponse.Item item = mapper.parse(DETAIL2_DOUBLE_ESCAPED_XML).items().get(0);
+		CultureApiResponse.Item item = parse(DETAIL2_DOUBLE_ESCAPED_XML).items().get(0);
 
 		CatalogDetailData detail = mapper.toDetail(item);
 

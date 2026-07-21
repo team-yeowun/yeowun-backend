@@ -32,8 +32,9 @@ dependencies {
 	// 외부 호출은 RestClient + HTTP Interface(@HttpExchange) 선언형 클라이언트(ADR-09) — spring-web(webmvc 포함)만으로 동작
 	// Swagger/OpenAPI 문서 (springdoc 3.x = Spring Boot 4 라인)
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
-	// 한눈에보는문화정보(15138937) 응답 포맷=XML 파싱용
-	implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml'
+	// 한눈에보는문화정보(15138937) 응답 포맷=XML. Spring 7의 기본 XML 컨버터(JacksonXmlHttpMessageConverter)가
+	// Jackson 3을 쓰므로 dataformat-xml도 Jackson 3(tools.jackson) 계열을 쓴다. 버전은 Boot BOM이 관리.
+	implementation 'tools.jackson.dataformat:jackson-dataformat-xml'
 	// AI 감상문 생성(질문/compose) — Anthropic 공식 Java SDK. provider 추상화 뒤 Claude 어댑터에서만 사용.
 	//   victools 경유로 구버전 swagger-annotations(2.2.31)를 끌어와 springdoc(swagger-core 2.2.47)의
 	//   OpenAPI 문서 생성이 NoSuchMethodError(Schema.$dynamicRef)로 깨지므로 해당 전이 의존을 제외한다.

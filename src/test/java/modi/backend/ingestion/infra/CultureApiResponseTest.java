@@ -4,7 +4,7 @@ import modi.backend.ingestion.infra.culture.CultureApiResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import tools.jackson.dataformat.xml.XmlMapper;
 import org.junit.jupiter.api.Test;
 
 class CultureApiResponseTest {

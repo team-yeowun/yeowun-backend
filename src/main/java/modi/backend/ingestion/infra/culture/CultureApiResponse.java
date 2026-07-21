@@ -3,13 +3,13 @@ package modi.backend.ingestion.infra.culture;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
-import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
+import tools.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
+import tools.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 
 /**
  * 한눈에보는문화정보(15138937) realm2/detail2 XML 응답 매핑.
  *
- * <p>{@code <items>} 하위에 {@code <item>}이 반복되는 구조를, jackson-dataformat-xml 2.21.4에서
+ * <p>{@code <items>} 하위에 {@code <item>}이 반복되는 구조를, jackson-dataformat-xml에서(Jackson 2.21.4·3.1.4 모두 재현)
  * Java record 필드에 {@code @JacksonXmlElementWrapper(localName="items")}를 직접 붙이면
  * 레코드의 암묵 생성자 파라미터 이름 해석과 충돌해 {@code InvalidDefinitionException}이 발생한다
  * (JacksonXmlProperty/Wrapper의 {@code @Target}에 PARAMETER가 포함되어 레코드 컴포넌트 rename이

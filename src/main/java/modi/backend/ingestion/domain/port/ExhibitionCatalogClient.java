@@ -2,6 +2,7 @@ package modi.backend.ingestion.domain.port;
 
 import java.util.Optional;
 
+import modi.backend.ingestion.domain.data.CatalogFetchCriteria;
 import modi.backend.ingestion.domain.data.CatalogListData;
 import modi.backend.ingestion.domain.data.DetailFetch;
 
@@ -16,12 +17,13 @@ import modi.backend.domain.exhibition.catalog.ExhibitionErrorCode;
 public interface ExhibitionCatalogClient extends ExhibitionDetailClient {
 
 	/**
-	 * 설정된 페이지 범위를 순회하며 적재 가능한 전시 수집 데이터를 모두 가져온다.
+	 * 주어진 조건으로 적재 가능한 전시 수집 데이터를 가져온다 — 상한까지 나눠 부르는 것은 어댑터의 몫이다.
 	 * 인증키 미설정 시 외부 호출 없이 {@link CatalogListData#none()}을 반환한다(데모는 시드 데이터로 동작).
 	 *
+	 * @param criteria 무엇을 얼마나 가져올지(분야·페이지 크기·수집 상한) — 어댑터가 아니라 호출자가 정한다
 	 * @return 수집 데이터 + 원천이 말한 총 건수·절단 여부(호출부가 sync_run에 남긴다)
 	 */
-	CatalogListData fetchAll();
+	CatalogListData fetchAll(CatalogFetchCriteria criteria);
 
 	/**
 	 * 단건 상세(detail2)를 벤더 원문과 함께 조회한다(수집 경로 — 도메인 반영과 스냅샷 적재가 같은 응답에서 나온다).

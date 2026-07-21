@@ -10,8 +10,27 @@ import modi.backend.support.error.ErrorType;
  * 클라이언트 코드({@link #from})와 외부 API의 자유 텍스트 area({@link #fromAreaText})를 각각 받아들인다.
  */
 public enum ExhibitionRegion {
-	SEOUL, GYEONGGI, INCHEON, GANGWON, DAEJEON, SEJONG, CHUNGNAM, CHUNGBUK, GWANGJU, JEONNAM, JEONBUK, DAEGU,
-	GYEONGBUK, BUSAN, ULSAN, GYEONGNAM, JEJU, ETC;
+	SEOUL("서울"), GYEONGGI("경기"), INCHEON("인천"), GANGWON("강원"), DAEJEON("대전"), SEJONG("세종"),
+	CHUNGNAM("충남"), CHUNGBUK("충북"), GWANGJU("광주"), JEONNAM("전남"), JEONBUK("전북"), DAEGU("대구"),
+	GYEONGBUK("경북"), BUSAN("부산"), ULSAN("울산"), GYEONGNAM("경남"), JEJU("제주"),
+	/** 매핑되지 않은 지역 — 대표 표기가 없다(외부 조회 조건으로 쓸 수 없다). */
+	ETC(null);
+
+	private final String areaText;
+
+	ExhibitionRegion(String areaText) {
+		this.areaText = areaText;
+	}
+
+	/**
+	 * {@link #fromAreaText}의 역방향 — 이 지역의 대표 표기("서울"·"부산"). {@link #ETC}는 {@code null}.
+	 * <p>
+	 * 완전한 역함수는 아니다. {@code fromAreaText}는 "부산광역시"까지 흡수하는 휴리스틱이라 여러 표기가 한 상수로
+	 * 모이고, 여기서는 그중 대표 하나만 돌려준다. 외부 조회의 지역 조건으로 쓸 값이다.
+	 */
+	public String areaText() {
+		return areaText;
+	}
 
 	/** 클라이언트가 보낸 지역 코드 → enum. 미정의 코드는 {@link ErrorType#INVALID_INPUT}. */
 	public static ExhibitionRegion from(String code) {

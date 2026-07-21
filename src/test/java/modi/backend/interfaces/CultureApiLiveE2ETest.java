@@ -12,7 +12,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
 import modi.backend.TestcontainersConfiguration;
+import modi.backend.ingestion.domain.ExhibitionRealm;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
+import modi.backend.ingestion.domain.data.CatalogFetchCriteria;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
 
 /**
@@ -31,7 +33,7 @@ class CultureApiLiveE2ETest {
 	@Test
 	@DisplayName("실제 API 호출 — 전시 수집 데이터가 비어 있지 않고 필수 필드(id·title)를 갖는다")
 	void 실제_수집() {
-		List<CatalogExhibitionData> data = catalogClient.fetchAll().items();
+		List<CatalogExhibitionData> data = catalogClient.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 100, 500)).items();
 
 		assertThat(data).isNotEmpty();
 		assertThat(data).allMatch(CatalogExhibitionData::isPersistable);

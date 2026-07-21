@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -175,7 +176,7 @@ class RecordV1ControllerTest {
 		String mutatedTitle = "스냅샷 변경후전시-" + System.nanoTime();
 
 		// 1) 전시 동기화(목) — 원본 제목으로 CATALOG 최초 적재
-		given(catalogClient.fetchAll()).willReturn(listData(List.of(
+		given(catalogClient.fetchAll(any())).willReturn(listData(List.of(
 				new CatalogExhibitionData(externalId, originalTitle, "스냅샷 갤러리", today.minusDays(5),
 						today.plusDays(25), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING,
 						"https://poster/snapshot.jpg", null, "기관", null, null, null, "전시", "서울", null))));
@@ -214,7 +215,7 @@ class RecordV1ControllerTest {
 						.value(hasItem(originalTitle)));
 
 		// 4) 같은 externalId를 다른 제목으로 재동기화 — 동기화는 "신규만 추가" 정책이라 기존 행을 건드리지 않는다.
-		given(catalogClient.fetchAll()).willReturn(listData(List.of(
+		given(catalogClient.fetchAll(any())).willReturn(listData(List.of(
 				new CatalogExhibitionData(externalId, mutatedTitle, "스냅샷 갤러리 이전", today.minusDays(5),
 						today.plusDays(25), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING,
 						"https://poster/mutated.jpg", null, "기관", null, null, null, "전시", "서울", null))));

@@ -4,6 +4,7 @@ import modi.backend.ingestion.application.CatalogSynchronizer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
 import java.time.LocalDate;
@@ -54,7 +55,7 @@ class ExternalApiCallAuditTest {
 	@DisplayName("동기화 실행 — 원천이 말한 총 건수·집계가 ingestion_run에 남는다(로그로만 흘려보내던 값)")
 	void syncCatalog_실행기록_적재() {
 		String externalId = nextId();
-		given(exhibitionCatalogClient.fetchAll())
+		given(exhibitionCatalogClient.fetchAll(any()))
 				.willReturn(new CatalogListData(List.of(listItem(externalId)), 280, false));
 		given(exhibitionCatalogClient.fetchDetailSnapshot(eq(externalId))).willReturn(Optional.empty());
 		long before = countSyncRuns();
@@ -75,7 +76,7 @@ class ExternalApiCallAuditTest {
 	@DisplayName("조용한 절단 — 원천에 더 있는데 상한에 걸리면 truncated=true로 드러난다(현행은 감지 불가)")
 	void syncCatalog_절단_기록() {
 		// 원천이 "총 600건"이라는데 상한(max-pages 5 × num-of-rows 100 = 500)에 걸려 일부만 수집된 상황.
-		given(exhibitionCatalogClient.fetchAll())
+		given(exhibitionCatalogClient.fetchAll(any()))
 				.willReturn(new CatalogListData(List.of(listItem(nextId())), 600, true));
 
 		catalogSynchronizer.syncCatalog();
@@ -88,7 +89,7 @@ class ExternalApiCallAuditTest {
 	@DisplayName("인증키 미설정(호출 0) — total_count는 null로 남는다(0이 아니라 '모른다')")
 	void syncCatalog_호출없음_totalCount_null() {
 		// 0으로 적으면 "원천에 전시가 0건"이라는 거짓이 된다. 우리는 물어보지도 않았다.
-		given(exhibitionCatalogClient.fetchAll()).willReturn(CatalogListData.none());
+		given(exhibitionCatalogClient.fetchAll(any())).willReturn(CatalogListData.none());
 
 		catalogSynchronizer.syncCatalog();
 

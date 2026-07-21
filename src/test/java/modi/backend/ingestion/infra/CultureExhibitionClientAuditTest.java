@@ -1,7 +1,7 @@
 package modi.backend.ingestion.infra;
 
-import modi.backend.ingestion.infra.culture.CultureApi;
 import modi.backend.ingestion.infra.culture.CultureApiMapper;
+import modi.backend.ingestion.infra.culture.CultureCatalogReader;
 import modi.backend.ingestion.infra.culture.CultureExhibitionClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -16,9 +16,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.support.RestClientAdapter;
-import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
+import modi.backend.ingestion.domain.ExhibitionRealm;
+import modi.backend.ingestion.domain.data.CatalogFetchCriteria;
 import modi.backend.ingestion.properties.PublicDataProperties;
 import modi.backend.ingestion.domain.ExternalApi;
 import modi.backend.ingestion.domain.entity.ExternalApiCallLog;
@@ -45,8 +45,13 @@ class CultureExhibitionClientAuditTest {
 	private static final String EMPTY_DETAIL_XML = "<response><header><resultCode>00</resultCode><resultMsg>정상</resultMsg></header>"
 			+ "<body><totalCount>0</totalCount><items/></body></response>";
 
+
+	/** 수집 조건은 이제 호출자가 정한다 — 종전 설정값(num-of-rows 100 · max-pages 5)과 동일한 상한. */
+	private static final CatalogFetchCriteria CRITERIA =
+			CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 100, 500);
+
 	private MockWebServer server;
-	private CultureExhibitionClient client;
+	private CultureCatalogReader client;
 	private List<ExternalApiCallLog> recorded;
 
 	@BeforeEach
@@ -54,21 +59,19 @@ class CultureExhibitionClientAuditTest {
 		server = new MockWebServer();
 		server.start();
 		String baseUrl = "http://localhost:" + server.getPort();
-		// 운영 조립(OAuthHttpClientConfig)과 동일: JDK 팩토리 고정(클래스패스의 Apache 자동감지 → 전송 재시도 방지) + UTF-8 String 컨버터
+		// 운영 조립과 동일: JDK 팩토리 고정(클래스패스의 Apache 자동감지 → 전송 재시도 방지).
+		// 메시지 컨버터는 기본값 그대로 — configureMessageConverters를 부르면 XML 컨버터가 빠져 바인딩이 깨진다.
 		RestClient restClient = RestClient.builder().baseUrl(baseUrl)
 				.requestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory())
-				.configureMessageConverters(b -> b.withStringConverter(
-						new org.springframework.http.converter.StringHttpMessageConverter(
-								java.nio.charset.StandardCharsets.UTF_8)))
 				.build();
-		CultureApi cultureApi = HttpServiceProxyFactory.builderFor(RestClientAdapter.create(restClient)).build()
-				.createClient(CultureApi.class);
-		PublicDataProperties properties = new PublicDataProperties(baseUrl, "test-service-key", "D000", 100, 5, 15L);
+		PublicDataProperties properties = new PublicDataProperties(baseUrl, "test-service-key", 15L);
 		recorded = new ArrayList<>();
-		client = new CultureExhibitionClient(cultureApi, new CultureApiMapper(), properties, call -> {
-			recorded.add(call);
-			return call;
-		});
+		CultureApiMapper mapper = new CultureApiMapper();
+		client = new CultureCatalogReader(
+				new CultureExhibitionClient(restClient, mapper, properties, call -> {
+					recorded.add(call);
+					return call;
+				}), mapper);
 	}
 
 	@AfterEach
@@ -81,7 +84,7 @@ class CultureExhibitionClientAuditTest {
 	void 목록_호출_감사() {
 		server.enqueue(new MockResponse().setBody(REALM2_XML).addHeader("Content-Type", "application/xml"));
 
-		client.fetchAll();
+		client.fetchAll(CRITERIA);
 
 		assertThat(recorded).hasSize(1);
 		ExternalApiCallLog call = recorded.get(0);
@@ -121,21 +124,16 @@ class CultureExhibitionClientAuditTest {
 	@DisplayName("감사 저장이 실패해도 수집은 깨지지 않는다(부가 기록이 본 기능을 멈추면 안 된다)")
 	void 감사_실패해도_수집은_계속() {
 		server.enqueue(new MockResponse().setBody(REALM2_XML).addHeader("Content-Type", "application/xml"));
-		PublicDataProperties properties = new PublicDataProperties(
-				"http://localhost:" + server.getPort(), "test-service-key", "D000", 100, 5, 15L);
+		PublicDataProperties properties = new PublicDataProperties("http://localhost:" + server.getPort(), "test-service-key", 15L);
 		RestClient restClient = RestClient.builder().baseUrl("http://localhost:" + server.getPort())
 				.requestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory())
-				.configureMessageConverters(b -> b.withStringConverter(
-						new org.springframework.http.converter.StringHttpMessageConverter(
-								java.nio.charset.StandardCharsets.UTF_8)))
 				.build();
-		CultureApi api = HttpServiceProxyFactory.builderFor(RestClientAdapter.create(restClient)).build()
-				.createClient(CultureApi.class);
-		CultureExhibitionClient failing = new CultureExhibitionClient(api, new CultureApiMapper(), properties,
-				call -> {
+		CultureApiMapper mapper = new CultureApiMapper();
+		CultureCatalogReader failing = new CultureCatalogReader(
+				new CultureExhibitionClient(restClient, mapper, properties, call -> {
 					throw new IllegalStateException("감사 저장 실패");
-				});
+				}), mapper);
 
-		assertThat(failing.fetchAll().items()).hasSize(1); // 수집은 정상
+		assertThat(failing.fetchAll(CRITERIA).items()).hasSize(1); // 수집은 정상
 	}
 }

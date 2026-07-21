@@ -6,6 +6,7 @@ import modi.backend.ingestion.application.enricher.DraftPromoter;
 import modi.backend.ingestion.application.enricher.DetailEnricher;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
 import java.time.LocalDate;
@@ -92,7 +93,7 @@ class CultureVendorArchiveTest {
 	void syncCatalog_목록원본_적재() {
 		String externalId = nextId();
 		CatalogVendorItem vendor = listVendor(externalId, "원본 적재 전시");
-		given(exhibitionCatalogClient.fetchAll()).willReturn(listData(List.of(listData(externalId, "원본 적재 전시", vendor))));
+		given(exhibitionCatalogClient.fetchAll(any())).willReturn(listData(List.of(listData(externalId, "원본 적재 전시", vendor))));
 		given(exhibitionCatalogClient.fetchDetailSnapshot(externalId)).willReturn(Optional.empty());
 
 		int staged = catalogSynchronizer.syncCatalog();
@@ -115,7 +116,7 @@ class CultureVendorArchiveTest {
 	void syncCatalog_재동기화_멱등() {
 		String externalId = nextId();
 		CatalogVendorItem vendor = listVendor(externalId, "멱등 전시");
-		given(exhibitionCatalogClient.fetchAll()).willReturn(listData(List.of(listData(externalId, "멱등 전시", vendor))));
+		given(exhibitionCatalogClient.fetchAll(any())).willReturn(listData(List.of(listData(externalId, "멱등 전시", vendor))));
 		given(exhibitionCatalogClient.fetchDetailSnapshot(externalId)).willReturn(Optional.empty());
 		catalogSynchronizer.syncCatalog();
 		CultureListSnapshot first = listRow(externalId);
@@ -136,14 +137,14 @@ class CultureVendorArchiveTest {
 	void syncCatalog_원천정정_payload갱신() {
 		String externalId = nextId();
 		CatalogVendorItem before = listVendor(externalId, "정정 전 제목");
-		given(exhibitionCatalogClient.fetchAll()).willReturn(listData(List.of(listData(externalId, "정정 전 제목", before))));
+		given(exhibitionCatalogClient.fetchAll(any())).willReturn(listData(List.of(listData(externalId, "정정 전 제목", before))));
 		given(exhibitionCatalogClient.fetchDetailSnapshot(externalId)).willReturn(Optional.empty());
 		catalogSynchronizer.syncCatalog();
 		String hashBefore = listRow(externalId).getPayloadHash();
 
 		// 원천이 같은 external_id의 내용을 고쳐 보냈다.
 		CatalogVendorItem after = listVendor(externalId, "정정 후 제목");
-		given(exhibitionCatalogClient.fetchAll()).willReturn(listData(List.of(listData(externalId, "정정 후 제목", after))));
+		given(exhibitionCatalogClient.fetchAll(any())).willReturn(listData(List.of(listData(externalId, "정정 후 제목", after))));
 
 		catalogSynchronizer.syncCatalog();
 
@@ -159,7 +160,7 @@ class CultureVendorArchiveTest {
 		CatalogVendorItem vendor = listVendor(externalId, "역전 기간 전시");
 		LocalDate today = LocalDate.now();
 		// 종료일 < 시작일 — 도메인 불변식 위반이라 exhibitions엔 적재되지 않는다.
-		given(exhibitionCatalogClient.fetchAll()).willReturn(listData(List.of(new CatalogExhibitionData(externalId,
+		given(exhibitionCatalogClient.fetchAll(any())).willReturn(listData(List.of(new CatalogExhibitionData(externalId,
 				"역전 기간 전시", "장소", today, today.minusDays(1), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING,
 				null, null, "기관", null, null, null, "전시", "서울", vendor))));
 
@@ -175,7 +176,7 @@ class CultureVendorArchiveTest {
 	void syncCatalog_상세있음_원본보관() {
 		String externalId = nextId();
 		CatalogVendorItem detailVendor = detailVendor(externalId, "무료");
-		given(exhibitionCatalogClient.fetchAll())
+		given(exhibitionCatalogClient.fetchAll(any()))
 				.willReturn(listData(List.of(listData(externalId, "상세 있는 전시", listVendor(externalId, "상세 있는 전시")))));
 		given(exhibitionCatalogClient.fetchDetailSnapshot(externalId)).willReturn(Optional.of(detailData(detailVendor)));
 
@@ -192,7 +193,7 @@ class CultureVendorArchiveTest {
 	@DisplayName("원천에 상세 없음 — 남길 원본이 없어 벤더 행을 만들지 않는다(그 사실은 detail_synced_at이 안다)")
 	void syncCatalog_상세없음_행없음() {
 		String externalId = nextId();
-		given(exhibitionCatalogClient.fetchAll())
+		given(exhibitionCatalogClient.fetchAll(any()))
 				.willReturn(listData(List.of(listData(externalId, "상세 없는 전시", listVendor(externalId, "상세 없는 전시")))));
 		given(exhibitionCatalogClient.fetchDetailSnapshot(externalId)).willReturn(Optional.empty());
 
@@ -210,7 +211,7 @@ class CultureVendorArchiveTest {
 	@DisplayName("상세 호출 실패 — 메시지가 RETRYABLE로 남아 durable 재시도되고, 전시는 게이트 전이라 나타나지 않는다")
 	void syncCatalog_상세실패_메시지재시도() {
 		String externalId = nextId();
-		given(exhibitionCatalogClient.fetchAll())
+		given(exhibitionCatalogClient.fetchAll(any()))
 				.willReturn(listData(List.of(listData(externalId, "상세 실패 전시", listVendor(externalId, "상세 실패 전시")))));
 		given(exhibitionCatalogClient.fetchDetailSnapshot(externalId))
 				.willThrow(new CoreException(ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "외부 전시 API 호출 실패"));
@@ -237,7 +238,7 @@ class CultureVendorArchiveTest {
 	@DisplayName("payload가 없으면(조각을 신뢰할 수 없는 응답) 원본을 적재하지 않는다 — 오염된 조각을 남기지 않는다")
 	void syncCatalog_payload없으면_적재안함() {
 		String externalId = nextId();
-		given(exhibitionCatalogClient.fetchAll()).willReturn(listData(List.of(listData(externalId, "조각 없는 전시", null))));
+		given(exhibitionCatalogClient.fetchAll(any())).willReturn(listData(List.of(listData(externalId, "조각 없는 전시", null))));
 		given(exhibitionCatalogClient.fetchDetailSnapshot(externalId)).willReturn(Optional.empty());
 
 		int inserted = catalogSynchronizer.syncCatalog();

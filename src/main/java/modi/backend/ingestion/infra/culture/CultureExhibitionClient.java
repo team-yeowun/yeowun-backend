@@ -1,34 +1,41 @@
 package modi.backend.ingestion.infra.culture;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
 
 import lombok.RequiredArgsConstructor;
-import modi.backend.ingestion.properties.PublicDataProperties;
-import modi.backend.ingestion.domain.data.CatalogExhibitionData;
-import modi.backend.ingestion.domain.data.CatalogListData;
-import modi.backend.ingestion.domain.data.DetailFetch;
-import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
 import modi.backend.domain.exhibition.catalog.ExhibitionErrorCode;
+import modi.backend.domain.exhibition.catalog.ExhibitionRegion;
 import modi.backend.ingestion.domain.ExternalApi;
+import modi.backend.ingestion.domain.ExternalApiOutcome;
+import modi.backend.ingestion.domain.data.CatalogFetchCriteria;
+import modi.backend.ingestion.domain.data.CatalogFetchFilter;
+import modi.backend.ingestion.domain.data.DetailFetch;
 import modi.backend.ingestion.domain.entity.ExternalApiCallLog;
 import modi.backend.ingestion.domain.port.ExternalApiCallLogRepository;
-import modi.backend.ingestion.domain.ExternalApiOutcome;
+import modi.backend.ingestion.properties.PublicDataProperties;
 import modi.backend.support.error.CoreException;
 
 /**
- * {@link ExhibitionCatalogClient} 어댑터 — 한눈에보는문화정보(15138937) realm2(목록)·detail2(상세) 호출을 담당한다(DIP).
- * 호출 자체는 선언형 HTTP Interface {@link CultureApi}에 위임하고(KakaoApi와 동일 패턴), 응답이 XML이라 JSON 코덱 없이
- * 문자열로 받는다. XML 파싱·도메인 매핑은 {@link CultureApiMapper}에 위임하고, 이 클래스는 전송(HTTP 호출)과
- * 오케스트레이션(페이지네이션·인증키 미설정 스킵·전송 오류 변환)만 담당한다(SRP).
+ * 한눈에보는문화정보(15138937) realm2(목록 1페이지)·detail2(상세) <b>단건 호출</b> 담당.
+ * <p>
+ * 요청선 조립({@link RestClient})·응답 수신·감사 기록·예외 변환까지가 이 클래스의 일이다.
+ * <b>페이징(어디까지 부를지)과 접기(절단 판정)는 {@link CultureCatalogReader}의 몫</b>이라 여기 없다 —
+ * 그래서 요청선·감사가 바뀔 때만 이 파일이 바뀐다.
+ * <p>
+ * 응답(XML)은 Spring의 XML 메시지 컨버터가 {@link CultureApiResponse}로 곧바로 역직렬화하고, 정상 응답 여부
+ * 판정과 도메인 매핑은 {@link CultureApiMapper}에 위임한다(SRP).
  * 통신 실패·비정상 응답은 {@link ExhibitionErrorCode#EXTERNAL_API_UNAVAILABLE}로 변환한다(HTTP·라이브러리 예외 누수 차단).
+ * <p>
+ * <b>벤더 코드 번역 스위치문이 없다</b> — 분야·정렬·분야별구분은 각 enum이 자기 코드를 들고 있고, 지역은
+ * {@link ExhibitionRegion#areaText()}가 대표 표기를 준다. 상수를 더하면서 매핑을 빠뜨리는 실수가 불가능하다.
  * <p>
  * 호출마다 {@code external_api_call}에 감사 행을 남긴다(이관 5단계) — <b>어댑터가 직접 남기는 이유</b>는
  * "호출했다"가 전송 계층의 사실이라서다. 도메인 포트로 끌어올리면 재시도 1건이 3콜인 경우처럼
@@ -36,85 +43,97 @@ import modi.backend.support.error.CoreException;
  */
 @Component
 @RequiredArgsConstructor
-public class CultureExhibitionClient implements ExhibitionCatalogClient {
+public class CultureExhibitionClient {
 
 	private static final Logger log = LoggerFactory.getLogger(CultureExhibitionClient.class);
+	/** 원천의 기간 파라미터(from·to) 표기. */
+	private static final DateTimeFormatter YYYYMMDD = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-	private final CultureApi cultureApi;
+	/** 필드명이 곧 빈 이름이다 — RestClient 빈이 여럿이라 이름으로 해소된다(@Qualifier 대체). */
+	private final RestClient koreaCultureInformationClient;
 	private final CultureApiMapper mapper;
 	private final PublicDataProperties properties;
 	/** 외부 호출 감사(append-only) — 문화포털은 무료라 billable=false. */
 	private final ExternalApiCallLogRepository externalApiCallRepository;
 
-	@Override
-	public CatalogListData fetchAll() {
-		if (!properties.isConfigured()) {
-			// 인증키 미설정: 외부 호출을 시도하지 않고 스킵한다(데모는 시드 데이터로 동작 — 04_전시_구현.md).
-			log.info("CULTURE_API_KEY 미설정 — 동기화 스킵");
-			return CatalogListData.none();
-		}
-		List<CatalogExhibitionData> collected = new ArrayList<>();
-		Integer totalCount = null;
-		int seen = 0;
-		boolean exhaustedPages = true; // 상한까지 다 돌았나(= break 없이 끝났나)
-		for (int pageNo = 1; pageNo <= properties.maxPages(); pageNo++) {
-			int page = pageNo;
-			CultureApiResponse response = requestList(page);
-			if (totalCount == null && response.body() != null) {
-				totalCount = response.body().totalCount();
-			}
-			List<CultureApiResponse.Item> items = response.items();
-			seen += items.size();
-			// 원본(payload)은 아이템 객체에서 바로 직렬화한다 — 응답 문자열을 잘라 인덱스로 짝지을 필요가 없으므로
-			// "A 전시의 원본이 B에 붙는" 오염이 원인부터 불가능하다.
-			items.stream().map(mapper::toCatalog)
-					.filter(CatalogExhibitionData::isPersistable).forEach(collected::add);
-			if (items.size() < properties.numOfRows()) {
-				exhaustedPages = false;
-				break; // 마지막 페이지
-			}
-		}
-		return new CatalogListData(collected, totalCount, truncated(totalCount, seen, exhaustedPages));
+	/** 외부 호출이 가능한 상태인가(인증키·base URL 설정됨). 접속 설정은 이 클래스 밖으로 새지 않는다. */
+	public boolean isConfigured() {
+		return properties.isConfigured();
 	}
 
 	/**
-	 * 조용한 절단 판정 — 원천에 더 있는데 상한({@code max-pages × num-of-rows})에 걸려 못 가져왔나.
-	 * <p>
-	 * 원천이 총 건수를 알려줬으면 <b>그 말과 우리가 본 수를 비교하는 게 가장 직접적인 증거</b>다.
-	 * 총 건수를 모를 때만(응답에 없음) "상한까지 다 돌았는데 마지막 페이지가 꽉 찼다"는 간접 증거로 판정한다.
-	 * 상한이 원천 크기와 정확히 같은 경우(예: 500건/500건) 간접 증거만으론 절단으로 오판하므로 순서가 중요하다.
+	 * 목록 <b>한 페이지</b>를 가져온다 — 전송·검증·감사 한 벌.
+	 * 전체 순회는 {@link CultureCatalogReader}의 몫이다.
 	 */
-	private boolean truncated(Integer totalCount, int seen, boolean exhaustedPages) {
-		if (totalCount != null) {
-			return seen < totalCount;
-		}
-		return exhaustedPages;
-	}
-
-	private CultureApiResponse requestList(int page) {
+	public CultureApiResponse fetchListPage(CatalogFetchCriteria criteria, int page) {
 		LocalDateTime calledAt = LocalDateTime.now();
-		String requestKey = "realmCode=" + properties.realmCode() + "&page=" + page;
+		String realmCode = criteria.realm().code();
+		String requestKey = "realmCode=" + realmCode + "&page=" + page;
+
 		try {
-			String xml = request("/realm2", () -> cultureApi.getRealmList(
-					properties.serviceKey(), page, properties.numOfRows(), properties.realmCode()));
-			CultureApiResponse response = mapper.parse(xml);
+			CatalogFetchFilter filter = criteria.filter();
+			CultureApiResponse response = koreaCultureInformationClient.get()
+					.uri(uriBuilder -> uriBuilder.path("/realm2")
+							// 필수 — 인증·페이징·분야·분야별구분·정렬
+							.queryParam("serviceKey", properties.serviceKey())
+							.queryParam("PageNo", page)
+							.queryParam("numOfrows", criteria.pageSize())
+							.queryParam("realmCode", realmCode)
+							.queryParam("serviceTp", criteria.serviceType().code())
+							.queryParam("sortStdr", criteria.sortOrder().code())
+							// 선택 필터 — 값이 없으면 파라미터 자체가 붙지 않는다.
+							.queryParamIfPresent("sido",
+									Optional.ofNullable(filter.region()).map(ExhibitionRegion::areaText))
+							.queryParamIfPresent("from", Optional.ofNullable(filter.from()).map(YYYYMMDD::format))
+							.queryParamIfPresent("to", Optional.ofNullable(filter.to()).map(YYYYMMDD::format))
+							.queryParamIfPresent("place", Optional.ofNullable(filter.place()))
+							.queryParamIfPresent("keyword", Optional.ofNullable(filter.keyword()))
+							.queryParamIfPresent("gpsxfrom",
+									Optional.ofNullable(filter.bounds()).map(CatalogFetchFilter.Bounds::westLongitude))
+							.queryParamIfPresent("gpsyfrom",
+									Optional.ofNullable(filter.bounds()).map(CatalogFetchFilter.Bounds::southLatitude))
+							.queryParamIfPresent("gpsxto",
+									Optional.ofNullable(filter.bounds()).map(CatalogFetchFilter.Bounds::eastLongitude))
+							.queryParamIfPresent("gpsyto",
+									Optional.ofNullable(filter.bounds()).map(CatalogFetchFilter.Bounds::northLatitude))
+							.build())
+					.retrieve()
+					.body(CultureApiResponse.class);
+			// 역직렬화 성공 != 정상 응답. 이 원천은 200을 주면서 본문 resultCode로 실패를 알린다.
+			mapper.verify(response);
 			record(ExternalApiCallLog.free(ExternalApi.CULTURE_LIST, requestKey, ExternalApiOutcome.SUCCESS, calledAt));
 			return response;
 		} catch (RuntimeException e) {
 			record(ExternalApiCallLog.free(ExternalApi.CULTURE_LIST, requestKey, ExternalApiOutcome.FAILED, calledAt));
-			throw e;
+			log.warn("외부 전시 API 호출 실패 /realm2: {}", e.getMessage());
+			// 이미 CoreException이면 그대로 던진다 — CultureApiMapper의 "비정상 코드(한도초과 vs 키오류)" 메시지를
+			// 일반 문구로 덮으면 운영 로그에서 원인 판독이 불가능해진다.
+			if (e instanceof CoreException coreException) {
+				throw coreException;
+			}
+			throw new CoreException(ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "외부 전시 API 호출 실패", e);
 		}
 	}
 
-	@Override
+	/**
+	 * 상세 1건을 벤더 원문과 함께 가져온다 — 상세는 페이징이 없어 단건 호출이 곧 결과다.
+	 * 인증키 미설정·원천에 상세 없음은 빈 Optional.
+	 */
 	public Optional<DetailFetch> fetchDetailSnapshot(String externalId) {
 		if (!properties.isConfigured()) {
 			return Optional.empty();
 		}
 		LocalDateTime calledAt = LocalDateTime.now();
 		try {
-			String xml = request("/detail2", () -> cultureApi.getDetail(properties.serviceKey(), externalId));
-			List<CultureApiResponse.Item> items = mapper.parse(xml).items();
+			CultureApiResponse response = koreaCultureInformationClient.get()
+					.uri(uriBuilder -> uriBuilder.path("/detail2")
+							.queryParam("serviceKey", properties.serviceKey())
+							.queryParam("seq", externalId)
+							.build())
+					.retrieve()
+					.body(CultureApiResponse.class);
+			mapper.verify(response);
+			List<CultureApiResponse.Item> items = response.items();
 			if (items.isEmpty()) {
 				// 호출은 정상인데 원천에 상세가 없다 — 실패가 아니라 원천의 사실이다(재조회해도 소용없다).
 				record(ExternalApiCallLog.free(ExternalApi.CULTURE_DETAIL, externalId, ExternalApiOutcome.NO_DATA,
@@ -126,7 +145,11 @@ public class CultureExhibitionClient implements ExhibitionCatalogClient {
 			return Optional.of(new DetailFetch(mapper.toDetail(item), mapper.vendorOf(item)));
 		} catch (RuntimeException e) {
 			record(ExternalApiCallLog.free(ExternalApi.CULTURE_DETAIL, externalId, ExternalApiOutcome.FAILED, calledAt));
-			throw e;
+			log.warn("외부 전시 API 호출 실패 /detail2: {}", e.getMessage());
+			if (e instanceof CoreException coreException) {
+				throw coreException;
+			}
+			throw new CoreException(ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "외부 전시 API 호출 실패", e);
 		}
 	}
 
@@ -136,15 +159,6 @@ public class CultureExhibitionClient implements ExhibitionCatalogClient {
 			externalApiCallRepository.save(call);
 		} catch (RuntimeException e) {
 			log.warn("외부 호출 감사 기록 실패(무시): {}", e.getMessage());
-		}
-	}
-
-	private String request(String path, Supplier<String> call) {
-		try {
-			return call.get();
-		} catch (RuntimeException e) {
-			log.warn("외부 전시 API 호출 실패 {}: {}", path, e.getMessage());
-			throw new CoreException(ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "외부 전시 API 호출 실패", e);
 		}
 	}
 }
