@@ -1,7 +1,7 @@
 package modi.backend.application.exhibition;
 
+import modi.backend.ingestion.infra.culture.CultureDetail2Response;
 import modi.backend.ingestion.application.enricher.DetailEnricher;
-import modi.backend.ingestion.domain.data.DetailFetch;
 import modi.backend.application.exhibition.contract.DetailTargetState;
 import modi.backend.ingestion.application.draft.DraftEnrichmentService;
 import modi.backend.ingestion.application.draft.ExhibitionDraftFacade;
@@ -46,9 +46,9 @@ class DetailEnricherTest {
 		return OutboxMessage.enqueue(OutboxMessageType.FETCH_DETAIL, externalId, LocalDateTime.now());
 	}
 
-	private static DetailFetch detail() {
-		return new DetailFetch(new CatalogDetailData("무료", "설명", null, null, null, null, "서울시 종로구", "PLACE-1"),
-				null);
+	private static CultureDetail2Response.Item detail() {
+		return new CultureDetail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
+				"무료", null, null, null, null, null, null, "PLACE-1");
 	}
 
 	@Test
@@ -62,7 +62,7 @@ class DetailEnricherTest {
 		OutboxMessage job = detailJob("E1");
 		when(jobFacade.findDue(eq(OutboxMessageType.FETCH_DETAIL), anyInt(), any())).thenReturn(List.of(job));
 		when(backfill.findDetailTargetState("E1")).thenReturn(DetailTargetState.NEEDS_DETAIL);
-		when(client.fetchDetailSnapshot("E1")).thenReturn(Optional.of(detail()));
+		when(client.fetchDetail("E1")).thenReturn(detail());
 		DetailEnricher enricher = new DetailEnricher(jobFacade, facade, backfill, draftFacade,
 				new DraftEnrichmentService(draftFacade, client, mock(GenreClassifier.class)), client, props);
 
@@ -83,7 +83,7 @@ class DetailEnricherTest {
 		OutboxMessage job = detailJob("E1");
 		when(jobFacade.findDue(eq(OutboxMessageType.FETCH_DETAIL), anyInt(), any())).thenReturn(List.of(job));
 		when(backfill.findDetailTargetState("E1")).thenReturn(DetailTargetState.NEEDS_DETAIL);
-		when(client.fetchDetailSnapshot("E1"))
+		when(client.fetchDetail("E1"))
 				.thenThrow(new CoreException(ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "외부 API 실패"));
 		DetailEnricher enricher = new DetailEnricher(jobFacade, facade, backfill, draftFacade,
 				new DraftEnrichmentService(draftFacade, client, mock(GenreClassifier.class)), client, props);
@@ -110,7 +110,7 @@ class DetailEnricherTest {
 
 		enricher.enrichDetails();
 
-		verify(client, never()).fetchDetailSnapshot(any());
+		verify(client, never()).fetchDetail(any());
 		verify(jobFacade).markSucceeded(eq(job), any());
 	}
 
@@ -130,7 +130,7 @@ class DetailEnricherTest {
 
 		enricher.enrichDetails();
 
-		verify(client, never()).fetchDetailSnapshot(any());
+		verify(client, never()).fetchDetail(any());
 		verify(jobFacade).markFailed(eq(job), eq(OutboxFailureType.RETRYABLE), any(), any());
 	}
 
@@ -145,13 +145,13 @@ class DetailEnricherTest {
 		OutboxMessage job = detailJob("E1");
 		when(jobFacade.findDue(eq(OutboxMessageType.FETCH_DETAIL), anyInt(), any())).thenReturn(List.of(job));
 		when(draftFacade.needsDetail("E1")).thenReturn(true);
-		when(client.fetchDetailSnapshot("E1")).thenReturn(Optional.of(detail()));
+		when(client.fetchDetail("E1")).thenReturn(detail());
 		DetailEnricher enricher = new DetailEnricher(jobFacade, facade, backfill, draftFacade,
 				new DraftEnrichmentService(draftFacade, client, mock(GenreClassifier.class)), client, props);
 
 		enricher.enrichDetails();
 
-		verify(draftFacade).applyDetail(eq("E1"), any(), any(), any()); // 장르 스텝 체인은 draft 파사드 트랜잭션 안에서 걸린다
+		verify(draftFacade).applyDetail(eq("E1"), any(), any()); // 장르 스텝 체인은 draft 파사드 트랜잭션 안에서 걸린다
 		verify(facade, never()).applyLegacyDetail(any(), any()); // 전시 폴백 경로로 새지 않는다
 		verify(jobFacade).markSucceeded(eq(job), any());
 	}
@@ -168,7 +168,7 @@ class DetailEnricherTest {
 		when(jobFacade.findDue(eq(OutboxMessageType.FETCH_DETAIL), anyInt(), any())).thenReturn(List.of(job));
 		when(draftFacade.needsDetail("E1")).thenReturn(true);
 		// 4xx = PERMANENT 분류. 실제 파사드처럼 markFailed가 엔티티 전이를 일으키게 스텁한다(상태 관측이 판정 재료라서).
-		when(client.fetchDetailSnapshot("E1")).thenThrow(
+		when(client.fetchDetail("E1")).thenThrow(
 				org.springframework.web.client.HttpClientErrorException.create(
 						org.springframework.http.HttpStatus.NOT_FOUND, "not found", null, null, null));
 		org.mockito.Mockito.doAnswer(inv -> {
@@ -199,6 +199,6 @@ class DetailEnricherTest {
 
 		enricher.enrichDetails();
 
-		verify(client, never()).fetchDetailSnapshot(any());
+		verify(client, never()).fetchDetail(any());
 	}
 }

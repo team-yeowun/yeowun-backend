@@ -2,6 +2,10 @@ package modi.backend.ingestion.infra.culture;
 
 import java.util.List;
 
+import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
+import modi.backend.domain.exhibition.catalog.ExhibitionRegion;
+import modi.backend.ingestion.domain.data.CatalogExhibitionData;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import tools.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 import tools.jackson.dataformat.xml.annotation.JacksonXmlProperty;
@@ -23,7 +27,7 @@ import tools.jackson.dataformat.xml.annotation.JacksonXmlProperty;
  * <b>유지해야 한다</b> — 평탄화하면 런타임에 터진다.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record CultureRealmListResponse(Header header, Body body) {
+public record CultureRealm2ListResponse(Header header, Body body) {
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record Header(String resultCode, String resultMsg) {}
@@ -40,7 +44,33 @@ public record CultureRealmListResponse(Header header, Body body) {
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record Item(String seq, String title, String startDate, String endDate, String place,
 			String realmName, String area, String sigungu, String thumbnail, String gpsX, String gpsY,
-			String serviceName) {}
+			String serviceName) {
+
+		/**
+		 * 이 응답 아이템을 도메인 수집 데이터로 옮긴다 — 변환 규칙은 {@link CultureFieldCodec}가 목록·상세와 공유한다.
+		 * <p>
+		 * <b>도메인 쪽에 팩토리를 두지 않는 이유</b>: {@link CatalogExhibitionData}가 이 record(Jackson 바인딩)와
+		 * Spring 디코더를 알게 되기 때문이다. 응답이 자기를 도메인 값으로 표현하는 방향이라야 의존이 안쪽으로만 흐른다.
+		 */
+		public CatalogExhibitionData toCatalog() {
+			return new CatalogExhibitionData(
+					seq,
+					CultureFieldCodec.decode(title),
+					CultureFieldCodec.decode(CultureFieldCodec.blankToNull(place)),
+					CultureFieldCodec.parseDate(startDate),
+					CultureFieldCodec.parseDate(endDate),
+					ExhibitionRegion.fromAreaText(area),
+					ExhibitionCategory.fromRealmName(realmName),
+					CultureFieldCodec.blankToNull(thumbnail),
+					null, // detailUrl — 목록 응답에는 없다(상세 조회가 채운다)
+					CultureFieldCodec.blankToNull(serviceName),
+					CultureFieldCodec.parseCoordinate(gpsX),
+					CultureFieldCodec.parseCoordinate(gpsY),
+					CultureFieldCodec.blankToNull(sigungu),
+					CultureFieldCodec.decode(CultureFieldCodec.blankToNull(realmName)),
+					CultureFieldCodec.decode(CultureFieldCodec.blankToNull(area)));
+		}
+	}
 
 	public boolean isSuccess() {
 		return header != null && CultureResultCode.isSuccess(header.resultCode());

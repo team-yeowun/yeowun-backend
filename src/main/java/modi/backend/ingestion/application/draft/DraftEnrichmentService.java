@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import modi.backend.domain.exhibition.genre.GenreClassification;
 import modi.backend.domain.exhibition.genre.GenreClassifier;
 import modi.backend.domain.exhibition.genre.GenreResult;
-import modi.backend.ingestion.domain.data.DetailFetch;
+import modi.backend.ingestion.domain.data.CultureDetailPayload;
 import modi.backend.ingestion.domain.draft.DraftStep;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
 
@@ -41,9 +41,8 @@ public class DraftEnrichmentService {
 		if (!exhibitionDraftFacade.needsDetail(externalId)) {                            // ① 판정(tx)
 			return false;
 		}
-		Optional<DetailFetch> detail = catalogClient.fetchDetailSnapshot(externalId);    // ② 외부 호출(tx 밖)
-		detail.ifPresentOrElse(f -> exhibitionDraftFacade.applyDetail(externalId, f.data(), f.vendor(), now), // ③ 반영(tx)
-				() -> exhibitionDraftFacade.markDetailAbsent(externalId, now));
+		CultureDetailPayload detail = catalogClient.fetchDetail(externalId);       // ② 외부 호출(tx 밖)
+		exhibitionDraftFacade.applyDetail(externalId, detail, now);                // ③ 반영(tx) — 스냅샷 적재 포함
 		return true;
 	}
 

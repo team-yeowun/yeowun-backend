@@ -28,7 +28,7 @@ public class KoreaCultureInformationClientConfig {
      * [설계 및 설정 의도]
      * 1. 파싱 전략: 응답(XML)을 Spring의 XML 메시지 컨버터가 곧바로 {@code CultureApiResponse}로 역직렬화합니다
      *    ({@code .body(CultureApiResponse.class)}). 정상 응답 여부 판정은 역직렬화 이후
-     *    {@link modi.backend.ingestion.infra.culture.CultureApiMapper#verify}가 맡습니다.
+     *    {@code CultureApiErrorHandler#throwIfVendorError}가 맡습니다.
      * 2. 컨버터 등록: 기본 컨버터 목록을 건드리지 않습니다. {@code configureMessageConverters(...)}를 한 번이라도
      *    호출하면 기본 등록이 꺼져 XML 컨버터가 사라지고, 정상 응답조차 읽지 못합니다(UnknownContentTypeException).
      * 3. 인코딩: 원천이 Content-Type에 charset을 누락하지만 본문에 {@code <?xml encoding="UTF-8"?>} 선언이 있어

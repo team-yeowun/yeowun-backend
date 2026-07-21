@@ -13,7 +13,7 @@ import java.time.LocalDate;
  * <p><b>목록 벤더 스냅샷({@code culture_list_snapshot})도 이 record를 원천으로 적재한다</b> — 별도의 원문 verbatim
  * 어휘를 함께 나르지 않는다(같은 12필드를 두 벌 들고 다니는 중복이었다). 대가: {@code parseDate}·
  * {@code parseCoordinate}가 실패한 값은 null이라 "원천이 뭐라고 했나"가 그 행에서는 남지 않는다(수용 — 사용자 결정).
- * 상세({@link DetailFetch})는 {@code contents1} 원문이 평문 추출로 복구 불가라 verbatim 어휘를 유지한다.
+ * 상세({@link CatalogDetailFetch})는 {@code contents1} 원문이 평문 추출로 복구 불가라 verbatim 어휘를 유지한다.
  */
 public record CatalogExhibitionData(
 		String externalId,

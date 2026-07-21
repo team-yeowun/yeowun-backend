@@ -2,6 +2,9 @@ package modi.backend.ingestion.infra.culture;
 
 import java.util.List;
 
+import modi.backend.domain.exhibition.catalog.CatalogDetailData;
+import modi.backend.ingestion.domain.data.CultureDetailPayload;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import tools.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
 import tools.jackson.dataformat.xml.annotation.JacksonXmlProperty;
@@ -9,7 +12,7 @@ import tools.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 /**
  * 한눈에보는문화정보(15138937) <b>detail2(상세)</b> XML 응답 매핑.
  * <p>
- * 목록({@link CultureRealmListResponse})과 <b>타입을 나눠 선언한다</b> — 겹치는 필드가 10개 있지만 우연히 같을 뿐
+ * 목록({@link CultureRealm2ListResponse})과 <b>타입을 나눠 선언한다</b> — 겹치는 필드가 10개 있지만 우연히 같을 뿐
  * 같은 계약이 아니다. 원천이 한쪽 응답만 바꾸는 날 공통 타입은 양쪽을 함께 깨뜨린다.
  * <p>
  * <b>필드는 실측으로 확정</b>했다 — detail2는 아래 18태그를 내려준다(2026-07-21 표본 확인 · 기존 60건 전수 집계와 일치).
@@ -19,7 +22,7 @@ import tools.jackson.dataformat.xml.annotation.JacksonXmlProperty;
  * record 컴포넌트에 {@code @JacksonXmlElementWrapper}를 직접 붙이면 {@code InvalidDefinitionException}이 난다.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record CultureDetailResponse(Header header, Body body) {
+public record CultureDetail2Response(Header header, Body body) {
 
 	@JsonIgnoreProperties(ignoreUnknown = true)
 	public record Header(String resultCode, String resultMsg) {}
@@ -37,7 +40,27 @@ public record CultureDetailResponse(Header header, Body body) {
 	public record Item(String seq, String title, String startDate, String endDate, String place,
 			String realmName, String area, String sigungu, String gpsX, String gpsY,
 			String price, String contents1, String url, String phone, String imgUrl,
-			String placeUrl, String placeAddr, String placeSeq) {}
+			String placeUrl, String placeAddr, String placeSeq) implements CultureDetailPayload {
+
+		/**
+		 * 이 응답 아이템을 도메인 상세 값으로 옮긴다 — 변환 규칙은 {@link CultureFieldCodec}가 목록과 공유한다.
+		 * <p>
+		 * {@code contents1}은 여기서 <b>평문</b>이 된다. 변환 전 원문은 {@link CultureDetailSnapshot}이
+		 * 응답 그대로 적재하므로, 평문 추출 규칙이 바뀌면 거기서 다시 뽑을 수 있다.
+		 */
+		@Override
+		public CatalogDetailData toDetail() {
+			return new CatalogDetailData(
+					CultureFieldCodec.decode(CultureFieldCodec.blankToNull(price)),
+					CultureFieldCodec.decodeDescription(CultureFieldCodec.blankToNull(contents1)),
+					CultureFieldCodec.blankToNull(url),
+					CultureFieldCodec.decode(CultureFieldCodec.blankToNull(phone)),
+					CultureFieldCodec.blankToNull(imgUrl),
+					CultureFieldCodec.blankToNull(placeUrl),
+					CultureFieldCodec.decode(CultureFieldCodec.blankToNull(placeAddr)),
+					CultureFieldCodec.blankToNull(placeSeq));
+		}
+	}
 
 	public boolean isSuccess() {
 		return header != null && CultureResultCode.isSuccess(header.resultCode());

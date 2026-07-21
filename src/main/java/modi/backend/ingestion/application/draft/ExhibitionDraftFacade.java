@@ -16,9 +16,9 @@ import modi.backend.domain.exhibition.genre.GenreClassification;
 import modi.backend.domain.exhibition.genre.GenreResult;
 import modi.backend.ingestion.application.outbox.ExhibitionOutboxFacade;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
-import modi.backend.ingestion.domain.data.CatalogDetailVendorItem;
 import modi.backend.ingestion.domain.draft.ExhibitionDraft;
 import modi.backend.ingestion.domain.draft.ExhibitionDraftRepository;
+import modi.backend.ingestion.domain.data.CultureDetailPayload;
 import modi.backend.ingestion.domain.entity.CultureDetailSnapshot;
 import modi.backend.ingestion.domain.outbox.OutboxMessageType;
 import modi.backend.ingestion.infra.CultureDetailSnapshotJpaRepository;
@@ -47,6 +47,7 @@ public class ExhibitionDraftFacade {
 	private final ExhibitionRegistrar exhibitionRegistrar;
 	/** 전시 아웃박스 — 스텝 체인(FETCH_DETAIL→CLASSIFY_GENRE→EXHIBITION_READY)·승격 후 영업시간 재검증 enqueue. */
 	private final ExhibitionOutboxFacade exhibitionOutboxFacade;
+	/** 상세 벤더 스냅샷 — 응답 원문을 그대로 적재한다(도메인 계약 경유). */
 	private final CultureDetailSnapshotJpaRepository cultureDetailSnapshotRepository;
 
 	/** 스테이징 결과 — 동기화 루프의 집계 어휘. */
@@ -122,13 +123,13 @@ public class ExhibitionDraftFacade {
 	 * 다음 필수 스텝(장르)이 상세 도착 <b>후에</b> 걸리는 이유: 분류 입력(설명·장소)이 그때 온전해진다(스텝 체인).
 	 */
 	@Transactional
-	public void applyDetail(String externalId, CatalogDetailData detail, CatalogDetailVendorItem vendor, LocalDateTime now) {
+	public void applyDetail(String externalId, CultureDetailPayload payload, LocalDateTime now) {
 		ExhibitionDraft draft = exhibitionDraftRepository.findByExternalId(externalId).orElse(null);
 		if (draft == null || !draft.needsDetail()) {
 			return; // 재전달·경합 — 이미 해소됐거나 대상이 아니다.
 		}
-		draft.applyDetail(detail, now);
-		archiveDetailSnapshot(externalId, vendor);
+		draft.applyDetail(payload.toDetail(), now);
+		archiveDetailSnapshot(externalId, payload);
 		exhibitionOutboxFacade.enqueue(OutboxMessageType.CLASSIFY_GENRE, externalId, now);
 		enqueueReadyIfGateFilled(draft, now);
 		exhibitionDraftRepository.save(draft);
@@ -210,18 +211,15 @@ public class ExhibitionDraftFacade {
 				d.getGenreProvider(), d.getGenreModel());
 	}
 
-	/** 상세 스냅샷을 벤더층에 upsert한다(필드 적재 — ADR-13, 원문 있을 때만). 부가 기록이라 실패해도 반영을 깨지 않는다. */
-	private void archiveDetailSnapshot(String externalId, CatalogDetailVendorItem vendor) {
-		if (vendor == null) {
-			return;
-		}
+	/** 상세 스냅샷 upsert(응답 원문 그대로 — ADR-13). 부가 기록이라 실패해도 반영을 깨지 않는다. */
+	private void archiveDetailSnapshot(String externalId, CultureDetailPayload payload) {
 		try {
 			cultureDetailSnapshotRepository.findByExternalId(externalId)
 					.ifPresentOrElse(row -> {
-						row.refresh(vendor);
+						row.refresh(payload);
 						cultureDetailSnapshotRepository.save(row);
 					}, () -> cultureDetailSnapshotRepository.save(
-							CultureDetailSnapshot.first(externalId, vendor)));
+							CultureDetailSnapshot.first(externalId, payload)));
 		} catch (RuntimeException e) {
 			log.warn("상세 스냅샷 적재 실패(externalId={}, 반영은 계속): {}", externalId, e.getMessage());
 		}

@@ -1,10 +1,14 @@
 package modi.backend.interfaces.record;
 
+import modi.backend.ingestion.infra.culture.CultureDetail2Response;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import modi.backend.domain.exhibition.catalog.CatalogDetailData;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -35,7 +39,7 @@ import modi.backend.ingestion.application.enricher.DetailEnricher;
 import modi.backend.application.exhibition.ExhibitionFacade;
 import modi.backend.domain.auth.TokenProvider;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
-import modi.backend.ingestion.domain.data.CatalogListData;
+import modi.backend.ingestion.domain.data.CatalogPage;
 import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
 import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
@@ -176,10 +180,14 @@ class RecordV1ControllerTest {
 		String mutatedTitle = "스냅샷 변경후전시-" + System.nanoTime();
 
 		// 1) 전시 동기화(목) — 원본 제목으로 CATALOG 최초 적재
-		given(catalogClient.fetchAll(any(), any())).willReturn(listData(List.of(
+		given(catalogClient.isConfigured()).willReturn(true);
+		given(catalogClient.fetchPage(any(), anyInt())).willReturn(listData(List.of(
 				new CatalogExhibitionData(externalId, originalTitle, "스냅샷 갤러리", today.minusDays(5),
 						today.plusDays(25), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING,
 						"https://poster/snapshot.jpg", null, "기관", null, null, null, "전시", "서울"))));
+		// 상세를 못 받으면 게이트를 못 채워 승격이 막힌다(Optional 제거 이후) — 이 테스트 주제와 무관하므로 최소 상세를 준다.
+		given(catalogClient.fetchDetail(anyString())).willReturn(new CultureDetail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
+				null, null, null, null, null, null, null, null));
 		catalogSynchronizer.syncCatalog();
 		detailEnricher.enrichDetails(); // 스테이징 → 상세 해소(ADR-10 — 전시는 승격 후에만 나타난다)
 		genreEnricher.enrichGenres();
@@ -215,7 +223,8 @@ class RecordV1ControllerTest {
 						.value(hasItem(originalTitle)));
 
 		// 4) 같은 externalId를 다른 제목으로 재동기화 — 동기화는 "신규만 추가" 정책이라 기존 행을 건드리지 않는다.
-		given(catalogClient.fetchAll(any(), any())).willReturn(listData(List.of(
+		given(catalogClient.isConfigured()).willReturn(true);
+		given(catalogClient.fetchPage(any(), anyInt())).willReturn(listData(List.of(
 				new CatalogExhibitionData(externalId, mutatedTitle, "스냅샷 갤러리 이전", today.minusDays(5),
 						today.plusDays(25), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING,
 						"https://poster/mutated.jpg", null, "기관", null, null, null, "전시", "서울"))));
@@ -366,8 +375,8 @@ class RecordV1ControllerTest {
 	 * 목록 수집 결과 래퍼 — 포트가 이제 "원천이 말한 총 건수·절단 여부"까지 돌려준다(이관 5단계, ingestion_run이 채울 값).
 	 * 이 테스트들의 관심사가 아니라 아이템만 담고 totalCount는 수집 수와 같게 둔다(= 절단 없음).
 	 */
-	private static CatalogListData listData(java.util.List<CatalogExhibitionData> items) {
-		return new CatalogListData(items, items.size());
+	private static CatalogPage listData(java.util.List<CatalogExhibitionData> items) {
+		return new CatalogPage(items, items.size());
 	}
 
 }

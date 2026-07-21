@@ -17,7 +17,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
-import modi.backend.ingestion.domain.data.DetailFetch;
 import modi.backend.TestcontainersConfiguration;
 import modi.backend.ingestion.application.draft.ExhibitionDraftFacade;
 import modi.backend.ingestion.application.enricher.GenreEnricher;
@@ -28,9 +27,13 @@ import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
 import modi.backend.domain.exhibition.catalog.ExhibitionRegion;
 import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
 import modi.backend.domain.exhibition.genre.GenreProvider;
+import modi.backend.support.error.CoreException;
+import modi.backend.domain.exhibition.catalog.ExhibitionErrorCode;
+import static org.mockito.ArgumentMatchers.anyInt;
 import modi.backend.domain.exhibition.catalog.CatalogDetailData;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
-import modi.backend.ingestion.domain.data.CatalogListData;
+import modi.backend.ingestion.domain.data.CatalogPage;
+import modi.backend.ingestion.infra.culture.CultureDetail2Response;
 import modi.backend.ingestion.domain.draft.DraftStatus;
 import modi.backend.ingestion.domain.draft.ExhibitionDraft;
 import modi.backend.ingestion.domain.draft.ExhibitionDraftRepository;
@@ -89,10 +92,11 @@ class ExhibitionDraftPipelineIntegrationTest {
 	void 파이프라인_전구간_승격() {
 		int seq = SEQ.getAndIncrement();
 		String externalId = "PIPE-" + seq;
-		given(catalogClient.fetchAll(any(), any())).willReturn(
-				new CatalogListData(java.util.List.of(listData(externalId, "파이프장소" + seq)), 1));
-		given(catalogClient.fetchDetailSnapshot(anyString())).willReturn(Optional.of(new DetailFetch(
-				new CatalogDetailData("무료", "전시 소개", null, "02-000-0000", null, null, "서울시 종로구", null), null)));
+		given(catalogClient.isConfigured()).willReturn(true);
+		given(catalogClient.fetchPage(any(), anyInt())).willReturn(
+				new CatalogPage(java.util.List.of(listData(externalId, "파이프장소" + seq)), 1));
+		given(catalogClient.fetchDetail(anyString())).willReturn(new CultureDetail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
+				"무료", "전시 소개", null, "02-000-0000", null, null, "서울시 종로구", null));
 
 		// 1) sync — 목록 외 외부 호출 0: draft 스테이징 + FETCH_DETAIL enqueue만.
 		int staged = catalogSynchronizer.syncCatalog();
@@ -128,24 +132,26 @@ class ExhibitionDraftPipelineIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("무상세 원천 — 빈 상세 응답도 스텝 해소로 이어져 승격을 막지 않는다(영구 미승격 방지)")
-	void 파이프라인_무상세_승격() {
+	@DisplayName("원천에 상세 없음 — 예외로 처리돼 승격되지 않는다(무상세 해소 경로 제거 — 사용자 결정)")
+	void 파이프라인_상세없음_미승격() {
 		int seq = SEQ.getAndIncrement();
 		String externalId = "PIPE-ABSENT-" + seq;
-		given(catalogClient.fetchAll(any(), any())).willReturn(
-				new CatalogListData(java.util.List.of(listData(externalId, "무상세장소" + seq)), 1));
-		given(catalogClient.fetchDetailSnapshot(anyString())).willReturn(Optional.empty()); // 원천에 상세 없음
+		given(catalogClient.isConfigured()).willReturn(true);
+		given(catalogClient.fetchPage(any(), anyInt())).willReturn(
+				new CatalogPage(java.util.List.of(listData(externalId, "무상세장소" + seq)), 1));
+		// detail2는 유효한 seq면 항상 값을 준다(실측). 빈 응답은 "목록 이후 원천에서 삭제됨"이라 예외다.
+		given(catalogClient.fetchDetail(anyString())).willThrow(
+				new CoreException(ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "외부 전시 API 상세 없음"));
 
 		catalogSynchronizer.syncCatalog();
 		detailEnricher.enrichDetails();
 		genreEnricher.enrichGenres();
-		draftPromoter.promoteReady(); // 승격 소비(ADR-12)
+		draftPromoter.promoteReady();
 
-		ExhibitionDraft completed = exhibitionDraftRepository.findByExternalId(externalId).orElseThrow();
-		assertThat(completed.getStatus()).isEqualTo(DraftStatus.COMPLETED);
-		Exhibition promoted = exhibitionRepository.findByExternalId(externalId).orElseThrow();
-		// 무상세는 "확인 완료" 표식 행으로 남는다(markDetailChecked — 재조회 방지). 값 없는 확인행도 satellite 존재로 판정된다.
-		assertThat(exhibitionRepository.hasDetail(promoted.getId())).isTrue();
+		// 예전엔 무상세도 스텝 해소로 승격됐다. 이제는 상세를 못 받으면 게이트를 못 채워 승격되지 않는다.
+		ExhibitionDraft draft = exhibitionDraftRepository.findByExternalId(externalId).orElseThrow();
+		assertThat(draft.getStatus()).isNotEqualTo(DraftStatus.COMPLETED);
+		assertThat(exhibitionRepository.findByExternalId(externalId)).isEmpty();
 	}
 
 	@Test

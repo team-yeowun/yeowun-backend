@@ -1,11 +1,13 @@
 package modi.backend.interfaces;
 
+import modi.backend.ingestion.infra.culture.CultureDetail2Response;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -41,8 +43,7 @@ import modi.backend.application.exhibition.ExhibitionFacade;
 import modi.backend.domain.bookmark.ExhibitionBookmarkRepository;
 import modi.backend.domain.exhibition.catalog.CatalogDetailData;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
-import modi.backend.ingestion.domain.data.DetailFetch;
-import modi.backend.ingestion.domain.data.CatalogListData;
+import modi.backend.ingestion.domain.data.CatalogPage;
 import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
 import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
@@ -106,7 +107,8 @@ class ExhibitionIntegrationTest {
 	@BeforeEach
 	void seedCatalog() {
 		LocalDate today = LocalDate.now();
-		given(catalogClient.fetchAll(any(), any())).willReturn(listData(List.of(
+		given(catalogClient.isConfigured()).willReturn(true);
+		given(catalogClient.fetchPage(any(), anyInt())).willReturn(listData(List.of(
 				new CatalogExhibitionData("CAT-MONET", MONET, "예술의전당", today.minusDays(10), today.plusDays(30),
 						ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING, "https://poster/monet.jpg",
 						"https://culture.go.kr/monet", "한국문화정보원", 126.980781, 37.578608,
@@ -119,10 +121,13 @@ class ExhibitionIntegrationTest {
 						today.plusDays(15), ExhibitionRegion.SEOUL, ExhibitionCategory.PHOTO, null, null,
 						"기관", null, null,
 						null, "사진", "서울"))));
-		// syncCatalog가 적재 시점에 상세2까지 함께 채운다 — CAT-MONET만 상세를 준다(나머지는 상세 없음 → 목록 필드만).
-		given(catalogClient.fetchDetailSnapshot("CAT-MONET")).willReturn(Optional.of(new DetailFetch(
-				new CatalogDetailData("성인 20,000원", "모네 특별전 설명", "https://detail/monet", "02-1234-5678",
-						"https://img/monet.jpg", "https://place/monet", "서울 어딘가", "PLACE-SEQ-1"), null)));
+		// detail2는 유효한 seq면 항상 값을 준다(실측) — 상세를 못 받으면 예외라 승격이 막힌다.
+		// 그래서 나머지 전시도 최소 상세를 준다(예전엔 빈 Optional로 "무상세 확인" 경로를 탔다).
+		given(catalogClient.fetchDetail(anyString())).willReturn(new CultureDetail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
+				null, null, null, null, null, null, null, null));
+		given(catalogClient.fetchDetail("CAT-MONET")).willReturn(new CultureDetail2Response.Item("CAT-MONET", null, null, null, null, null, null, null, null, null,
+				"성인 20,000원", "모네 특별전 설명", "https://detail/monet", "02-1234-5678",
+				"https://img/monet.jpg", "https://place/monet", "서울 어딘가", "PLACE-SEQ-1"));
 		catalogSynchronizer.syncCatalog();
 		detailEnricher.enrichDetails(); // 스테이징 → 상세 해소(ADR-10 — 전시는 승격 후에만 나타난다)
 		genreEnricher.enrichGenres();
@@ -133,8 +138,8 @@ class ExhibitionIntegrationTest {
 	 * 목록 수집 결과 래퍼 — 포트가 이제 "원천이 말한 총 건수·절단 여부"까지 돌려준다(이관 5단계, ingestion_run이 채울 값).
 	 * 이 테스트들의 관심사가 아니라 아이템만 담고 totalCount는 수집 수와 같게 둔다(= 절단 없음).
 	 */
-	private static CatalogListData listData(java.util.List<CatalogExhibitionData> items) {
-		return new CatalogListData(items, items.size());
+	private static CatalogPage listData(java.util.List<CatalogExhibitionData> items) {
+		return new CatalogPage(items, items.size());
 	}
 
 	/** 표본 CATALOG를 리포지토리로 직접 적재(가격·좌표·기간 제어). 기본 startDate는 과거로 둬 최신순 상단을 침범하지 않게 한다. */

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 
+import modi.backend.ingestion.infra.culture.CultureRealm2ListResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,8 +15,8 @@ import org.springframework.web.client.RestClient;
 import modi.backend.ingestion.config.KoreaCultureInformationClientConfig;
 import modi.backend.ingestion.domain.ExhibitionRealm;
 import modi.backend.ingestion.domain.data.CatalogFetchCriteria;
-import modi.backend.ingestion.infra.culture.CultureApiMapper;
-import modi.backend.ingestion.infra.culture.CultureRealmListResponse;
+import modi.backend.ingestion.domain.data.CatalogPage;
+import modi.backend.ingestion.infra.culture.CultureApiErrorHandler;
 import modi.backend.ingestion.infra.culture.CultureExhibitionClient;
 import modi.backend.ingestion.properties.PublicDataProperties;
 import modi.backend.support.error.CoreException;
@@ -28,7 +29,7 @@ import okhttp3.mockwebserver.MockWebServer;
  * <p>
  * <b>왜 이 테스트가 필요한가</b>: {@code RestClient.builder().configureMessageConverters(...)}를 <b>한 번이라도</b>
  * 호출하면 기본 컨버터 등록이 통째로 꺼진다. 그러면 XML 컨버터가 사라져
- * {@code .body(CultureRealmListResponse.class)}가 정상 응답에서도 {@code UnknownContentTypeException}으로 죽는다.
+ * {@code .body(CultureRealm2ListResponse.class)}가 정상 응답에서도 {@code UnknownContentTypeException}으로 죽는다.
  * 다른 테스트들은 자체 조립한 RestClient를 쓰므로 이 사고를 잡지 못한다 — <b>운영 조립을 직접 태우는 건 여기뿐이다.</b>
  * 누군가 "UTF-8 컨버터를 다시 넣자"고 config를 고치면 이 테스트가 먼저 깨진다.
  */
@@ -57,7 +58,7 @@ class CultureClientConverterWiringTest {
 		// 운영 설정 그대로 — 여기서 컨버터 배선이 틀어지면 아래 테스트가 깨진다.
 		RestClient restClient = new KoreaCultureInformationClientConfig()
 				.koreaCultureInformationClient(properties);
-		client = new CultureExhibitionClient(restClient, new CultureApiMapper(), properties);
+		client = new CultureExhibitionClient(restClient, new CultureApiErrorHandler(), properties);
 	}
 
 	@AfterEach
@@ -66,18 +67,17 @@ class CultureClientConverterWiringTest {
 	}
 
 	@Test
-	@DisplayName("운영 설정의 RestClient가 XML을 CultureRealmListResponse로 바인딩한다(기본 컨버터 유지 확인)")
+	@DisplayName("운영 설정의 RestClient가 XML을 도메인 페이지로 바인딩한다(기본 컨버터 유지 확인)")
 	void 운영조립_XML_바인딩() {
 		// 원천과 동일하게 charset 없는 application/xml — 인코딩은 본문 XML 선언이 정한다.
 		server.enqueue(new MockResponse().setBody(REALM2_XML).addHeader("Content-Type", "application/xml"));
 
-		CultureRealmListResponse response = client.fetchListPage(CRITERIA, 1);
+		CatalogPage page = client.fetchPage(CRITERIA, 1);
 
-		assertThat(response.isSuccess()).isTrue();
-		assertThat(response.items()).hasSize(1);
+		assertThat(page.items()).hasSize(1);
 		// 한글이 살아남는지까지 본다 — charset 헤더가 없어도 XML 선언(UTF-8)으로 해석되어야 한다.
-		assertThat(response.items().get(0).title()).isEqualTo("패트릭 블랑: 수직정원");
-		assertThat(response.items().get(0).place()).isEqualTo("부산현대미술관");
+		assertThat(page.items().get(0).title()).isEqualTo("패트릭 블랑: 수직정원");
+		assertThat(page.items().get(0).place()).isEqualTo("부산현대미술관");
 	}
 
 	@Test
@@ -88,7 +88,7 @@ class CultureClientConverterWiringTest {
 		server.enqueue(new MockResponse().setBody("Unauthorized")
 				.addHeader("Content-Type", "text/plain;charset=utf-8"));
 
-		assertThatThrownBy(() -> client.fetchListPage(CRITERIA, 1))
+		assertThatThrownBy(() -> client.fetchPage(CRITERIA, 1))
 				.isInstanceOf(CoreException.class)
 				.hasMessageContaining("외부 전시 API 호출 실패");
 	}

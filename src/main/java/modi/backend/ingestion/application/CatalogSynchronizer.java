@@ -1,6 +1,7 @@
 package modi.backend.ingestion.application;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -14,7 +15,10 @@ import modi.backend.application.exhibition.contract.ExhibitionBackfill;
 import modi.backend.ingestion.application.outbox.ExhibitionOutboxFacade;
 import modi.backend.ingestion.domain.SyncTrigger;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
-import modi.backend.ingestion.domain.data.CatalogListData;
+import modi.backend.ingestion.domain.ExternalApi;
+import modi.backend.ingestion.domain.ExternalApiOutcome;
+import modi.backend.ingestion.domain.data.CatalogFetchCriteria;
+import modi.backend.ingestion.domain.data.CatalogPage;
 import modi.backend.ingestion.domain.entity.IngestionRun;
 import modi.backend.ingestion.domain.outbox.OutboxMessageType;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
@@ -63,8 +67,8 @@ public class CatalogSynchronizer {
 		// 아이템마다 now()를 찍으면 그 경계가 흐려진다.
 		LocalDateTime syncedAt = LocalDateTime.now();
 		IngestionRun run = IngestionRun.started(trigger, syncedAt);
-		CatalogListData fetched = catalogClient.fetchAll(fetchProperties.toCriteria(),
-				exhibitionSyncFacade::allSnapshotted);
+		CatalogFetchCriteria criteria = fetchProperties.toCriteria();
+		Fetched fetched = fetchPages(criteria, syncedAt);
 		List<CatalogExhibitionData> collected = fetched.items();
 		run.fetched(fetched.totalCount(), collected.size());
 		int staged = 0;
@@ -94,6 +98,56 @@ public class CatalogSynchronizer {
 		}
 		exhibitionSyncFacade.archiveIngestionRun(run, staged, touched, skipped, deferred);
 		return staged;
+	}
+
+	/** 순회 결과 한 벌 — 적재 가능 항목과 원천이 말한 총 건수. */
+	private record Fetched(List<CatalogExhibitionData> items, Integer totalCount) {}
+
+	/**
+	 * 목록을 <b>페이지 단위로 순회</b>한다 — 콜 하나하나가 감사의 단위이고, 조기 종료 판정의 단위다.
+	 * <p>
+	 * 두 사유로 멈춘다: ① 덜 찬 페이지(= 마지막 — 원천이 마지막을 명시하지 않는다) ② 페이지 전량이 이미 아는 것
+	 * (등록 역순이라 그 뒤로는 신규가 없다). ②의 판정은 <b>필터 이전 식별자</b>로 한다 — 걸러진 불량 행을 빼면
+	 * "전량 known"이 영영 성립하지 않아 조기 종료가 죽는다.
+	 */
+	private Fetched fetchPages(CatalogFetchCriteria criteria, LocalDateTime syncedAt) {
+		if (!catalogClient.isConfigured()) {
+			log.info("CULTURE_API_KEY 미설정 — 동기화 스킵");
+			return new Fetched(List.of(), null);
+		}
+		List<CatalogExhibitionData> collected = new ArrayList<>();
+		Integer totalCount = null;
+		for (int pageNo = 1; pageNo <= criteria.maxCalls(); pageNo++) {
+			CatalogPage page = fetchPage(criteria, pageNo, syncedAt);
+			if (totalCount == null) {
+				totalCount = page.totalCount(); // 첫 응답 값으로 고정(페이지마다 덮으면 중간 결측에 흔들린다)
+			}
+			page.items().stream().filter(CatalogExhibitionData::isPersistable).forEach(collected::add);
+			if (!page.isFull(criteria.pageSize())) {
+				break; // 마지막 페이지
+			}
+			List<String> externalIds = page.externalIds();
+			if (!externalIds.isEmpty() && exhibitionSyncFacade.allSnapshotted(externalIds)) {
+				log.debug("목록 순회 조기 종료 — {}페이지 전량이 기존 항목(등록 역순이라 이후는 신규 없음)", pageNo);
+				break;
+			}
+		}
+		return new Fetched(collected, totalCount);
+	}
+
+	/** 한 콜 = 감사 한 행. 실패도 남기고 그대로 전파한다(수집 자체는 실패로 끝나야 한다). */
+	private CatalogPage fetchPage(CatalogFetchCriteria criteria, int pageNo, LocalDateTime calledAt) {
+		String requestKey = "realmCode=" + criteria.realm().code() + "&page=" + pageNo;
+		try {
+			CatalogPage page = catalogClient.fetchPage(criteria, pageNo);
+			exhibitionSyncFacade.recordApiCall(ExternalApi.CULTURE_LIST, requestKey,
+					ExternalApiOutcome.SUCCESS, calledAt);
+			return page;
+		} catch (RuntimeException e) {
+			exhibitionSyncFacade.recordApiCall(ExternalApi.CULTURE_LIST, requestKey,
+					ExternalApiOutcome.FAILED, calledAt);
+			throw e;
+		}
 	}
 
 	private enum SyncOutcome {

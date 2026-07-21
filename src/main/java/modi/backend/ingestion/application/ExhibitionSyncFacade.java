@@ -20,15 +20,16 @@ import modi.backend.domain.exhibition.hours.PlaceHoursStatus;
 import modi.backend.domain.exhibition.hours.PlaceHoursVendor;
 import modi.backend.ingestion.application.outbox.ExhibitionOutboxFacade;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
-import modi.backend.ingestion.domain.data.CatalogDetailVendorItem;
-import modi.backend.ingestion.domain.data.DetailFetch;
-import modi.backend.ingestion.domain.data.GooglePlaceVendorItem;
+import modi.backend.ingestion.domain.data.CultureDetailPayload;
+import modi.backend.ingestion.domain.ExternalApi;
+import modi.backend.ingestion.domain.ExternalApiOutcome;
 import modi.backend.ingestion.domain.entity.CultureDetailSnapshot;
+import modi.backend.ingestion.domain.entity.ExternalApiCallLog;
+import modi.backend.ingestion.domain.data.GooglePlaceVendorItem;
 import modi.backend.ingestion.domain.entity.CultureListSnapshot;
 import modi.backend.ingestion.domain.entity.GooglePlaceSnapshot;
 import modi.backend.ingestion.domain.entity.IngestionRun;
 import modi.backend.ingestion.domain.port.IngestionRunRepository;
-import modi.backend.ingestion.infra.CultureDetailSnapshotJpaRepository;
 import modi.backend.ingestion.infra.CultureListSnapshotJpaRepository;
 import modi.backend.ingestion.infra.GooglePlaceSnapshotJpaRepository;
 
@@ -52,8 +53,10 @@ public class ExhibitionSyncFacade {
 	private final PlaceHoursBackfill placeHoursBackfill;
 	private final GooglePlaceSnapshotJpaRepository googlePlaceSnapshotRepository;
 	private final CultureListSnapshotJpaRepository cultureListSnapshotRepository;
-	private final CultureDetailSnapshotJpaRepository cultureDetailSnapshotRepository;
+	private final modi.backend.ingestion.infra.CultureDetailSnapshotJpaRepository cultureDetailSnapshotRepository;
 	private final IngestionRunRepository ingestionRunRepository;
+	/** 외부 호출 감사(append-only) — 저장은 REQUIRES_NEW라 호출자 트랜잭션과 생사를 같이하지 않는다. */
+	private final modi.backend.ingestion.domain.port.ExternalApiCallLogRepository externalApiCallLogRepository;
 	/** 전시 아웃박스 — 상태 변경과 같은 트랜잭션에서 후속 메시지를 남긴다(at-least-once의 진입점). */
 	private final ExhibitionOutboxFacade exhibitionOutboxFacade;
 
@@ -63,13 +66,13 @@ public class ExhibitionSyncFacade {
 	 * 대상이 아니면(전시 없음·이미 완성) 원본 보관·enqueue도 생략한다(기존 동작 보존).
 	 */
 	@Transactional
-	public void applyLegacyDetail(String externalId, DetailFetch fetch) {
+	public void applyLegacyDetail(String externalId, CultureDetailPayload payload) {
 		LocalDateTime now = LocalDateTime.now();
-		ExhibitionBackfill.DetailApplied applied = exhibitionBackfill.applyDetail(externalId, fetch.data(), now);
+		ExhibitionBackfill.DetailApplied applied = exhibitionBackfill.applyDetail(externalId, payload.toDetail(), now);
 		if (!applied.applied()) {
 			return;
 		}
-		archiveDetailSnapshot(externalId, fetch.vendor());
+		archiveDetailSnapshot(externalId, payload);
 		if (applied.placeKey() != null) {
 			exhibitionOutboxFacade.enqueueHoursRefresh(applied.placeKey(), now);
 		}
@@ -85,6 +88,20 @@ public class ExhibitionSyncFacade {
 		Long placeId = target.exhibitionPlaceId();
 		archiveGooglePlaceSnapshot(placeId, vendorItem, vendor, now);
 		placeHoursBackfill.applyHours(placeId, formatted, PlaceHoursStatus.of(data, formatted), vendor, now);
+	}
+
+	/**
+	 * 외부 호출 1건을 감사에 남긴다(append-only). 부가 기록이라 실패해도 수집을 깨지 않는다.
+	 * <p>
+	 * 순회가 여기(application)에 있으므로 <b>콜 단위로</b> 남는다 — 어댑터가 순회를 끌어안던 시절엔
+	 * 3콜이 1행으로 뭉개졌다.
+	 */
+	public void recordApiCall(ExternalApi api, String requestKey, ExternalApiOutcome outcome, LocalDateTime calledAt) {
+		try {
+			externalApiCallLogRepository.save(ExternalApiCallLog.free(api, requestKey, outcome, calledAt));
+		} catch (RuntimeException e) {
+			log.warn("외부 호출 감사 기록 실패(무시): {}", e.getMessage());
+		}
 	}
 
 	/** 런 감사 기록 — 부가 기록이라 실패해도 동기화 결과를 깨지 않는다. */
@@ -129,6 +146,20 @@ public class ExhibitionSyncFacade {
 		}
 	}
 
+	/** 상세 스냅샷 upsert(응답 원문 그대로 — ADR-13). 부가 기록이라 실패해도 반영을 깨지 않는다. */
+	private void archiveDetailSnapshot(String externalId, CultureDetailPayload payload) {
+		try {
+			cultureDetailSnapshotRepository.findByExternalId(externalId)
+					.ifPresentOrElse(row -> {
+						row.refresh(payload);
+						cultureDetailSnapshotRepository.save(row);
+					}, () -> cultureDetailSnapshotRepository.save(
+							CultureDetailSnapshot.first(externalId, payload)));
+		} catch (RuntimeException e) {
+			log.warn("상세 스냅샷 적재 실패(externalId={}, 동기화는 계속): {}", externalId, e.getMessage());
+		}
+	}
+
 	/** 벤더 스냅샷 upsert — 구글이 준 응답만 적재한다(mock은 정준층에 provider=MOCK으로만 남고 벤더층은 비어 있는 게 정상). */
 	private void archiveGooglePlaceSnapshot(Long placeId, GooglePlaceVendorItem vendorItem, PlaceHoursVendor vendor,
 			LocalDateTime now) {
@@ -143,23 +174,4 @@ public class ExhibitionSyncFacade {
 						GooglePlaceSnapshot.first(placeId, vendorItem, now)));
 	}
 
-	/**
-	 * 상세 스냅샷을 벤더층에 upsert한다(필드 적재 — ADR-13). 원문이 있을 때만 기록한다:
-	 * 원천에 상세가 없으면(빈 응답) 남길 스냅샷이 없어 행을 만들지 않는다(그 사실은 상세 satellite 행 존재가 안다).
-	 */
-	private void archiveDetailSnapshot(String externalId, CatalogDetailVendorItem vendor) {
-		if (vendor == null) {
-			return;
-		}
-		try {
-			cultureDetailSnapshotRepository.findByExternalId(externalId)
-					.ifPresentOrElse(row -> {
-						row.refresh(vendor);
-						cultureDetailSnapshotRepository.save(row);
-					}, () -> cultureDetailSnapshotRepository.save(
-							CultureDetailSnapshot.first(externalId, vendor)));
-		} catch (RuntimeException e) {
-			log.warn("상세 스냅샷 적재 실패(externalId={}, 동기화는 계속): {}", externalId, e.getMessage());
-		}
-	}
 }
