@@ -1,5 +1,6 @@
 package modi.backend.config;
 
+import java.net.http.HttpClient;
 import java.time.Duration;
 
 import org.springframework.context.annotation.Bean;
@@ -25,6 +26,13 @@ public class OAuthHttpClientConfig {
 	 */
 	private static final Duration OAUTH_READ_TIMEOUT = Duration.ofSeconds(10);
 
+	/**
+	 * 연결 수립 상한 — 살아있는 상대는 1초 안에 붙고 죽은 상대는 계속 안 붙으므로 짧게 잡아 fail-fast 시킨다.
+	 * {@link JdkClientHttpRequestFactory}엔 세터가 없다 — JDK에선 연결 수립이 요청별이 아니라 클라이언트 수준
+	 * 설정이라 {@link java.net.http.HttpClient.Builder}에 걸어 팩토리에 넘겨야 한다.
+	 */
+	private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
+
 	@Bean
 	public KakaoApi kakaoApi() {
 		return createClient(KakaoApi.class);
@@ -36,7 +44,10 @@ public class OAuthHttpClientConfig {
 	}
 
 	private <T> T createClient(Class<T> apiType) {
-		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory();
+		HttpClient httpClient = HttpClient.newBuilder()
+				.connectTimeout(CONNECT_TIMEOUT)
+				.build();
+		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
 		requestFactory.setReadTimeout(OAUTH_READ_TIMEOUT);
 		RestClient restClient = RestClient.builder().requestFactory(requestFactory).build();
 		HttpServiceProxyFactory factory = HttpServiceProxyFactory

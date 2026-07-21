@@ -1,5 +1,6 @@
 package modi.backend.ingestion.config;
 
+import java.net.http.HttpClient;
 import java.time.Duration;
 
 import modi.backend.ingestion.properties.CatalogEnrichProperties;
@@ -39,6 +40,9 @@ import modi.backend.ingestion.infra.mock.MockGenreClassifier;
 		CatalogEnrichProperties.class })
 public class GenreConfig {
 
+	/** 연결 수립 상한(읽기 타임아웃과 별개) — 세 수집 클라이언트가 같은 값을 쓴다. */
+	private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
+
 	/**
 	 * Gemini 전용 RestClient. baseUrl·읽기 타임아웃(워커 스레드 장기 점유·부팅 지연 방지)을 설정에서 주입한다.
 	 * 응답의 여분 필드(role·thoughtSignature·usageMetadata 등)는 {@code GeminiDto} 응답 record의
@@ -46,7 +50,11 @@ public class GenreConfig {
 	 */
 	@Bean
 	public RestClient geminiRestClient(GeminiProperties properties) {
-		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory();
+		// 연결 수립 상한 — 살아있는 상대는 1초 안에 붙는다. 팩토리엔 세터가 없어 HttpClient에 걸어 넘긴다.
+		HttpClient httpClient = HttpClient.newBuilder()
+				.connectTimeout(CONNECT_TIMEOUT)
+				.build();
+		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
 		requestFactory.setReadTimeout(Duration.ofSeconds(properties.timeoutSeconds()));
 		return RestClient.builder()
 				.baseUrl(properties.baseUrl())
