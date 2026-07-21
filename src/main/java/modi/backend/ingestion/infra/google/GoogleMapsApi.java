@@ -1,7 +1,5 @@
 package modi.backend.ingestion.infra.google;
 
-import modi.backend.ingestion.infra.gemini.GeminiApi;
-
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.service.annotation.PostExchange;
