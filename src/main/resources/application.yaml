@@ -20,6 +20,14 @@ spring:
           default_storage: NORMALIZE
   flyway:
     enabled: true
+  data:
+    redis:
+      # AI '질문으로 작성' 임시저장(draft) 캐시. 로컬 bootRun은 spring-boot-docker-compose가 redis 서비스를 자동기동·자동연결.
+      # Redis 장애여도 draft는 부가 기능이라 어댑터가 예외를 삼켜 degrade(질문/감상문 생성·저장은 정상).
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+      timeout: 2s
 
 management:
   endpoints:
@@ -64,21 +72,42 @@ app:
       - http://localhost:3005   # 여운 프론트 로컬(대체 포트)
       - http://localhost:8080   # 백엔드 내장 HTML 테스트 페이지
 
+  # OAuth 설정. client-id는 공개성 값이라 기본값을 둔다. client-secret은 시크릿 → 환경변수로만 주입.
+  # redirect-uri는 콘솔에 등록된 값과 정확히 일치해야 한다(현재 테스트는 백엔드 내장 페이지 = :8080/login).
   oauth:
     redirect-uri: ${OAUTH_REDIRECT_URI:http://localhost:8080/login}
+    # FE 주도 로그인에서 허용하는 redirectUri 화이트리스트 (로컬 프론트/테스트)
     allowed-redirect-uris:
       - http://localhost:3000/login
       - http://localhost:3005/login
       - http://localhost:8080/login
     kakao:
-      client-id: ${KAKAO_CLIENT_ID:bba3e1d954ec548062bc3c13fd9f72bc}
+      # 운영 비즈앱 "여운"의 REST 키. client-id는 authorize URL에도 노출되는 공개값이라 코드 기본값을 둔다(네이버와 동일).
+      # ⚠️ 프론트 oauth.js 의 KAKAO_CLIENT_ID 와 반드시 같아야 한다 — 프론트가 A 앱으로 받은 code를
+      #    백엔드가 B 앱으로 교환하면 카카오가 거부한다(OAuthClientIdDefaultTest 가 이 쌍을 고정한다).
+      # ⚠️ 구 테스트앱 "여운-TEST"(bba3e1d9…, 앱ID 1500036)는 카카오 콘솔에서 삭제됐다. 되돌리면
+      #    토큰 교환이 KOE101(Not exist client_id)로 깨진다(2026-07-21 운영 장애).
+      # client-secret은 시크릿 → env로만 주입. client-id를 바꾸면 secret도 그 앱 것으로 함께 갱신해야 한다.
+      client-id: ${KAKAO_CLIENT_ID:bd5949f0127dd8ae068263f6ec1b5edc}
       client-secret: ${KAKAO_CLIENT_SECRET:}
+      # 동의항목 요청: 이메일 + 연령대 + 출생연도.
+      # ⚠️ 카카오 콘솔 [동의항목]에서 각 항목 ON 필수(테스트앱은 팀원만 검수 없이 동작).
+      #    미승인 항목을 scope에 넣으면 authorize 시 KOE006 → 로그인 깨짐. 콘솔 준비 전이면 KAKAO_SCOPE 로 줄여 둘 것.
       scope: ${KAKAO_SCOPE:account_email,age_range,birthyear}
     naver:
+      # client-id는 authorize URL·프론트에도 노출되는 공개값(카카오처럼) → 코드 기본값을 둔다.
+      # ⚠️ 프론트 VITE_NAVER_CLIENT_ID 와 반드시 같아야 한다 — 프론트가 A 앱으로 받은 code를 백엔드가 B 앱으로
+      #    교환하면 네이버가 거부하고 OAUTH_COMMUNICATION_FAILED 로만 보인다(2026-07-19 운영 장애: 네이버 앱을
+      #    새로 발급하며 프론트만 갱신돼 구 기본값 ZRdsYHmN3ncMkx2F6353 이 남아 있었다).
+      #    값을 바꾸면 OAuthClientIdDefaultTest 가 함께 깨지므로 프론트 동시 갱신 여부를 되묻게 된다.
+      # client-secret은 시크릿 → env(GitHub Secret NAVER_CLIENT_SECRET)로만 주입. 로컬 실연동 시엔 로컬 env로 넣어야 토큰교환 성공.
+      #    ⚠️ client-id를 새 앱으로 바꾸면 secret도 그 앱 것으로 함께 갱신해야 한다(쌍이 맞아야 통과).
       client-id: ${NAVER_CLIENT_ID:x5SSFHxy06Npeieb9JlA}
       client-secret: ${NAVER_CLIENT_SECRET:}
 
-  # 공공데이터 전시 API(한눈에보는문화정보조회서비스, data.go.kr 15138937)
+  # 공공데이터 전시 API(한눈에보는문화정보조회서비스, data.go.kr 15138937). (03_전시.md CATALOG 출처)
+  # service-key: data.go.kr 일반 인증키. 공공데이터 오픈API 키라 저위험 + 재발급 가능해 yaml에 직접 둔다(팀 참고용).
+  #   env(CULTURE_API_KEY)로 오버라이드 가능. 미설정·무효면 외부 동기화 스킵되고 데모 시드로 동작.
   public-data:
     culture:
       base-url: ${CULTURE_API_BASE_URL:https://apis.data.go.kr/B553457/cultureinfo}
@@ -93,6 +122,7 @@ app:
   exhibition:
     demo-seed:
       enabled: ${EXHIBITION_DEMO_SEED:false}
+    # 전시 카탈로그 정기 동기화 스케줄. sync.cron 시각에 목록 동기화 + 상세 보강을 수행한다(기본 매일 자정).
     sync:
       cron: ${EXHIBITION_SYNC_CRON:0 0 0 * * *}
     # 전시 장르 분류(ADR-11). classifier로 주 분류기를 고른다(구현들 빈 공존, 무중단 교체).
@@ -142,6 +172,17 @@ app:
   #   이 값만 바꾸면 즉시 반영된다. 정식 기본 7d(운영 베타 한정 단축은 prod 프로파일 참고).
   remind:
     eligible-after: ${REMIND_ELIGIBLE_AFTER:7d}
+    # 감정 변화 AI 요약 백필 — 요약은 저장 응답을 막지 않으려 인메모리 스레드풀에서 만든다.
+    #   요약 도중 재시작·배포되면 그 작업이 유실돼 PENDING이 영구히 남으므로, 이 잡이 주기적으로 복구한다.
+    #   유료 AI 호출이라 batch-size로 1회 실행량을 제한하고, grace 이전 건만 대상으로 해 진행 중 작업과 겹치지 않게 한다.
+    #   give-up-after를 넘긴 건은 호출 없이 FAILED 확정 → 클라이언트 무한 폴링 방지.
+    summary-backfill:
+      enabled: ${REMIND_SUMMARY_BACKFILL_ENABLED:true}
+      interval: ${REMIND_SUMMARY_BACKFILL_INTERVAL:PT10M}
+      initial-delay: ${REMIND_SUMMARY_BACKFILL_INITIAL_DELAY:PT2M}
+      batch-size: ${REMIND_SUMMARY_BACKFILL_BATCH_SIZE:20}
+      grace: ${REMIND_SUMMARY_BACKFILL_GRACE:PT2M}
+      give-up-after: ${REMIND_SUMMARY_BACKFILL_GIVE_UP_AFTER:P1D}
 
   # 관리자 콘솔 로그인 자격(이메일 화이트리스트 + 공용 비밀번호). 로그인하면 admin_session 쿠키로 /api-admin/** 접근.
   #   ⚠️ 레포가 PUBLIC이라 값은 절대 여기 넣지 말 것 → env/Secret으로만 주입. 미설정이면 아무도 로그인 못 함(안전 기본값).
@@ -155,7 +196,7 @@ app:
   #   api-key 미설정이면 AI 엔드포인트는 503(AI_DISABLED)로 응답하고 나머지 기능은 정상 동작한다.
   ai:
     provider: ${AI_PROVIDER:claude}
-    # 미지정 시 provider별 기본 모델(claude-opus-4-8 / gemini-2.5-flash-lite). gemini 기본을 flash-lite로 —
+    # 미지정 시 provider별 기본 모델(claude-sonnet-5 / gemini-2.5-flash-lite). gemini 기본을 flash-lite로 —
     #   무료 일일 한도가 flash보다 훨씬 크고 감상문 질문/다듬기엔 품질 충분. 장르 분류(app.ai.gemini, 기본 flash)와
     #   모델을 다르게 유지해 무료 한도 버킷을 분리한다(같은 모델로 맞추면 한도를 공유하게 되니 주의).
     model: ${AI_MODEL:}
@@ -164,11 +205,13 @@ app:
     #   ※ GEMINI_API_KEY를 여기 자동 폴백에 넣지 않는다 — 배포 env에 GEMINI_API_KEY만 있고 provider=claude면
     #     Claude 어댑터가 Gemini 키를 오용(AI_GENERATION_FAILED)하기 때문. 장르 분류는 별도로 app.ai.gemini에서 GEMINI_API_KEY 사용.
     api-key: ${AI_API_KEY:${ANTHROPIC_API_KEY:}}
-    max-tokens: ${AI_MAX_TOKENS:1024}
+    max-tokens: ${AI_MAX_TOKENS:768}               # ≤300자 감상문/요약·질문 3개에 충분하면서 폭주 생성 바운드(M-4). 상향은 AI_MAX_TOKENS.
     timeout-seconds: ${AI_TIMEOUT_SECONDS:30}     # 외부 LLM 호출 타임아웃(워커 스레드 장기 점유 방지)
     rate-limit-seconds: ${AI_RATE_LIMIT_SECONDS:3} # 사용자당 AI 호출 최소 간격(반복 클릭 폭주 방지)
     max-retries: ${AI_MAX_RETRIES:2}               # 429(무료 RPM 순간 초과) 시 재시도 횟수(Retry-After 존중, 소진 시 AI_RATE_LIMITED)
     max-retry-delay-seconds: ${AI_MAX_RETRY_DELAY_SECONDS:4}  # 재시도 백오프 상한(대화형이라 과도한 대기 방지)
+    draft:
+      ttl: ${AI_DRAFT_TTL:1h}                      # AI 임시저장(draft) 캐시 TTL(뒤로가기 복원용, 방치 draft는 자동 만료)
 
     # 전시 장르 분류용 Gemini(무료 한도). api-key 미설정이면 AI 분류기가 random으로 폴백(나머지 기능 정상).
     #   model 기본을 flash로 — 감상문 AI(app.ai, 기본 flash-lite)와 "서로 다른 모델"을 써서 무료 한도 버킷을 분리한다

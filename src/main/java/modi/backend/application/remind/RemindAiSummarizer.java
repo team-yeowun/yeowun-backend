@@ -31,6 +31,11 @@ public class RemindAiSummarizer {
 	private final AiChatClient aiChatClient;
 	private final AiRateLimiter aiRateLimiter;
 
+	/** AI가 설정돼 있는지(키 존재). 미설정이면 저장 시 백그라운드 없이 바로 SKIPPED로 확정한다. */
+	public boolean isEnabled() {
+		return aiProperties.isConfigured();
+	}
+
 	/** 감정 변화 요약을 생성한다. 실패/미설정/rate-limit이면 {@code (SKIPPED|FAILED, null)}. */
 	public Result summarize(Context context) {
 		if (!aiProperties.isConfigured()) {

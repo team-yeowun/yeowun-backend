@@ -22,6 +22,7 @@ import modi.backend.domain.record.RecordErrorCode;
 import modi.backend.domain.record.RecordMedia;
 import modi.backend.domain.record.RecordMediaType;
 import modi.backend.domain.remind.Remind;
+import modi.backend.domain.remind.RemindAiStatus;
 import modi.backend.domain.remind.RemindEmotion;
 import modi.backend.domain.remind.RemindErrorCode;
 import modi.backend.domain.remind.RemindExhibitionSnapshot;
@@ -47,6 +48,7 @@ public class RemindFacade {
 	private final RecordJpaRepository recordRepository;
 	private final ExhibitionRepository exhibitionRepository;
 	private final RemindAiSummarizer summarizer;
+	private final RemindSummaryBackfill remindSummaryBackfill;
 	/** 소환 대상 최소 경과 시간(정식 7d, 베타는 env로 단축 — 시작값 {@link RemindProperties}, 런타임 오버라이드 {@link RemindRuntimeConfig}). */
 	private final RemindRuntimeConfig remindRuntimeConfig;
 
@@ -86,17 +88,18 @@ public class RemindFacade {
 		List<String> afterEmotions = normalizeEmotions(criteria.emotionCodes());
 		List<String> beforeEmotions = record.getEmotions().stream().map(RecordEmotion::getEmotionCode).toList();
 
-		// AI 요약은 DB 트랜잭션 밖에서(짧은 저장 트랜잭션 유지). 실패해도 저장은 진행.
-		RemindAiSummarizer.Result ai = summarizer.summarize(new RemindAiSummarizer.Context(
-				criteria.userId(), record.getId(), record.getExhibitionTitle(), record.getContent(),
-				beforeEmotions, criteria.reflection(), afterEmotions));
-
 		RemindExhibitionSnapshot snapshot = new RemindExhibitionSnapshot(record.getExhibitionId(),
 				record.getExhibitionTitle(), record.getExhibitionPosterUrl(), record.getExhibitionPlace(),
 				record.getViewedAt());
+		// 감정 변화 AI 요약은 응답을 막지 않도록 저장 커밋 후 백그라운드에서 채운다(M-2). AI 미설정이면 요약 없이 바로 SKIPPED로 확정.
+		RemindAiStatus initialStatus = summarizer.isEnabled() ? RemindAiStatus.PENDING : RemindAiStatus.SKIPPED;
 		Remind saved = remindRepository.save(Remind.create(criteria.userId(), record.getId(), snapshot,
-				criteria.reflection(), afterEmotions, ai.summary(), ai.status()));
-
+				criteria.reflection(), afterEmotions, null, initialStatus));
+		if (initialStatus == RemindAiStatus.PENDING) {
+			remindSummaryBackfill.schedule(saved.getId(), new RemindAiSummarizer.Context(
+					criteria.userId(), record.getId(), record.getExhibitionTitle(), record.getContent(),
+					beforeEmotions, criteria.reflection(), afterEmotions));
+		}
 		return toSummary(saved, afterEmotions, record.getContent(), beforeEmotions);
 	}
 

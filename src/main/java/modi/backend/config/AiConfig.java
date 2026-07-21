@@ -15,7 +15,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
  * 풀 포화 시 CallerRuns로 그레이스풀 다운(요청 스레드에서 실행) — 무제한 스레드 생성/거부 방지.
  */
 @Configuration
-@EnableConfigurationProperties({ AiProperties.class, RemindProperties.class })
+@EnableConfigurationProperties({ AiProperties.class, RemindProperties.class, AiDraftProperties.class })
 public class AiConfig {
 
 	@Bean("aiExecutor")

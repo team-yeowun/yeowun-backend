@@ -38,4 +38,20 @@ public final class RecordAiDto {
 	/** 감상문 다듬기 응답 — 다듬어진 본문(≤300자). 사용자가 수정·확정 후 기록 생성 API로 저장한다. */
 	public record ComposeResponse(String content) {
 	}
+
+	/** draft용 질문/답변 쌍(자동저장 관대 — 작성 중이라 답변이 비어 있을 수 있음). */
+	public record DraftQna(String question, @Size(max = 300) String answer) {
+	}
+
+	/** 진행 중 draft 저장 요청(뒤로가기 전 자동저장) — 현재까지의 질문·답변·초안 스냅샷. */
+	public record DraftSaveRequest(
+			@NotNull @Positive Long exhibitionId,
+			List<String> questions,
+			List<@Valid DraftQna> answers,
+			@Size(max = 300) String content) {
+	}
+
+	/** 진행 중 draft 조회 응답 — 없으면 exists=false. */
+	public record DraftResponse(boolean exists, List<String> questions, List<DraftQna> answers, String content) {
+	}
 }

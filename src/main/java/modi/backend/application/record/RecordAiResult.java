@@ -17,4 +17,8 @@ public final class RecordAiResult {
 	/** 다듬어진 감상문 본문. */
 	public record Compose(String content) {
 	}
+
+	/** 진행 중 draft 조회 결과. 없으면 exists=false(나머지는 빈 목록/null). */
+	public record Draft(boolean exists, List<String> questions, List<RecordAiCriteria.QnaPair> answers, String content) {
+	}
 }

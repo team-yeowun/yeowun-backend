@@ -1,11 +1,16 @@
 package modi.backend.interfaces.record;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.swagger.v3.oas.annotations.Parameter;
@@ -57,5 +62,43 @@ public class RecordAiV1Controller implements RecordAiV1ApiSpec {
 							.toList()));
 			return ApiResponse.success(new RecordAiDto.ComposeResponse(result.content()));
 		}, aiExecutor);
+	}
+
+	@Override
+	@PutMapping("/draft")
+	public ApiResponse<RecordAiDto.DraftResponse> saveDraft(
+			@Parameter(hidden = true) @Authentication LoginUser loginUser,
+			@Valid @RequestBody RecordAiDto.DraftSaveRequest request) {
+		recordAiFacade.saveDraft(new RecordAiCriteria.DraftSave(
+				loginUser.userId(), request.exhibitionId(), request.questions(),
+				request.answers() == null ? List.of()
+						: request.answers().stream()
+								.map(a -> new RecordAiCriteria.QnaPair(a.question(), a.answer())).toList(),
+				request.content()));
+		return ApiResponse.success(toDraftResponse(recordAiFacade.getDraft(loginUser.userId(), request.exhibitionId())));
+	}
+
+	@Override
+	@GetMapping("/draft")
+	public ApiResponse<RecordAiDto.DraftResponse> getDraft(
+			@Parameter(hidden = true) @Authentication LoginUser loginUser,
+			@RequestParam Long exhibitionId) {
+		return ApiResponse.success(toDraftResponse(recordAiFacade.getDraft(loginUser.userId(), exhibitionId)));
+	}
+
+	@Override
+	@DeleteMapping("/draft")
+	public ApiResponse<Object> deleteDraft(
+			@Parameter(hidden = true) @Authentication LoginUser loginUser,
+			@RequestParam Long exhibitionId) {
+		recordAiFacade.deleteDraft(loginUser.userId(), exhibitionId);
+		return ApiResponse.success();
+	}
+
+	private RecordAiDto.DraftResponse toDraftResponse(RecordAiResult.Draft result) {
+		return new RecordAiDto.DraftResponse(result.exists(), result.questions(),
+				result.answers().stream()
+						.map(qna -> new RecordAiDto.DraftQna(qna.question(), qna.answer())).toList(),
+				result.content());
 	}
 }

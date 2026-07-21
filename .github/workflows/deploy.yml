@@ -114,6 +114,10 @@ jobs:
             # 장르 분류 폴백 체인 2차 = Claude Haiku(app.exhibition.genre.claude). 감상문 키와 분리된 버킷.
             #   모델은 application.yaml 기본값(claude-haiku-4-5-20251001) — 교체 시 GENRE_CLAUDE_MODEL 추가.
             GENRE_CLAUDE_API_KEY=${GENRE_CLAUDE_API_KEY}
+            # AI 임시저장(draft) 캐시 Redis — compose의 redis 서비스명. 시크릿 아님(내부 네트워크 호스트).
+            #   redis 서비스는 profile이 없어 `--profile app`만으로도 함께 기동된다(별도 프로파일 불필요).
+            #   외부 Redis(ElastiCache 등)로 옮길 땐 이 한 줄만 호스트로 바꾸면 된다(포트 기본 6379).
+            SPRING_DATA_REDIS_HOST=redis
             # 관리자 콘솔 로그인(이메일 화이트리스트 + 공용 비번). 시크릿에서만 주입(레포 PUBLIC).
             ADMIN_EMAILS=${ADMIN_EMAILS}
             ADMIN_PASSWORD=${ADMIN_PASSWORD}

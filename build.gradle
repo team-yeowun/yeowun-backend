@@ -21,6 +21,9 @@ repositories {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+	// AI 임시저장(draft) 캐시 — Redis(Lettuce). '질문으로 작성' 뒤로가기 복원용 휘발성 캐시(질문+답변).
+	//   운영은 64mb·allkeys-lru·비영속(compose)으로 1GB EC2 보호. 포트(AiDraftStore)+어댑터(RedisAiDraftStore)로 DIP.
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	// DB 마이그레이션(기록 아카이브 등) — flyway

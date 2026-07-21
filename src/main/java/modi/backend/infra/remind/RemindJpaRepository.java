@@ -12,6 +12,7 @@ import org.springframework.data.repository.query.Param;
 
 import modi.backend.domain.record.Record;
 import modi.backend.domain.remind.Remind;
+import modi.backend.domain.remind.RemindAiStatus;
 
 public interface RemindJpaRepository extends JpaRepository<Remind, Long> {
 
@@ -40,6 +41,21 @@ public interface RemindJpaRepository extends JpaRepository<Remind, Long> {
 			@Param("userId") Long userId,
 			@Param("createdBefore") ZonedDateTime createdBefore,
 			Pageable pageable);
+
+	/**
+	 * 백그라운드 요약이 유실돼 PENDING으로 남은 리마인드 — 오래된 순(백필 대상).
+	 * {@code createdBefore}로 유예를 둬 지금 막 저장돼 진행 중인 백그라운드 작업과 겹치지 않게 한다.
+	 * 감정은 지연 로딩이라 호출 측이 트랜잭션 안에서 초기화한다(컬렉션 fetch join + 페이징 조합을 피함).
+	 */
+	@Query("""
+			select rm from Remind rm
+			where rm.aiStatus = :status
+			  and rm.deletedAt is null
+			  and rm.createdAt <= :createdBefore
+			order by rm.createdAt asc
+			""")
+	List<Remind> findPendingOlderThan(@Param("status") RemindAiStatus status,
+			@Param("createdBefore") ZonedDateTime createdBefore, Pageable pageable);
 
 	// ── 관리자 콘솔 전용 ───────────────────────────────
 

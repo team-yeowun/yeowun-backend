@@ -93,6 +93,12 @@ public class Remind extends BaseEntity {
 		return remind;
 	}
 
+	/** 백그라운드에서 생성된 감정 변화 AI 요약을 반영한다(PENDING → READY/SKIPPED/FAILED). SKIPPED/FAILED면 요약 null. */
+	public void applyAiSummary(RemindAiStatus aiStatus, String aiSummary) {
+		this.aiStatus = aiStatus;
+		this.aiSummary = aiSummary;
+	}
+
 	/** {@code RULE: 소감 필수} — reflection은 공백일 수 없다. */
 	@Override
 	protected void guard() {

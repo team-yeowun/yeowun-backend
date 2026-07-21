@@ -38,6 +38,26 @@ public interface RecordJpaRepository extends JpaRepository<Record, Long> {
 			""")
 	List<String> findEmotionCodesByUserIdOrderByFrequency(@Param("userId") Long userId);
 
+	/** 특정 전시를 기록한 사람들이 남긴 감정 코드 — 빈도 내림차순(AI 질문 그라운딩용, Pageable로 상위 N개 제한). */
+	@Query("""
+			select e.emotionCode
+			from Record r join r.emotions e
+			where r.exhibitionId = :exhibitionId and r.deletedAt is null
+			group by e.emotionCode
+			order by count(e) desc, e.emotionCode asc
+			""")
+	List<String> findTopEmotionCodesByExhibitionId(@Param("exhibitionId") Long exhibitionId, Pageable pageable);
+
+	/** 같은 카테고리 전시 기록들의 감정 코드 — 빈도 내림차순(해당 전시 기록이 없을 때 폴백 그라운딩). */
+	@Query("""
+			select e.emotionCode
+			from Record r join r.emotions e
+			where r.exhibitionCategory = :category and r.deletedAt is null
+			group by e.emotionCode
+			order by count(e) desc, e.emotionCode asc
+			""")
+	List<String> findTopEmotionCodesByCategory(@Param("category") String category, Pageable pageable);
+
 	/** 감정까지 즉시 로딩해 반환(리마인드에서 원본 감정을 세션 밖에서 안전히 읽기 위함). */
 	@Query("select distinct r from Record r left join fetch r.emotions where r.id = :id and r.deletedAt is null")
 	Optional<Record> findByIdWithEmotions(@Param("id") Long id);

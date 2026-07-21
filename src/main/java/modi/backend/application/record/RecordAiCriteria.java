@@ -18,6 +18,11 @@ public final class RecordAiCriteria {
 	public record Compose(Long userId, Long exhibitionId, List<QnaPair> answers) {
 	}
 
+	/** 진행 중 draft 저장 입력(뒤로가기 전 자동저장). questions·answers·content는 현재 진행 상태 스냅샷. */
+	public record DraftSave(Long userId, Long exhibitionId, List<String> questions, List<QnaPair> answers,
+			String content) {
+	}
+
 	/** 질문/답변 한 쌍. */
 	public record QnaPair(String question, String answer) {
 	}

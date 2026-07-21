@@ -54,6 +54,9 @@ class RemindFacadeTest {
 	@Mock
 	RemindAiSummarizer summarizer;
 
+	@Mock
+	RemindSummaryBackfill remindSummaryBackfill;
+
 	// 실제 설정 record를 주입(레코드라 목 대신 실값) — 소환 대기 기본 7d.
 	@Spy
 	RemindProperties remindProperties = new RemindProperties(Duration.ofDays(7));
@@ -62,11 +65,11 @@ class RemindFacadeTest {
 	RemindFacade facade;
 
 	@Test
-	@DisplayName("save — 본인 기록에 회고 저장: before(원본)·after(회고)·AI 요약을 담아 반환한다")
-	void save_성공() {
+	@DisplayName("save — 본인 기록에 회고 저장: 감정 변화 요약은 PENDING으로 두고 백그라운드에 위임한다(M-2)")
+	void save_성공_PENDING_백그라운드위임() {
 		Record record = ownedRecord(1L);
 		given(recordRepository.findByIdWithEmotions(10L)).willReturn(Optional.of(record));
-		given(summarizer.summarize(any())).willReturn(new RemindAiSummarizer.Result(RemindAiStatus.READY, "감정이 옮겨갔다"));
+		given(summarizer.isEnabled()).willReturn(true);
 		given(remindRepository.save(any(Remind.class))).willAnswer(inv -> inv.getArgument(0));
 
 		RemindResult.Summary result = facade.save(new RemindCriteria.Save(1L, 10L, List.of("슬픔", "슬픔"), "다시 보니 슬프다"));
@@ -75,20 +78,34 @@ class RemindFacadeTest {
 		assertThat(result.afterEmotionCodes()).containsExactly("슬픔"); // 중복 제거
 		assertThat(result.beforeContent()).isEqualTo("빛이 번지는 전시실");
 		assertThat(result.beforeEmotionCodes()).containsExactly("평화로운", "차분한");
-		assertThat(result.aiStatus()).isEqualTo(RemindAiStatus.READY);
-		assertThat(result.aiSummary()).isEqualTo("감정이 옮겨갔다");
+		assertThat(result.aiStatus()).isEqualTo(RemindAiStatus.PENDING); // 응답을 막지 않음
+		assertThat(result.aiSummary()).isNull();                        // 요약은 백그라운드에서 채움
 		verify(remindRepository).save(any(Remind.class));
+		verify(remindSummaryBackfill).schedule(any(), any());
 	}
 
 	@Test
-	@DisplayName("save — 타인 기록엔 회고 불가(FORBIDDEN), 저장·AI 호출 안 함")
+	@DisplayName("save — AI 미설정이면 백그라운드 없이 SKIPPED로 확정한다")
+	void save_AI미설정_SKIPPED() {
+		given(recordRepository.findByIdWithEmotions(10L)).willReturn(Optional.of(ownedRecord(1L)));
+		given(summarizer.isEnabled()).willReturn(false);
+		given(remindRepository.save(any(Remind.class))).willAnswer(inv -> inv.getArgument(0));
+
+		RemindResult.Summary result = facade.save(new RemindCriteria.Save(1L, 10L, List.of("슬픔"), "소감"));
+
+		assertThat(result.aiStatus()).isEqualTo(RemindAiStatus.SKIPPED);
+		verify(remindSummaryBackfill, never()).schedule(any(), any());
+	}
+
+	@Test
+	@DisplayName("save — 타인 기록엔 회고 불가(FORBIDDEN), 저장·백그라운드 위임 안 함")
 	void save_타인기록_거부() {
 		given(recordRepository.findByIdWithEmotions(10L)).willReturn(Optional.of(ownedRecord(2L)));
 
 		assertThatThrownBy(() -> facade.save(new RemindCriteria.Save(1L, 10L, List.of(), "소감")))
 				.isInstanceOf(CoreException.class);
 
-		verify(summarizer, never()).summarize(any());
+		verify(remindSummaryBackfill, never()).schedule(any(), any());
 		verify(remindRepository, never()).save(any());
 	}
 

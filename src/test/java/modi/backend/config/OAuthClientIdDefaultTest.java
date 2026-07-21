@@ -35,8 +35,13 @@ class OAuthClientIdDefaultTest {
 	/** 프론트 {@code VITE_NAVER_CLIENT_ID}와 반드시 동일해야 하는 공개값(네이버 앱 "여운"). */
 	private static final String NAVER_PUBLIC_CLIENT_ID = "x5SSFHxy06Npeieb9JlA";
 
-	/** 프론트 카카오 JS/REST 키와 동일해야 하는 공개값. */
-	private static final String KAKAO_PUBLIC_CLIENT_ID = "bba3e1d954ec548062bc3c13fd9f72bc";
+	/**
+	 * 프론트 카카오 REST 키와 동일해야 하는 공개값(카카오 비즈앱 "여운").
+	 *
+	 * <p>구 테스트앱 "여운-TEST"({@code bba3e1d9…})는 카카오 콘솔에서 삭제됐다 — 토큰 교환이
+	 * {@code KOE101 Not exist client_id}로 거부된다(2026-07-21 운영 장애).
+	 */
+	private static final String KAKAO_PUBLIC_CLIENT_ID = "bd5949f0127dd8ae068263f6ec1b5edc";
 
 	@Test
 	@DisplayName("네이버 client-id 기본값이 프론트가 쓰는 공개값과 같다")

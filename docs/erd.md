@@ -246,6 +246,7 @@ erDiagram
 | exhibitions 행 갱신 | @DynamicUpdate (변경 컬럼만 UPDATE) | 보강(장르·상세)과 조회수 증가 등이 같은 행을 짧은 시간차로 갱신 — 전체-컬럼 UPDATE의 lost update 방지 |
 | exhibitions.our_view_count | 단순 증가 (락 없음) | 인기순 정렬용 참고 카운터 — 정확성보다 낮은 비용 우선(best-effort) |
 | AI 호출 | 사용자당 인메모리 쿨다운(AiRateLimiter) | "다른 질문 보기" 반복 클릭으로 유료 LLM 호출 폭주 방지 (단일 인스턴스 기준, 필요 시 Redis 승격) |
+| AI '질문으로 작성' 임시저장 | Redis draft 캐시(AiDraftStore 포트, 키 `ai:draft:{userId}:{exhibitionId}`, TTL 1h) | 뒤로가기 후 질문+답변+초안 복원(비영속 — 방치 시 자동 만료, Redis 장애 시 degrade). compose 컨테이너는 64mb·allkeys-lru로 상한(1GB EC2 보호) |
 
 ---
 

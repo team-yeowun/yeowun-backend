@@ -34,4 +34,24 @@ public interface RecordAiV1ApiSpec {
 	CompletableFuture<ApiResponse<RecordAiDto.ComposeResponse>> compose(
 			@Parameter(hidden = true) LoginUser loginUser,
 			RecordAiDto.ComposeRequest request);
+
+	@Operation(summary = "임시저장(draft) 저장", description = """
+			'질문으로 작성' 진행 상태(질문+답변+초안)를 임시저장한다. 뒤로가기 전 자동저장용 — 재진입 시 GET으로 복원한다.
+			- 로그인 전용. AI 호출 아님(캐시 저장)이라 rate-limit 없음. 저장소 장애 시에도 실패로 처리하지 않는다(부가 기능).""")
+	ApiResponse<RecordAiDto.DraftResponse> saveDraft(
+			@Parameter(hidden = true) LoginUser loginUser,
+			RecordAiDto.DraftSaveRequest request);
+
+	@Operation(summary = "임시저장(draft) 복원", description = """
+			전시에 대한 진행 중 draft(질문+답변+초안)를 복원한다. 뒤로가기 후 재진입 시 호출해 상태를 채운다.
+			- 없거나 만료면 exists=false. 로그인 전용(본인 draft만).""")
+	ApiResponse<RecordAiDto.DraftResponse> getDraft(
+			@Parameter(hidden = true) LoginUser loginUser,
+			@Parameter(description = "대상 전시 ID") Long exhibitionId);
+
+	@Operation(summary = "임시저장(draft) 삭제", description = """
+			진행 중 draft를 삭제한다(감상문 저장 완료·작성 포기 시). 없어도 성공하며, TTL로도 자동 정리된다.""")
+	ApiResponse<Object> deleteDraft(
+			@Parameter(hidden = true) LoginUser loginUser,
+			@Parameter(description = "대상 전시 ID") Long exhibitionId);
 }

@@ -29,6 +29,23 @@ services:
       retries: 10
       start_period: 30s
 
+  # AI '질문으로 작성' 임시저장(draft) 캐시. 뒤로가기 복원용 휘발성 캐시라 영속화 off(--save "" --appendonly no) +
+  # 메모리 상한 64mb + allkeys-lru 축출로 1GB EC2를 보호한다(볼륨 없음 = 재시작 시 draft 소실 허용).
+  # spring-boot-docker-compose(developmentOnly)가 이 서비스를 로컬 bootRun에서 자동기동·자동연결한다.
+  redis:
+    image: 'redis:7-alpine'
+    container_name: modi-redis
+    logging: *default-logging
+    command: ['redis-server', '--save', '', '--appendonly', 'no', '--maxmemory', '64mb', '--maxmemory-policy', 'allkeys-lru']
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
   # The application service is gated behind the "app" compose profile so that
   # Spring Boot's dev-time docker-compose integration (during `./gradlew bootRun`)
   # only starts MySQL. Run the full stack with:  docker compose --profile app up --build
@@ -41,11 +58,16 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - 'SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/mydatabase?connectionTimeZone=Asia/Seoul&forceConnectionTimeZoneToSession=true'
       - 'TZ=Asia/Seoul'
       - 'SPRING_DATASOURCE_USERNAME=myuser'
       - 'SPRING_DATASOURCE_PASSWORD=secret'
+      # AI 임시저장(draft) 캐시 — 기본은 같은 compose 네트워크의 redis 서비스명(운영 배포도 동일).
+      #   `:-` 형태라 .env에 없거나 빈값이어도 'redis'로 폴백한다(외부 Redis로 옮길 땐 .env에서 이 값만 교체).
+      - 'SPRING_DATA_REDIS_HOST=${SPRING_DATA_REDIS_HOST:-redis}'
       # 비어 있으면 default 프로파일(=로컬 CORS). 운영 배포는 .env로 prod 주입(=Vercel CORS).
       - 'SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE:-}'
       # OAuth/JWT 시크릿: .env로 주입(배포 시 GitHub Actions secrets → deploy.yml이 .env에 기록).
