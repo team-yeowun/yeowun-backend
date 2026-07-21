@@ -6,7 +6,6 @@ import modi.backend.ingestion.domain.data.CatalogFetchCriteria;
 import modi.backend.ingestion.domain.data.CatalogListData;
 import modi.backend.ingestion.domain.data.DetailFetch;
 
-import modi.backend.domain.exhibition.catalog.ExhibitionDetailClient;
 import modi.backend.domain.exhibition.catalog.ExhibitionErrorCode;
 
 
@@ -14,7 +13,7 @@ import modi.backend.domain.exhibition.catalog.ExhibitionErrorCode;
  * 외부 전시 API 수집 포트(도메인 소유). 구현은 infra(DIP) — 외부 HTTP·응답 포맷을 도메인에서 감춘다.
  * 외부 장애/통신 실패는 {@link ExhibitionErrorCode#EXTERNAL_API_UNAVAILABLE}로 변환해 던진다.
  */
-public interface ExhibitionCatalogClient extends ExhibitionDetailClient {
+public interface ExhibitionCatalogClient {
 
 	/**
 	 * 주어진 조건으로 적재 가능한 전시 수집 데이터를 가져온다 — 상한까지 나눠 부르는 것은 어댑터의 몫이다.
@@ -35,9 +34,4 @@ public interface ExhibitionCatalogClient extends ExhibitionDetailClient {
 	 */
 	Optional<DetailFetch> fetchDetailSnapshot(String externalId);
 
-	/** 코어 지연 상세 조회({@code ExhibitionDetailClient}) — 수집 조회에서 도메인 값만 취한다. */
-	@Override
-	default Optional<modi.backend.domain.exhibition.catalog.CatalogDetailData> fetchDetail(String externalId) {
-		return fetchDetailSnapshot(externalId).map(DetailFetch::data);
-	}
 }

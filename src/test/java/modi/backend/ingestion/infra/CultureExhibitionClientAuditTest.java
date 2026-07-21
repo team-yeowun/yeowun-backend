@@ -103,7 +103,7 @@ class CultureExhibitionClientAuditTest {
 	void 상세_빈응답_NO_DATA() {
 		server.enqueue(new MockResponse().setBody(EMPTY_DETAIL_XML).addHeader("Content-Type", "application/xml"));
 
-		client.fetchDetail("319005");
+		client.fetchDetailSnapshot("319005");
 
 		assertThat(recorded).hasSize(1);
 		assertThat(recorded.get(0).getApi()).isEqualTo(ExternalApi.CULTURE_DETAIL);
@@ -117,7 +117,7 @@ class CultureExhibitionClientAuditTest {
 	void 상세_전송오류_FAILED() {
 		server.enqueue(new MockResponse().setResponseCode(500));
 
-		assertThatThrownBy(() -> client.fetchDetail("319005")).isInstanceOf(RuntimeException.class);
+		assertThatThrownBy(() -> client.fetchDetailSnapshot("319005")).isInstanceOf(RuntimeException.class);
 
 		assertThat(recorded).hasSize(1);
 		assertThat(recorded.get(0).getOutcome()).isEqualTo(ExternalApiOutcome.FAILED);

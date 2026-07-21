@@ -107,7 +107,7 @@ class CultureExhibitionClientTest {
 	void fetchDetail_detail2_파싱() {
 		server.enqueue(new MockResponse().setBody(DETAIL2_XML).addHeader("Content-Type", "application/xml"));
 
-		Optional<CatalogDetailData> result = client.fetchDetail("319005");
+		Optional<CatalogDetailData> result = client.fetchDetailSnapshot("319005").map(DetailFetch::data);
 
 		assertThat(result).isPresent();
 		assertThat(result.get().price()).isEqualTo("무료");
@@ -333,7 +333,7 @@ class CultureExhibitionClientTest {
 		server.enqueue(new MockResponse().setBody(DETAIL2_XML).addHeader("Content-Type", "application/xml"));
 
 		client.fetchAll(CRITERIA, CatalogPageStop.never());
-		client.fetchDetail("319005");
+		client.fetchDetailSnapshot("319005");
 
 		// 파라미터 이름은 원천이 정한 것이라 대소문자 한 글자만 틀려도(PageNo·numOfrows) 응답이 빈다 —
 		// 응답 파싱만 보는 테스트는 이 오류를 못 잡으므로 요청선 자체를 못박는다.
