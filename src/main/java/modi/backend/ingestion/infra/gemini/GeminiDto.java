@@ -46,20 +46,15 @@ public final class GeminiDto {
 	}
 
 	/**
-	 * enum/array 제약 스키마. 직렬화 키는 Gemini 규격({@code type}/{@code enum}/{@code items})에 맞춘다.
-	 * NON_NULL이라 단건(STRING+enum)이면 items가, 배치(ARRAY+items)면 enum이 각각 생략된다.
+	 * enum 제약 스키마. 직렬화 키는 Gemini 규격({@code type}/{@code enum})에 맞춘다.
+	 * NON_NULL이라 값이 없는 키는 본문에서 생략된다.
 	 */
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	public record ResponseSchema(String type, @JsonProperty("enum") List<String> enumValues, ResponseSchema items) {
+	public record ResponseSchema(String type, @JsonProperty("enum") List<String> enumValues) {
 
-		/** 단건 — 마스터 장르 중 하나(STRING enum). */
+		/** 단건 — 마스터 장르 중 하나(STRING enum). 분류는 draft당 1건이라 배열 스키마는 두지 않는다. */
 		public static ResponseSchema ofEnum(List<String> values) {
-			return new ResponseSchema("STRING", values, null);
-		}
-
-		/** 배치 — 마스터 장르 enum의 배열(ARRAY of STRING enum). 여러 전시를 한 응답(JSON 배열)으로 받는다. */
-		public static ResponseSchema ofEnumArray(List<String> values) {
-			return new ResponseSchema("ARRAY", null, ofEnum(values));
+			return new ResponseSchema("STRING", values);
 		}
 	}
 
