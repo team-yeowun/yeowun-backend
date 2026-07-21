@@ -47,7 +47,8 @@ public class PlaceHoursRefresher {
 	private final ExhibitionSyncFacade exhibitionSyncFacade;
 	/** 영업시간 정준층 계약(코어 소유) — 대상 해소·실패 기록. */
 	private final PlaceHoursBackfill placeHoursBackfill;
-	private final PlaceHoursProvider placeHoursProvider;
+	/** 조회 1건 + 그 호출의 감사. */
+	private final PlaceHoursReader placeHoursReader;
 	private final OpeningHoursFormatter openingHoursFormatter;
 	private final OutboxProperties properties;
 
@@ -83,14 +84,14 @@ public class PlaceHoursRefresher {
 		}
 		PlaceHoursTarget target = resolved.get();
 		try {
-			Optional<PlaceHoursFetch> fetched = placeHoursProvider.fetch(target.placeName(), target.placeAddr());
+			Optional<PlaceHoursFetch> fetched = placeHoursReader.read(target);
 			String formatted = fetched.map(f -> openingHoursFormatter.format(f.data().weeklyHours())).orElse(null);
 			exhibitionSyncFacade.applyVenueHours(target, fetched.map(PlaceHoursFetch::data).orElse(null),
-						fetched.map(PlaceHoursFetch::vendor).orElse(null), formatted, placeHoursProvider.vendor(), now);
+						fetched.map(PlaceHoursFetch::vendor).orElse(null), formatted, placeHoursReader.vendor(), now);
 		} catch (org.springframework.dao.OptimisticLockingFailureException e) {
 			return false; // 반영 중 충돌 — 다른 워커가 처리
 		} catch (RuntimeException e) {
-			placeHoursBackfill.markHoursFailure(target.exhibitionPlaceId(), placeHoursProvider.vendor());
+			placeHoursBackfill.markHoursFailure(target.exhibitionPlaceId(), placeHoursReader.vendor());
 			return OutboxProcessing.fail(exhibitionOutboxFacade, job,
 					OutboxFailures.classify(e), OutboxFailures.describe(e), now);
 		}

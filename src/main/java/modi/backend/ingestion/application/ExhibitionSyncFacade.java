@@ -94,7 +94,7 @@ public class ExhibitionSyncFacade {
 	 * 외부 호출 1건을 감사에 남긴다(append-only). 부가 기록이라 실패해도 수집을 깨지 않는다.
 	 * <p>
 	 * 순회가 여기(application)에 있으므로 <b>콜 단위로</b> 남는다 — 어댑터가 순회를 끌어안던 시절엔
-	 * 3콜이 1행으로 뭉개졌다.
+	 * 3콜이 1행으로 뭉개졌다. 영업시간(구글)은 1콜=1행이라 순회 없이 호출부가 그대로 부른다.
 	 */
 	public void recordApiCall(ExternalApi api, String requestKey, ExternalApiOutcome outcome, LocalDateTime calledAt) {
 		try {

@@ -21,7 +21,7 @@ import modi.backend.ingestion.domain.port.PlaceHoursProvider;
 /**
  * 전시 영업시간(운영시간) 보강 오케스트레이션 — 장르 보강({@link GenreEnricher})과 동형.
  * <p>
- * 흐름: 조회 대상(주소 있고 미조회·만료)을 장소 단위로 묶어 조회({@link PlaceHoursProvider}, 장소당 1콜) →
+ * 흐름: 조회 대상(주소 있고 미조회·만료)을 장소 단위로 묶어 조회({@link PlaceHoursReader}, 장소당 1콜) →
  * 벤더 원본 적재 + 우리 표시 규칙({@link OpeningHoursFormatter})으로 정준층 파생 저장. 루프는 트랜잭션 밖에서 돌고, 장소 단위 저장만
  * {@link ExhibitionFacade}의 트랜잭션 메서드(프록시 경유)로 위임해 외부 호출을 한 트랜잭션에 오래 물지 않는다(커넥션 장기 점유 방지).
  * <p>
@@ -42,7 +42,8 @@ public class PlaceHoursEnricher {
 	private final ExhibitionSyncFacade exhibitionSyncFacade;
 	/** 영업시간 정준층 계약(코어 소유) — 대상 선별·실패 기록. */
 	private final PlaceHoursBackfill placeHoursBackfill;
-	private final PlaceHoursProvider placeHoursProvider;
+	/** 조회 1건 + 그 호출의 감사. */
+	private final PlaceHoursReader placeHoursReader;
 	private final OpeningHoursFormatter openingHoursFormatter;
 	private final PlaceHoursProperties properties;
 
@@ -60,16 +61,16 @@ public class PlaceHoursEnricher {
 		int touched = 0;
 		for (PlaceHoursTarget target : targets) {
 			try {
-				Optional<PlaceHoursFetch> fetched = placeHoursProvider.fetch(target.placeName(), target.placeAddr());
+				Optional<PlaceHoursFetch> fetched = placeHoursReader.read(target);
 				String formatted = fetched.map(f -> openingHoursFormatter.format(f.data().weeklyHours())).orElse(null);
 				exhibitionSyncFacade.applyVenueHours(target, fetched.map(PlaceHoursFetch::data).orElse(null),
-						fetched.map(PlaceHoursFetch::vendor).orElse(null), formatted, placeHoursProvider.vendor(),
+						fetched.map(PlaceHoursFetch::vendor).orElse(null), formatted, placeHoursReader.vendor(),
 						LocalDateTime.now());
 				touched += 1;
 			} catch (RuntimeException e) {
 				// 전송 실패 등 — 이 장소만 건너뛰고 synced_at을 남기지 않아 다음 주기에 재시도한다(기존 동작 불변).
 				// 정준층엔 "시도했고 실패했다"를 남긴다 — 현행 스키마가 표현하지 못하던 사실이고, 표시값은 지우지 않는다.
-				placeHoursBackfill.markHoursFailure(target.exhibitionPlaceId(), placeHoursProvider.vendor());
+				placeHoursBackfill.markHoursFailure(target.exhibitionPlaceId(), placeHoursReader.vendor());
 				log.warn("전시 영업시간 조회 실패(장소={}, 다음 주기 재시도): {}", target.placeAddr(), e.getMessage());
 			}
 		}
