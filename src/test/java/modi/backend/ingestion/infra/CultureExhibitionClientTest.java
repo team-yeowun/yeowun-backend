@@ -56,7 +56,7 @@ class CultureExhibitionClientTest {
 		server = new MockWebServer();
 		server.start();
 		String baseUrl = "http://localhost:" + server.getPort();
-		// 운영 조립(HttpClientConfig)과 동일: JDK 팩토리 고정(클래스패스의 Apache 자동감지 → 전송 재시도 방지) + UTF-8 String 컨버터
+		// 운영 조립(OAuthHttpClientConfig)과 동일: JDK 팩토리 고정(클래스패스의 Apache 자동감지 → 전송 재시도 방지) + UTF-8 String 컨버터
 		RestClient restClient = RestClient.builder().baseUrl(baseUrl)
 				.requestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory())
 				.configureMessageConverters(b -> b.withStringConverter(

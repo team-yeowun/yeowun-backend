@@ -10,9 +10,16 @@ import org.springframework.web.service.annotation.GetExchange;
 public interface CultureApi {
 
 	@GetExchange("/realm2")
-	String getRealmList(@RequestParam String serviceKey, @RequestParam("PageNo") int pageNo,
-			@RequestParam("numOfrows") int numOfRows, @RequestParam String realmCode);
+	String getRealmList(
+            @RequestParam String serviceKey,
+            @RequestParam("PageNo") int pageNo,
+			@RequestParam("numOfrows") int numOfRows,
+            @RequestParam String realmCode
+    );
 
 	@GetExchange("/detail2")
-	String getDetail(@RequestParam String serviceKey, @RequestParam String seq);
+	String getDetail(
+            @RequestParam String serviceKey,
+            @RequestParam String seq
+    );
 }
