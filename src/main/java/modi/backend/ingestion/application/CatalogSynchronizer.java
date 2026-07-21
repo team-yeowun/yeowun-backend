@@ -27,8 +27,11 @@ import modi.backend.ingestion.properties.CatalogFetchProperties;
  * 필수 스텝 enqueue]만 한다 — 상세 조회·AI 분류는 전부 아웃박스 메시지로 위임되어 릴레이가 처리한다
  * (예전엔 신규·미완성 행마다 상세를 인라인 호출해 초기 적재 시 수백 콜이 이 루프에 물렸다).
  *
- * <p>신규는 {@link ExhibitionDraftFacade}가 스테이징하고(전시는 승격 게이트를 채워야만 생긴다 — ADR-02 완성),
- * 레거시 미완성 전시(draft 도입 전에 승격된 행)는 FETCH_DETAIL 메시지로 뒤채움을 위임한다.
+ * <p>신규는 {@link ExhibitionDraftFacade}가 스테이징한다(전시는 승격 게이트를 채워야만 생긴다 — ADR-02 완성).
+ *
+ * <p><b>수집 목표는 신규 등록 포착</b>이다(사용자 결정). 원천을 등록 역순으로 읽다가 <b>페이지 전량이 이미 아는
+ * 항목</b>이면 거기서 순회를 멈춘다 — 그 뒤로는 신규가 없기 때문이다. 전량 정합(변경·소멸 감지)은 목표가 아니며,
+ * 레거시 뒤채움도 이 루프에서 하지 않는다(필요해지면 일회성 배치로 분리).
  */
 @Component
 @RequiredArgsConstructor
@@ -60,7 +63,8 @@ public class CatalogSynchronizer {
 		// 아이템마다 now()를 찍으면 그 경계가 흐려진다.
 		LocalDateTime syncedAt = LocalDateTime.now();
 		IngestionRun run = IngestionRun.started(trigger, syncedAt);
-		CatalogListData fetched = catalogClient.fetchAll(fetchProperties.toCriteria());
+		CatalogListData fetched = catalogClient.fetchAll(fetchProperties.toCriteria(),
+				exhibitionSyncFacade::allSnapshotted);
 		List<CatalogExhibitionData> collected = fetched.items();
 		run.fetched(fetched.totalCount(), collected.size());
 		int staged = 0;
@@ -98,17 +102,16 @@ public class CatalogSynchronizer {
 
 	/**
 	 * 목록 1건 처리 — 외부 호출 없이 상태 판정과 영속 위임만 한다.
-	 * 완성 전시=스킵, 레거시 미완성=FETCH_DETAIL 위임, 그 외=draft 스테이징(신규)·갱신(재sync).
+	 * 이미 승격된 전시=스킵, 그 외=draft 스테이징(신규)·갱신(재sync).
+	 *
+	 * <p><b>레거시 뒤채움은 여기서 하지 않는다</b>: 승격은 {@code ExhibitionRegistrationFacade#register}가 항상
+	 * 상세(값 또는 확인 표식)를 함께 쓰므로, 현재 코드로 승격된 전시는 {@code NEEDS_DETAIL}이 될 수 없다 —
+	 * 그 상태는 draft 도입 <b>이전</b> 행에만 남는다. 조기 종료로 목록 뒤쪽을 보지 않게 되면서 이 분기는
+	 * 어차피 닿지 않으므로, 매 건 상태를 되묻는 대신 뺐다(필요해지면 일회성 배치로 — 사용자 결정).
 	 */
 	private SyncOutcome syncOne(CatalogExhibitionData data, LocalDateTime now) {
-		DetailTargetState state = exhibitionBackfill.findDetailTargetState(data.externalId());
-		if (state == DetailTargetState.ALREADY_SYNCED) {
+		if (exhibitionBackfill.findDetailTargetState(data.externalId()) == DetailTargetState.ALREADY_SYNCED) {
 			return SyncOutcome.SKIPPED;
-		}
-		if (state == DetailTargetState.NEEDS_DETAIL) {
-			// draft 도입 전에 승격된 레거시 미완성 행 — 인라인 조회 대신 메시지로 뒤채움을 위임한다(멱등 enqueue).
-			exhibitionOutboxFacade.enqueue(OutboxMessageType.FETCH_DETAIL, data.externalId(), now);
-			return SyncOutcome.BACKFILLED;
 		}
 		return switch (exhibitionDraftFacade.stageFromList(data, now)) {
 			case STAGED -> SyncOutcome.STAGED;

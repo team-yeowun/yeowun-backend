@@ -89,7 +89,7 @@ class ExhibitionDraftPipelineIntegrationTest {
 	void 파이프라인_전구간_승격() {
 		int seq = SEQ.getAndIncrement();
 		String externalId = "PIPE-" + seq;
-		given(catalogClient.fetchAll(any())).willReturn(
+		given(catalogClient.fetchAll(any(), any())).willReturn(
 				new CatalogListData(java.util.List.of(listData(externalId, "파이프장소" + seq)), 1));
 		given(catalogClient.fetchDetailSnapshot(anyString())).willReturn(Optional.of(new DetailFetch(
 				new CatalogDetailData("무료", "전시 소개", null, "02-000-0000", null, null, "서울시 종로구", null), null)));
@@ -132,7 +132,7 @@ class ExhibitionDraftPipelineIntegrationTest {
 	void 파이프라인_무상세_승격() {
 		int seq = SEQ.getAndIncrement();
 		String externalId = "PIPE-ABSENT-" + seq;
-		given(catalogClient.fetchAll(any())).willReturn(
+		given(catalogClient.fetchAll(any(), any())).willReturn(
 				new CatalogListData(java.util.List.of(listData(externalId, "무상세장소" + seq)), 1));
 		given(catalogClient.fetchDetailSnapshot(anyString())).willReturn(Optional.empty()); // 원천에 상세 없음
 

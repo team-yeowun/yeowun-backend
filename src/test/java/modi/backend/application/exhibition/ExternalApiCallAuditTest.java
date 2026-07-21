@@ -55,7 +55,7 @@ class ExternalApiCallAuditTest {
 	@DisplayName("동기화 실행 — 원천이 말한 총 건수·집계가 ingestion_run에 남는다(로그로만 흘려보내던 값)")
 	void syncCatalog_실행기록_적재() {
 		String externalId = nextId();
-		given(exhibitionCatalogClient.fetchAll(any()))
+		given(exhibitionCatalogClient.fetchAll(any(), any()))
 				.willReturn(new CatalogListData(List.of(listItem(externalId)), 280));
 		given(exhibitionCatalogClient.fetchDetailSnapshot(eq(externalId))).willReturn(Optional.empty());
 		long before = countSyncRuns();
@@ -75,7 +75,7 @@ class ExternalApiCallAuditTest {
 	@DisplayName("원천이 말한 총 건수는 수집 건수와 무관하게 그대로 기록된다(원천 규모 추이용)")
 	void syncCatalog_총건수_기록() {
 		// 원천이 "총 600건"이라는데 상한에 걸려 일부만 수집된 상황 — 절단 여부는 더 기록하지 않지만 총 건수는 남는다.
-		given(exhibitionCatalogClient.fetchAll(any()))
+		given(exhibitionCatalogClient.fetchAll(any(), any()))
 				.willReturn(new CatalogListData(List.of(listItem(nextId())), 600));
 
 		catalogSynchronizer.syncCatalog();
@@ -88,7 +88,7 @@ class ExternalApiCallAuditTest {
 	@DisplayName("인증키 미설정(호출 0) — total_count는 null로 남는다(0이 아니라 '모른다')")
 	void syncCatalog_호출없음_totalCount_null() {
 		// 0으로 적으면 "원천에 전시가 0건"이라는 거짓이 된다. 우리는 물어보지도 않았다.
-		given(exhibitionCatalogClient.fetchAll(any())).willReturn(CatalogListData.none());
+		given(exhibitionCatalogClient.fetchAll(any(), any())).willReturn(CatalogListData.none());
 
 		catalogSynchronizer.syncCatalog();
 

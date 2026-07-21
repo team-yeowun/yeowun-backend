@@ -106,7 +106,7 @@ class ExhibitionIntegrationTest {
 	@BeforeEach
 	void seedCatalog() {
 		LocalDate today = LocalDate.now();
-		given(catalogClient.fetchAll(any())).willReturn(listData(List.of(
+		given(catalogClient.fetchAll(any(), any())).willReturn(listData(List.of(
 				new CatalogExhibitionData("CAT-MONET", MONET, "예술의전당", today.minusDays(10), today.plusDays(30),
 						ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING, "https://poster/monet.jpg",
 						"https://culture.go.kr/monet", "한국문화정보원", 126.980781, 37.578608,

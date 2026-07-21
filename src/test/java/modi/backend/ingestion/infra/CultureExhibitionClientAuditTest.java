@@ -19,6 +19,7 @@ import org.springframework.web.client.RestClient;
 
 import modi.backend.ingestion.domain.ExhibitionRealm;
 import modi.backend.ingestion.domain.data.CatalogFetchCriteria;
+import modi.backend.ingestion.domain.port.CatalogPageStop;
 import modi.backend.ingestion.properties.PublicDataProperties;
 import modi.backend.ingestion.domain.ExternalApi;
 import modi.backend.ingestion.domain.entity.ExternalApiCallLog;
@@ -84,7 +85,7 @@ class CultureExhibitionClientAuditTest {
 	void 목록_호출_감사() {
 		server.enqueue(new MockResponse().setBody(REALM2_XML).addHeader("Content-Type", "application/xml"));
 
-		client.fetchAll(CRITERIA);
+		client.fetchAll(CRITERIA, CatalogPageStop.never());
 
 		assertThat(recorded).hasSize(1);
 		ExternalApiCallLog call = recorded.get(0);
@@ -134,6 +135,6 @@ class CultureExhibitionClientAuditTest {
 					throw new IllegalStateException("감사 저장 실패");
 				}), mapper);
 
-		assertThat(failing.fetchAll(CRITERIA).items()).hasSize(1); // 수집은 정상
+		assertThat(failing.fetchAll(CRITERIA, CatalogPageStop.never()).items()).hasSize(1); // 수집은 정상
 	}
 }

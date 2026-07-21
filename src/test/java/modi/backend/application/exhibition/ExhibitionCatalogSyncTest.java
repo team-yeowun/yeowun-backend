@@ -67,7 +67,7 @@ class ExhibitionCatalogSyncTest {
 	@Test
 	@DisplayName("syncCatalog — 신규는 draft로 스테이징하고, 상세를 인라인으로 조회하지 않는다(목록 외 외부 호출 0)")
 	void syncCatalog_신규_스테이징() {
-		given(catalogClient.fetchAll(any())).willReturn(listData(List.of(data("CAT-NEW", "신규 전시"))));
+		given(catalogClient.fetchAll(any(), any())).willReturn(listData(List.of(data("CAT-NEW", "신규 전시"))));
 		given(backfill.findDetailTargetState("CAT-NEW")).willReturn(DetailTargetState.MISSING);
 		given(draftFacade.stageFromList(any(), any())).willReturn(ExhibitionDraftFacade.StageOutcome.STAGED);
 
@@ -81,7 +81,7 @@ class ExhibitionCatalogSyncTest {
 	@Test
 	@DisplayName("syncCatalog — 이미 완성된 전시는 스테이징도 위임도 없이 건너뛴다")
 	void syncCatalog_완성전시_스킵() {
-		given(catalogClient.fetchAll(any())).willReturn(listData(List.of(data("CAT-DONE", "완성 전시"))));
+		given(catalogClient.fetchAll(any(), any())).willReturn(listData(List.of(data("CAT-DONE", "완성 전시"))));
 		given(backfill.findDetailTargetState("CAT-DONE")).willReturn(DetailTargetState.ALREADY_SYNCED);
 
 		int staged = synchronizer.syncCatalog();
@@ -92,17 +92,18 @@ class ExhibitionCatalogSyncTest {
 	}
 
 	@Test
-	@DisplayName("syncCatalog — 레거시 미완성 전시는 FETCH_DETAIL 메시지로 뒤채움을 위임한다(인라인 조회 없음)")
-	void syncCatalog_레거시미완성_메시지위임() {
-		given(catalogClient.fetchAll(any())).willReturn(listData(List.of(data("CAT-OLD", "기존 전시"))));
+	@DisplayName("syncCatalog — 레거시 미완성 전시라도 sync가 뒤채움을 걸지 않는다(수집은 신규 등록 포착만)")
+	void syncCatalog_레거시미완성_뒤채움_안함() {
+		// draft 도입 이전 행에만 남는 상태다(현재 승격 경로는 상세를 항상 함께 쓴다).
+		// 조기 종료로 목록 뒤쪽을 보지 않게 되면서 이 분기는 어차피 닿지 않는다 — sync에서 뺐다.
+		given(catalogClient.fetchAll(any(), any())).willReturn(listData(List.of(data("CAT-OLD", "기존 전시"))));
 		given(backfill.findDetailTargetState("CAT-OLD")).willReturn(DetailTargetState.NEEDS_DETAIL);
+		given(draftFacade.stageFromList(any(), any())).willReturn(ExhibitionDraftFacade.StageOutcome.STAGED);
 
-		int staged = synchronizer.syncCatalog();
+		synchronizer.syncCatalog();
 
-		assertThat(staged).isZero();
-		verify(outboxFacade).enqueue(eq(OutboxMessageType.FETCH_DETAIL), eq("CAT-OLD"), any());
-		verify(catalogClient, never()).fetchDetailSnapshot(any());
-		verify(draftFacade, never()).stageFromList(any(), any()); // 이미 승격된 행 — draft를 만들지 않는다
+		verify(outboxFacade, never()).enqueue(eq(OutboxMessageType.FETCH_DETAIL), eq("CAT-OLD"), any());
+		verify(catalogClient, never()).fetchDetailSnapshot(any()); // 인라인 조회는 여전히 없다
 	}
 
 	@Test
@@ -112,7 +113,7 @@ class ExhibitionCatalogSyncTest {
 		CatalogExhibitionData invalid = new CatalogExhibitionData("CAT-BAD", "역전 기간", "장소", today,
 				today.minusDays(1), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING, null, null, "기관",
 				null, null, null, "전시", "서울");
-		given(catalogClient.fetchAll(any())).willReturn(listData(List.of(invalid, data("CAT-OK", "정상 전시"))));
+		given(catalogClient.fetchAll(any(), any())).willReturn(listData(List.of(invalid, data("CAT-OK", "정상 전시"))));
 		given(backfill.findDetailTargetState("CAT-OK")).willReturn(DetailTargetState.MISSING);
 		given(draftFacade.stageFromList(any(), any())).willReturn(ExhibitionDraftFacade.StageOutcome.STAGED);
 
@@ -126,7 +127,7 @@ class ExhibitionCatalogSyncTest {
 	@Test
 	@DisplayName("syncCatalog — 재sync에서 미종료 draft는 목록분 갱신(REFRESHED)으로 집계된다")
 	void syncCatalog_재sync_갱신집계() {
-		given(catalogClient.fetchAll(any())).willReturn(listData(List.of(data("CAT-RE", "재동기화 전시"))));
+		given(catalogClient.fetchAll(any(), any())).willReturn(listData(List.of(data("CAT-RE", "재동기화 전시"))));
 		given(backfill.findDetailTargetState("CAT-RE")).willReturn(DetailTargetState.MISSING);
 		given(draftFacade.stageFromList(any(), any())).willReturn(ExhibitionDraftFacade.StageOutcome.REFRESHED);
 

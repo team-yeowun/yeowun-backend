@@ -21,6 +21,7 @@ import modi.backend.ingestion.domain.CatalogServiceType;
 import modi.backend.ingestion.domain.CatalogSortOrder;
 import modi.backend.ingestion.domain.ExhibitionRealm;
 import modi.backend.ingestion.domain.data.CatalogFetchCriteria;
+import modi.backend.ingestion.domain.port.CatalogPageStop;
 import modi.backend.ingestion.domain.data.CatalogFetchFilter;
 import modi.backend.ingestion.properties.PublicDataProperties;
 import modi.backend.domain.exhibition.catalog.CatalogDetailData;
@@ -89,7 +90,7 @@ class CultureExhibitionClientTest {
 	void fetchAll_realm2_파싱() {
 		server.enqueue(new MockResponse().setBody(REALM2_XML).addHeader("Content-Type", "application/xml"));
 
-		List<CatalogExhibitionData> result = client.fetchAll(CRITERIA).items();
+		List<CatalogExhibitionData> result = client.fetchAll(CRITERIA, CatalogPageStop.never()).items();
 
 		assertThat(result).hasSize(1);
 		CatalogExhibitionData item = result.get(0);
@@ -118,7 +119,7 @@ class CultureExhibitionClientTest {
 	void fetchAll_전필드_동승() {
 		server.enqueue(new MockResponse().setBody(REALM2_XML).addHeader("Content-Type", "application/xml"));
 
-		List<CatalogExhibitionData> result = client.fetchAll(CRITERIA).items();
+		List<CatalogExhibitionData> result = client.fetchAll(CRITERIA, CatalogPageStop.never()).items();
 
 		assertThat(result.get(0).externalId()).isEqualTo("319005");
 		assertThat(result.get(0).gpsY()).isEqualTo(35.1); // 마지막 필드까지 온전히 담긴다
@@ -134,7 +135,7 @@ class CultureExhibitionClientTest {
 				+ "</items></body></response>";
 		server.enqueue(new MockResponse().setBody(twoItems).addHeader("Content-Type", "application/xml"));
 
-		List<CatalogExhibitionData> result = client.fetchAll(CRITERIA).items();
+		List<CatalogExhibitionData> result = client.fetchAll(CRITERIA, CatalogPageStop.never()).items();
 
 		// 짝이 밀리면 스냅샷이 통째로 오염된다 — 없는 것보다 나쁘다.
 		assertThat(result).hasSize(2);
@@ -161,10 +162,58 @@ class CultureExhibitionClientTest {
 		server.enqueue(page(2, "1001", "1002"));
 		server.enqueue(page(2, "2001"));
 
-		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 2, 6));
+		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 2, 6), CatalogPageStop.never());
 
 		assertThat(result.items()).hasSize(3);
 		assertThat(server.getRequestCount()).isEqualTo(2); // 3콜 상한이지만 2콜에서 멈춘다
+	}
+
+	@Test
+	@DisplayName("조기 종료 — 페이지 전량이 이미 아는 항목이면 다음 페이지를 부르지 않는다")
+	void 조기종료_페이지전량_기존항목() {
+		// 1페이지(1001·1002)가 전부 known → 2페이지를 부르면 안 된다.
+		server.enqueue(page(10, "1001", "1002"));
+		server.enqueue(page(10, "2001", "2002")); // 부르면 이게 나간다(부르면 안 된다)
+
+		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 2, 10),
+				ids -> ids.equals(List.of("1001", "1002")));
+
+		assertThat(server.getRequestCount()).isEqualTo(1); // 1콜에서 멈췄다
+		assertThat(result.items()).hasSize(2);
+	}
+
+	@Test
+	@DisplayName("조기 종료 안 함 — 페이지에 모르는 항목이 하나라도 섞이면 계속 순회한다")
+	void 조기종료_하나라도_신규면_계속() {
+		// seq가 등록 순서와 항상 단조라는 보장이 없다 — 아는 것 하나에 멈추면 뒤에 꽂힌 신규를 놓친다.
+		server.enqueue(page(10, "1001", "9999")); // 9999는 모르는 항목
+		server.enqueue(page(10, "2001"));         // 덜 찬 페이지 → 여기서 정상 종료
+
+		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 2, 10),
+				ids -> ids.stream().allMatch(id -> id.equals("1001")));
+
+		assertThat(server.getRequestCount()).isEqualTo(2); // 멈추지 않고 다음 페이지를 봤다
+		assertThat(result.items()).hasSize(3);
+	}
+
+	@Test
+	@DisplayName("조기 종료 판정은 필터 이전 원문 순서로 한다 — 적재 불가 행도 판정 대상이다")
+	void 조기종료_판정은_필터이전() {
+		// title 없는 행(적재 불가)이 섞여 있어도, 그 seq는 이미 스냅샷에 있을 수 있다.
+		// 판정에서 빼버리면 "전량 known"이 영영 성립하지 않아 조기 종료가 죽는다.
+		String body = "<response><header><resultCode>00</resultCode><resultMsg>정상</resultMsg></header>"
+				+ "<body><totalCount>10</totalCount><items>"
+				+ "<item><seq>1001</seq><title>첫째</title><area>서울</area></item>"
+				+ "<item><seq>1002</seq><title></title><area>서울</area></item>"
+				+ "</items></body></response>";
+		server.enqueue(new MockResponse().setBody(body).addHeader("Content-Type", "application/xml"));
+		server.enqueue(page(10, "2001", "2002"));
+
+		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 2, 10),
+				ids -> ids.equals(List.of("1001", "1002"))); // 걸러진 1002도 판정에 들어와야 한다
+
+		assertThat(server.getRequestCount()).isEqualTo(1);
+		assertThat(result.items()).hasSize(1); // 적재는 1건(불량 행 제외)
 	}
 
 	@Test
@@ -173,7 +222,7 @@ class CultureExhibitionClientTest {
 		server.enqueue(page(5, "1001", "1002"));
 		server.enqueue(page(5, "2001", "2002"));
 
-		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 2, 4));
+		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 2, 4), CatalogPageStop.never());
 
 		assertThat(result.totalCount()).isEqualTo(5);
 	}
@@ -184,7 +233,7 @@ class CultureExhibitionClientTest {
 		server.enqueue(pageWithoutTotalCount("1001", "1002"));
 		server.enqueue(pageWithoutTotalCount("2001", "2002"));
 
-		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 2, 4));
+		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 2, 4), CatalogPageStop.never());
 
 		assertThat(result.totalCount()).isNull(); // 모른다(0이 아니다)
 	}
@@ -201,7 +250,7 @@ class CultureExhibitionClientTest {
 				+ "</items></body></response>";
 		server.enqueue(new MockResponse().setBody(body).addHeader("Content-Type", "application/xml"));
 
-		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 3, 3));
+		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 3, 3), CatalogPageStop.never());
 
 		assertThat(result.items()).hasSize(2); // 불량 1건은 빠진다
 		assertThat(result.totalCount()).isEqualTo(3); // 원천이 말한 수는 필터와 무관하게 그대로
@@ -232,7 +281,7 @@ class CultureExhibitionClientTest {
 	void 선택필터_없으면_파라미터_미포함() throws InterruptedException {
 		server.enqueue(new MockResponse().setBody(REALM2_XML).addHeader("Content-Type", "application/xml"));
 
-		client.fetchAll(CRITERIA); // 필터 없음
+		client.fetchAll(CRITERIA, CatalogPageStop.never()); // 필터 없음
 
 		String path = server.takeRequest().getPath();
 		// 빈 값을 보내면 원천이 0건을 준다 — "안 보내는 것"과 "빈 값을 보내는 것"은 다르다.
@@ -250,7 +299,7 @@ class CultureExhibitionClientTest {
 				ExhibitionRegion.BUSAN, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), null, null, null);
 
 		client.fetchAll(new CatalogFetchCriteria(ExhibitionRealm.EXHIBITION,
-				CatalogServiceType.PERFORMANCE_EXHIBITION, CatalogSortOrder.TITLE_ASC, 100, 500, filter));
+				CatalogServiceType.PERFORMANCE_EXHIBITION, CatalogSortOrder.TITLE_ASC, 100, 500, filter), CatalogPageStop.never());
 
 		String path = server.takeRequest().getPath();
 		// 도메인 어휘 → 벤더 표기 번역이 여기서 확정된다(BUSAN→부산, LocalDate→YYYYMMDD, REGISTERED→1).
@@ -269,7 +318,7 @@ class CultureExhibitionClientTest {
 				new CatalogFetchFilter.Bounds(128.8, 35.0, 129.2, 35.3));
 
 		client.fetchAll(new CatalogFetchCriteria(ExhibitionRealm.EXHIBITION,
-				CatalogServiceType.PERFORMANCE_EXHIBITION, CatalogSortOrder.START_DATE_ASC, 100, 500, filter));
+				CatalogServiceType.PERFORMANCE_EXHIBITION, CatalogSortOrder.START_DATE_ASC, 100, 500, filter), CatalogPageStop.never());
 
 		String path = server.takeRequest().getPath();
 		assertThat(path).contains("gpsxfrom=128.8").contains("gpsyfrom=35.0")
@@ -282,7 +331,7 @@ class CultureExhibitionClientTest {
 		server.enqueue(new MockResponse().setBody(REALM2_XML).addHeader("Content-Type", "application/xml"));
 		server.enqueue(new MockResponse().setBody(DETAIL2_XML).addHeader("Content-Type", "application/xml"));
 
-		client.fetchAll(CRITERIA);
+		client.fetchAll(CRITERIA, CatalogPageStop.never());
 		client.fetchDetail("319005");
 
 		// 파라미터 이름은 원천이 정한 것이라 대소문자 한 글자만 틀려도(PageNo·numOfrows) 응답이 빈다 —

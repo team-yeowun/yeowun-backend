@@ -14,6 +14,7 @@ import modi.backend.ingestion.domain.data.CatalogExhibitionData;
 import modi.backend.ingestion.domain.data.CatalogFetchCriteria;
 import modi.backend.ingestion.domain.data.CatalogListData;
 import modi.backend.ingestion.domain.data.DetailFetch;
+import modi.backend.ingestion.domain.port.CatalogPageStop;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
 
 /**
@@ -38,13 +39,13 @@ public class CultureCatalogReader implements ExhibitionCatalogClient {
 	private final CultureApiMapper mapper;
 
 	@Override
-	public CatalogListData fetchAll(CatalogFetchCriteria criteria) {
+	public CatalogListData fetchAll(CatalogFetchCriteria criteria, CatalogPageStop pageStop) {
 		if (!client.isConfigured()) {
 			// 인증키 미설정: 외부 호출을 시도하지 않고 스킵한다(데모는 시드 데이터로 동작 — 04_전시_구현.md).
 			log.info("CULTURE_API_KEY 미설정 — 동기화 스킵");
 			return CatalogListData.none();
 		}
-		return toListData(fetchPages(criteria));
+		return toListData(fetchPages(criteria, pageStop));
 	}
 
 	/**
@@ -56,18 +57,31 @@ public class CultureCatalogReader implements ExhibitionCatalogClient {
 	}
 
 	/**
-	 * 상한까지 페이지를 순회한다 — <b>덜 찬 페이지를 만나면 거기서 멈춘다.</b>
-	 * 원천이 마지막 페이지를 명시하지 않으므로(hasNext·totalPages 없음) 받아 본 행 수로 추론할 수밖에 없다.
-	 * <p>
+	 * 상한까지 페이지를 순회한다 — <b>두 가지 사유로 멈춘다.</b>
+	 * <ol>
+	 *   <li><b>덜 찬 페이지</b> = 마지막 페이지. 원천이 마지막을 명시하지 않으므로(hasNext·totalPages 없음)
+	 *       받아 본 행 수로 추론할 수밖에 없다.</li>
+	 *   <li><b>페이지 전량이 이미 아는 것</b>({@link CatalogPageStop}). 등록 역순이라 그 뒤로는 신규가 없다 —
+	 *       더 부르면 이미 가진 것을 다시 받아 다시 처리하게 된다.</li>
+	 * </ol>
 	 * "어디까지 부를까"만 판단하고 내용은 보지 않는다 — 누적·판정은 {@link #toListData}의 몫이다.
+	 * 중단 판정에 쓰는 id는 <b>필터 이전 응답 순서 그대로</b>다(적재 가능 여부는 여기의 관심사가 아니다).
 	 */
-	private List<CultureRealmListResponse> fetchPages(CatalogFetchCriteria criteria) {
+	private List<CultureRealmListResponse> fetchPages(CatalogFetchCriteria criteria, CatalogPageStop pageStop) {
 		List<CultureRealmListResponse> pages = new ArrayList<>();
 		for (int pageNo = 1; pageNo <= criteria.maxCalls(); pageNo++) {
 			CultureRealmListResponse page = client.fetchListPage(criteria, pageNo);
 			pages.add(page);
 			if (page.items().size() < criteria.pageSize()) {
 				break; // 마지막 페이지
+			}
+			List<String> externalIds = page.items().stream()
+					.map(CultureRealmListResponse.Item::seq)
+					.filter(Objects::nonNull)
+					.toList();
+			if (!externalIds.isEmpty() && pageStop.allKnown(externalIds)) {
+				log.debug("목록 순회 조기 종료 — {}페이지 전량이 기존 항목(등록 역순이라 이후는 신규 없음)", pageNo);
+				break;
 			}
 		}
 		return pages;

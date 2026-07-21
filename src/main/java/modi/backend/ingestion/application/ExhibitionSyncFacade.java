@@ -1,6 +1,9 @@
 package modi.backend.ingestion.application;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -92,6 +95,24 @@ public class ExhibitionSyncFacade {
 		} catch (RuntimeException e) {
 			log.warn("동기화 실행 기록 실패(동기화는 계속): {}", e.getMessage());
 		}
+	}
+
+	/**
+	 * 이 식별자들이 <b>전부</b> 이미 스냅샷에 있는가 — 목록 순회 조기 종료 판정({@code CatalogPageStop}).
+	 *
+	 * <p><b>왜 {@code exhibitions}가 아니라 스냅샷 기준인가</b>: 스냅샷이 가장 넓은 집합이다. 승격 전 draft 단계
+	 * 항목도, 기간 불량으로 도메인이 적재하지 않은 항목도 여기엔 행이 있다. {@code exhibitions}로 판정하면 그것들이
+	 * 매 동기화마다 "모르는 것"으로 잡혀 조기 종료가 사실상 걸리지 않는다.
+	 *
+	 * <p>조회는 <b>페이지당 1회</b>({@code IN})다 — 건당 물으면 아끼려던 쿼리를 판정에서 도로 쓴다.
+	 */
+	@Transactional(readOnly = true)
+	public boolean allSnapshotted(List<String> externalIds) {
+		if (externalIds.isEmpty()) {
+			return false;
+		}
+		Set<String> distinct = new HashSet<>(externalIds);
+		return cultureListSnapshotRepository.countByExternalIdIn(distinct) == distinct.size();
 	}
 
 	/** 벤더 목록 스냅샷 upsert(필드 적재 — ADR-13). 부가 기록이라 실패해도 동기화를 깨지 않는다(이 행 스냅샷만 누락). */
