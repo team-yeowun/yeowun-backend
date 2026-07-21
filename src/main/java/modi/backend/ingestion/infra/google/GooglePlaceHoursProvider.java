@@ -3,6 +3,7 @@ package modi.backend.ingestion.infra.google;
 import java.util.Optional;
 
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
 
 import lombok.RequiredArgsConstructor;
 import modi.backend.domain.exhibition.hours.PlaceHoursVendor;
@@ -12,7 +13,8 @@ import modi.backend.ingestion.domain.port.PlaceHoursProvider;
 import modi.backend.ingestion.properties.PlaceHoursProperties;
 
 /**
- * 구글 Places(New) 실호출 영업시간 조회기. 장소명+주소로 Text Search 1콜을 보내 {@code regularOpeningHours}를 받는다.
+ * 구글 Places(New) 실호출 영업시간 조회기. 장소명+주소로 Text Search({@code /v1/places:searchText}) 1콜을 보내
+ * {@code regularOpeningHours}를 받는다. 요청선 조립은 {@link RestClient}로 직접 한다(공공데이터 전시 API와 같은 구조).
  * <p>
  * 계약({@link PlaceHoursProvider}): 미발견은 {@link Optional#empty()}, 전송 오류(RestClient 예외)는 전파해 상위가 스킵/재시도한다.
  * 장소는 찾았으나 영업시간이 없으면 {@link WeeklyOpeningHours#empty()}를 담아 반환한다(장소 확인은 됐으므로 재조회 대상에서 빠지게).
@@ -30,7 +32,8 @@ public class GooglePlaceHoursProvider implements PlaceHoursProvider {
 	private static final String FIELD_MASK =
 			"places.id,places.displayName,places.formattedAddress,places.regularOpeningHours";
 
-	private final GoogleMapsApi googleMapsApi;
+	/** 필드명이 곧 빈 이름이다 — RestClient 빈이 여럿이라 이름으로 해소된다(@Qualifier 대체). */
+	private final RestClient googleMapsRestClient;
 	private final PlaceHoursProperties properties;
 
 	@Override
@@ -38,8 +41,14 @@ public class GooglePlaceHoursProvider implements PlaceHoursProvider {
 		GoogleMapsDto.SearchTextRequest request = new GoogleMapsDto.SearchTextRequest(
 				buildQuery(placeName, placeAddr), properties.languageCode(), properties.regionCode());
 		// 전송 오류는 잡지 않고 전파한다 — 호출부가 해당 장소만 스킵하고 다음 주기에 재시도한다.
-		GoogleMapsDto.SearchTextResponse response =
-				googleMapsApi.searchText(properties.apiKey(), FIELD_MASK, request);
+		GoogleMapsDto.SearchTextResponse response = googleMapsRestClient.post()
+				.uri("/v1/places:searchText")
+				// 인증키는 URL 노출을 피해 헤더로. FieldMask는 New API 필수 — 없으면 400.
+				.header("X-Goog-Api-Key", properties.apiKey())
+				.header("X-Goog-FieldMask", FIELD_MASK)
+				.body(request)
+				.retrieve()
+				.body(GoogleMapsDto.SearchTextResponse.class);
 		return response == null
 				? Optional.empty()
 				: response.firstPlace().map(GoogleMapsDto.Place::toFetch);

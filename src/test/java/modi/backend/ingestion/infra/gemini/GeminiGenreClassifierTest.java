@@ -10,8 +10,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.support.RestClientAdapter;
-import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import modi.backend.ingestion.properties.GeminiProperties;
@@ -55,9 +53,7 @@ class GeminiGenreClassifierTest {
 		RestClient restClient = RestClient.builder().baseUrl(properties.baseUrl())
 				.requestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory())
 				.build();
-		GeminiApi api = HttpServiceProxyFactory.builderFor(RestClientAdapter.create(restClient)).build()
-				.createClient(GeminiApi.class);
-		return new GeminiGenreClassifier(api, properties, new SimpleMeterRegistry());
+		return new GeminiGenreClassifier(restClient, properties, new SimpleMeterRegistry());
 	}
 
 	@Test

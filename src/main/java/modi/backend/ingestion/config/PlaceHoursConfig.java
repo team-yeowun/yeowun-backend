@@ -10,11 +10,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
-import org.springframework.web.client.support.RestClientAdapter;
-import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
 import modi.backend.ingestion.domain.port.PlaceHoursProvider;
-import modi.backend.ingestion.infra.google.GoogleMapsApi;
 import modi.backend.ingestion.infra.google.GooglePlaceHoursProvider;
 import modi.backend.ingestion.infra.mock.MockPlaceHoursProvider;
 
@@ -31,7 +28,11 @@ public class PlaceHoursConfig {
 	/** 연결 수립 상한(읽기 타임아웃과 별개) — 세 수집 클라이언트가 같은 값을 쓴다. */
 	private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
 
-	/** 구글 Places 전용 RestClient. baseUrl·읽기 타임아웃(워커 스레드 장기 점유·부팅 지연 방지)을 설정에서 주입한다. */
+	/**
+	 * 구글 Places 전용 RestClient. baseUrl·읽기 타임아웃(워커 스레드 장기 점유·부팅 지연 방지)을 설정에서 주입한다.
+	 * 요청선(경로·헤더·본문)은 {@link GooglePlaceHoursProvider}가 이 클라이언트로 직접 조립한다 —
+	 * 선언형 HTTP Interface 프록시를 두지 않는다(공공데이터 전시 API와 같은 구조).
+	 */
 	@Bean
 	public RestClient googleMapsRestClient(PlaceHoursProperties properties) {
 		// 연결 수립 상한 — 살아있는 상대는 1초 안에 붙는다. 팩토리엔 세터가 없어 HttpClient에 걸어 넘긴다.
@@ -44,13 +45,6 @@ public class PlaceHoursConfig {
 				.baseUrl(properties.baseUrl())
 				.requestFactory(requestFactory)
 				.build();
-	}
-
-	/** {@link GoogleMapsApi} 선언형 클라이언트 — {@link #googleMapsRestClient} 위에 HTTP Interface 프록시를 세운다. */
-	@Bean
-	public GoogleMapsApi googleMapsApi(RestClient googleMapsRestClient) {
-		return HttpServiceProxyFactory.builderFor(RestClientAdapter.create(googleMapsRestClient)).build()
-				.createClient(GoogleMapsApi.class);
 	}
 
 	/**
