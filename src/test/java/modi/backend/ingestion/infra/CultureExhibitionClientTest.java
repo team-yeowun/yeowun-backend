@@ -76,8 +76,9 @@ class CultureExhibitionClientTest {
 		// 테스트 대상은 포트 구현(Reader) — 단건 호출 Client를 감싸 페이징·접기까지 함께 검증한다.
 		CultureApiMapper mapper = new CultureApiMapper();
 		client = new CultureCatalogReader(
+				new CultureExhibitionClient(restClient, mapper, properties), mapper,
 				// 감사 저장은 이 테스트의 관심사가 아니다(전송·파싱만 본다)
-				new CultureExhibitionClient(restClient, mapper, properties, call -> call), mapper);
+				call -> call);
 	}
 
 	@AfterEach

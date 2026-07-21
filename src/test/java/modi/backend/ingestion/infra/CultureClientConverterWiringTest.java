@@ -57,7 +57,7 @@ class CultureClientConverterWiringTest {
 		// 운영 설정 그대로 — 여기서 컨버터 배선이 틀어지면 아래 테스트가 깨진다.
 		RestClient restClient = new KoreaCultureInformationClientConfig()
 				.koreaCultureInformationClient(properties);
-		client = new CultureExhibitionClient(restClient, new CultureApiMapper(), properties, call -> call);
+		client = new CultureExhibitionClient(restClient, new CultureApiMapper(), properties);
 	}
 
 	@AfterEach

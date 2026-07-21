@@ -1,5 +1,6 @@
 package modi.backend.ingestion.infra.culture;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -14,15 +15,23 @@ import modi.backend.ingestion.domain.data.CatalogExhibitionData;
 import modi.backend.ingestion.domain.data.CatalogFetchCriteria;
 import modi.backend.ingestion.domain.data.CatalogListData;
 import modi.backend.ingestion.domain.data.DetailFetch;
+import modi.backend.ingestion.domain.ExternalApi;
+import modi.backend.ingestion.domain.ExternalApiOutcome;
+import modi.backend.ingestion.domain.entity.ExternalApiCallLog;
 import modi.backend.ingestion.domain.port.CatalogPageStop;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
+import modi.backend.ingestion.domain.port.ExternalApiCallLogRepository;
 
 /**
  * {@link ExhibitionCatalogClient} 어댑터 — 한눈에보는문화정보(15138937)의 <b>페이징 모델</b>을 아는 유일한 곳이다(DIP).
  * <p>
- * 단건 호출(요청선 조립·전송·감사·예외 변환)은 {@link CultureExhibitionClient}에 위임하고, 이 클래스는
- * <b>"어디까지 부를지"와 "받아 온 것을 어떻게 접을지"</b>만 판단한다. 두 클래스의 변경 이유가 갈린다 —
- * 페이징 방식이 바뀌면 여기만, 요청선·감사가 바뀌면 저기만 바뀐다.
+ * 단건 호출(요청선 조립·전송·예외 변환)은 {@link CultureExhibitionClient}에 위임하고, 이 클래스는
+ * <b>"어디까지 부를지"·"받아 온 것을 어떻게 접을지"·"호출을 감사에 남기는 것"</b>을 맡는다. 두 클래스의 변경
+ * 이유가 갈린다 — 페이징·감사가 바뀌면 여기만, 요청선이 바뀌면 저기만 바뀐다.
+ *
+ * <p><b>왜 감사가 전송 클래스가 아니라 여기인가</b>: 전송 클래스의 책임은 "불러서 응답을 준다"까지다(사용자 결정).
+ * 감사를 더 위(수집 유스케이스)로 올리는 것도 안 된다 — 거기선 {@code fetchAll} 1회가 3콜인 걸 볼 수 없어
+ * 3콜이 1행으로 뭉개진다. <b>페이지 단위 호출자인 이 클래스가 그 경계를 가진 가장 바깥</b>이다.
  *
  * <p><b>왜 순회가 어댑터 안에 있나</b>: 원천이 오프셋 페이지네이션이고(커서 없음) 마지막 페이지를 명시하지 않아
  * "요청한 행 수보다 적게 오면 마지막"으로 추론해야 하는데, 이건 전부 벤더 응답 의미론이다. 호출자(수집 유스케이스)가
@@ -37,6 +46,8 @@ public class CultureCatalogReader implements ExhibitionCatalogClient {
 
 	private final CultureExhibitionClient client;
 	private final CultureApiMapper mapper;
+	/** 외부 호출 감사(append-only) — 문화포털은 무료라 billable=false. 저장은 REQUIRES_NEW라 호출자 트랜잭션과 생사를 같이하지 않는다. */
+	private final ExternalApiCallLogRepository externalApiCallRepository;
 
 	@Override
 	public CatalogListData fetchAll(CatalogFetchCriteria criteria, CatalogPageStop pageStop) {
@@ -50,10 +61,27 @@ public class CultureCatalogReader implements ExhibitionCatalogClient {
 
 	/**
 	 * 포트 계약을 이 클래스가 온전히 구현하기 위한 위임 — 상세는 페이징이 없어 단건 호출이 곧 결과다.
+	 * 호출 감사도 여기서 남긴다(전송 클래스는 부르고 돌려주기만 한다).
+	 * <p>
+	 * 인증키 미설정이면 <b>호출 자체가 없으므로 감사 행도 남기지 않는다</b> — 유령 행이 "불렀는데 빈 응답"으로 읽힌다.
 	 */
 	@Override
 	public Optional<DetailFetch> fetchDetailSnapshot(String externalId) {
-		return client.fetchDetailSnapshot(externalId);
+		if (!client.isConfigured()) {
+			return Optional.empty();
+		}
+		LocalDateTime calledAt = LocalDateTime.now();
+		try {
+			Optional<DetailFetch> fetched = client.fetchDetailSnapshot(externalId);
+			// 호출은 정상인데 원천에 상세가 없다(NO_DATA) — 실패가 아니라 원천의 사실이다(재조회해도 소용없다).
+			record(ExternalApiCallLog.free(ExternalApi.CULTURE_DETAIL, externalId,
+					fetched.isPresent() ? ExternalApiOutcome.SUCCESS : ExternalApiOutcome.NO_DATA, calledAt));
+			return fetched;
+		} catch (RuntimeException e) {
+			record(ExternalApiCallLog.free(ExternalApi.CULTURE_DETAIL, externalId,
+					ExternalApiOutcome.FAILED, calledAt));
+			throw e;
+		}
 	}
 
 	/**
@@ -70,7 +98,7 @@ public class CultureCatalogReader implements ExhibitionCatalogClient {
 	private List<CultureRealmListResponse> fetchPages(CatalogFetchCriteria criteria, CatalogPageStop pageStop) {
 		List<CultureRealmListResponse> pages = new ArrayList<>();
 		for (int pageNo = 1; pageNo <= criteria.maxCalls(); pageNo++) {
-			CultureRealmListResponse page = client.fetchListPage(criteria, pageNo);
+			CultureRealmListResponse page = fetchListPage(criteria, pageNo);
 			pages.add(page);
 			if (page.items().size() < criteria.pageSize()) {
 				break; // 마지막 페이지
@@ -85,6 +113,32 @@ public class CultureCatalogReader implements ExhibitionCatalogClient {
 			}
 		}
 		return pages;
+	}
+
+	/**
+	 * 목록 한 페이지 호출 + 감사 한 벌. 감사 키는 <b>페이지까지 찍는다</b>({@code realmCode=D000&page=3}) —
+	 * 수집 1회가 3콜이면 3행이 남아야 "재시도 1건이 몇 콜을 태웠나"를 볼 수 있다.
+	 */
+	private CultureRealmListResponse fetchListPage(CatalogFetchCriteria criteria, int pageNo) {
+		LocalDateTime calledAt = LocalDateTime.now();
+		String requestKey = "realmCode=" + criteria.realm().code() + "&page=" + pageNo;
+		try {
+			CultureRealmListResponse page = client.fetchListPage(criteria, pageNo);
+			record(ExternalApiCallLog.free(ExternalApi.CULTURE_LIST, requestKey, ExternalApiOutcome.SUCCESS, calledAt));
+			return page;
+		} catch (RuntimeException e) {
+			record(ExternalApiCallLog.free(ExternalApi.CULTURE_LIST, requestKey, ExternalApiOutcome.FAILED, calledAt));
+			throw e;
+		}
+	}
+
+	/** 감사 기록은 부가 기능이다 — 여기서 실패해도 수집·적재를 깨지 않는다. */
+	private void record(ExternalApiCallLog call) {
+		try {
+			externalApiCallRepository.save(call);
+		} catch (RuntimeException e) {
+			log.warn("외부 호출 감사 기록 실패(무시): {}", e.getMessage());
+		}
 	}
 
 	/** 받아 온 페이지들을 수집 결과 한 벌로 접는다 — 적재 가능 필터 + 원천이 말한 총 건수. */

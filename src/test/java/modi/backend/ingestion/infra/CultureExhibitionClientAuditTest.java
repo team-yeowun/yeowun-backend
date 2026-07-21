@@ -28,9 +28,10 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 
 /**
- * {@link CultureExhibitionClient}의 <b>외부 호출 감사</b>(이관 5단계) 검증 — 실 HTTP(MockWebServer).
+ * {@link CultureCatalogReader}의 <b>외부 호출 감사</b>(이관 5단계) 검증 — 실 HTTP(MockWebServer).
  * <p>
- * 감사 행은 어댑터가 남기므로 여기가 유일한 검증 지점이다. 특히 <b>NO_DATA(호출은 정상인데 원천에 줄 게 없음)</b>와
+ * 감사 행은 <b>페이지 단위 호출자</b>인 Reader가 남긴다(전송 클래스 {@link CultureExhibitionClient}는
+ * 부르고 돌려주기만 한다 — 사용자 결정). 여기가 유일한 검증 지점이다. 특히 <b>NO_DATA(호출은 정상인데 원천에 줄 게 없음)</b>와
  * FAILED(전송 오류)의 구분을 본다 — 현행은 외부 호출 기록이 아예 없어 "폴백이 왜 늘었나"·"오늘 몇 번 불렀나"를
  * 로그 grep으로만 알 수 있었다.
  * <p>
@@ -69,10 +70,11 @@ class CultureExhibitionClientAuditTest {
 		recorded = new ArrayList<>();
 		CultureApiMapper mapper = new CultureApiMapper();
 		client = new CultureCatalogReader(
-				new CultureExhibitionClient(restClient, mapper, properties, call -> {
+				new CultureExhibitionClient(restClient, mapper, properties), mapper,
+				call -> {
 					recorded.add(call);
 					return call;
-				}), mapper);
+				});
 	}
 
 	@AfterEach
@@ -131,9 +133,10 @@ class CultureExhibitionClientAuditTest {
 				.build();
 		CultureApiMapper mapper = new CultureApiMapper();
 		CultureCatalogReader failing = new CultureCatalogReader(
-				new CultureExhibitionClient(restClient, mapper, properties, call -> {
+				new CultureExhibitionClient(restClient, mapper, properties), mapper,
+				call -> {
 					throw new IllegalStateException("감사 저장 실패");
-				}), mapper);
+				});
 
 		assertThat(failing.fetchAll(CRITERIA, CatalogPageStop.never()).items()).hasSize(1); // 수집은 정상
 	}
