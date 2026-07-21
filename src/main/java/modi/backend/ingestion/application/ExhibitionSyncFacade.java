@@ -98,7 +98,7 @@ public class ExhibitionSyncFacade {
 	 */
 	public void recordApiCall(ExternalApi api, String requestKey, ExternalApiOutcome outcome, LocalDateTime calledAt) {
 		try {
-			externalApiCallLogRepository.save(ExternalApiCallLog.free(api, requestKey, outcome, calledAt));
+			externalApiCallLogRepository.save(ExternalApiCallLog.of(api, requestKey, outcome, calledAt));
 		} catch (RuntimeException e) {
 			log.warn("외부 호출 감사 기록 실패(무시): {}", e.getMessage());
 		}

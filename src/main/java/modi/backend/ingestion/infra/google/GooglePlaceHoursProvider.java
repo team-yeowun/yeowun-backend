@@ -51,7 +51,7 @@ public class GooglePlaceHoursProvider implements PlaceHoursProvider {
 
 	private final GoogleMapsApi googleMapsApi;
 	private final PlaceHoursProperties properties;
-	/** 외부 호출 감사 — 이 API는 <b>유일한 유료 호출</b>이라 billable=true로 남긴다(비용 귀속). */
+	/** 외부 호출 감사 — 호출량 추이용(유료 여부는 api 값이 말해준다). */
 	private final ExternalApiCallLogRepository externalApiCallRepository;
 
 	public GooglePlaceHoursProvider(GoogleMapsApi googleMapsApi, PlaceHoursProperties properties,
@@ -71,7 +71,7 @@ public class GooglePlaceHoursProvider implements PlaceHoursProvider {
 			// 전송 오류는 여기서 잡지 않고 전파한다 — enricher가 해당 장소만 스킵하고 다음 주기에 재시도한다.
 			response = googleMapsApi.searchText(properties.apiKey(), FIELD_MASK, request);
 		} catch (RuntimeException e) {
-			// 실패해도 과금은 이미 일어났을 수 있다 — 그래서 billable=true 그대로 남긴다.
+			// 실패해도 과금은 이미 일어났을 수 있다 — 그래서 실패도 한 행으로 남긴다(시도 = 비용).
 			record(placeAddr, ExternalApiOutcome.FAILED, calledAt);
 			throw e;
 		}
@@ -86,7 +86,7 @@ public class GooglePlaceHoursProvider implements PlaceHoursProvider {
 	/** 감사 기록은 부가 기능이다 — 여기서 실패해도 영업시간 보강을 깨지 않는다. */
 	private void record(String placeAddr, ExternalApiOutcome outcome, java.time.LocalDateTime calledAt) {
 		try {
-			externalApiCallRepository.save(ExternalApiCallLog.billable(ExternalApi.GOOGLE,
+			externalApiCallRepository.save(ExternalApiCallLog.of(ExternalApi.GOOGLE,
 					modi.backend.domain.exhibition.hours.PlaceKey.of(placeAddr), outcome, calledAt));
 		} catch (RuntimeException e) {
 			log.warn("구글 호출 감사 기록 실패(무시): {}", e.getMessage());
