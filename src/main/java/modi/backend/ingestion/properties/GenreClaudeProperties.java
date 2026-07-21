@@ -1,5 +1,6 @@
-package modi.backend.ingestion.config;
+package modi.backend.ingestion.properties;
 
+import modi.backend.config.AiProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**

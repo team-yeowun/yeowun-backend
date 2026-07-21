@@ -19,7 +19,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.support.RestClientAdapter;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
-import modi.backend.ingestion.config.PublicDataProperties;
+import modi.backend.ingestion.properties.PublicDataProperties;
 import modi.backend.ingestion.domain.ExternalApi;
 import modi.backend.ingestion.domain.entity.ExternalApiCallLog;
 import modi.backend.ingestion.domain.ExternalApiOutcome;

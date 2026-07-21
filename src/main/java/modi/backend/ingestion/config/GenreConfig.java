@@ -2,6 +2,10 @@ package modi.backend.ingestion.config;
 
 import java.time.Duration;
 
+import modi.backend.ingestion.properties.CatalogEnrichProperties;
+import modi.backend.ingestion.properties.GeminiProperties;
+import modi.backend.ingestion.properties.GenreClaudeProperties;
+import modi.backend.ingestion.properties.GenreProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

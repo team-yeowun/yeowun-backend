@@ -14,7 +14,7 @@ import modi.backend.ingestion.application.draft.ExhibitionDraftFacade;
 import modi.backend.ingestion.application.outbox.ExhibitionOutboxFacade;
 import modi.backend.ingestion.application.outbox.OutboxFailures;
 import modi.backend.ingestion.application.outbox.OutboxProcessing;
-import modi.backend.ingestion.config.OutboxProperties;
+import modi.backend.ingestion.properties.OutboxProperties;
 import modi.backend.ingestion.domain.outbox.OutboxMessage;
 import modi.backend.ingestion.domain.outbox.OutboxMessageStatus;
 import modi.backend.ingestion.domain.outbox.OutboxMessageType;

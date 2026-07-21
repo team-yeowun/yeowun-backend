@@ -2,6 +2,7 @@ package modi.backend.ingestion.config;
 
 import java.util.concurrent.ThreadPoolExecutor;
 
+import modi.backend.ingestion.properties.OutboxProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

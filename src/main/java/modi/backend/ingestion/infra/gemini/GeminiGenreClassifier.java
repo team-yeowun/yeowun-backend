@@ -1,6 +1,5 @@
 package modi.backend.ingestion.infra.gemini;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Component;
@@ -9,7 +8,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.micrometer.core.instrument.MeterRegistry;
-import modi.backend.ingestion.config.GeminiProperties;
+import modi.backend.ingestion.properties.GeminiProperties;
 import modi.backend.domain.exhibition.genre.GenreKeyword;
 import modi.backend.domain.exhibition.genre.GenreProvider;
 import modi.backend.domain.exhibition.genre.GenreClassification;

@@ -11,8 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
-import modi.backend.ingestion.config.PublicDataProperties;
-import modi.backend.domain.exhibition.catalog.CatalogDetailData;
+import modi.backend.ingestion.properties.PublicDataProperties;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
 import modi.backend.ingestion.domain.data.CatalogListData;
 import modi.backend.ingestion.domain.data.DetailFetch;

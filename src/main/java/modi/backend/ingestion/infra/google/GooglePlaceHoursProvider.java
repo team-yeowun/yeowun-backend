@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import modi.backend.ingestion.config.PlaceHoursProperties;
+import modi.backend.ingestion.properties.PlaceHoursProperties;
 import modi.backend.ingestion.domain.ExternalApi;
 import modi.backend.ingestion.domain.entity.ExternalApiCallLog;
 import modi.backend.ingestion.domain.port.ExternalApiCallLogRepository;

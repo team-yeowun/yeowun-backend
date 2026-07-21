@@ -24,7 +24,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import modi.backend.ingestion.config.OutboxProperties;
+import modi.backend.ingestion.properties.OutboxProperties;
 import modi.backend.domain.exhibition.catalog.CatalogDetailData;
 import modi.backend.ingestion.domain.outbox.OutboxMessage;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;

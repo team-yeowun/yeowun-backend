@@ -1,8 +1,10 @@
 package modi.backend.ingestion.config;
 
+import java.net.http.HttpClient;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
+import modi.backend.ingestion.properties.PublicDataProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,24 +26,32 @@ import modi.backend.ingestion.infra.culture.CultureExhibitionClient;
 public class CultureClientConfig {
 
 	/**
-	 * 공공데이터 전시 API 전용 RestClient. baseUrl은 설정(app.public-data.culture.base-url)에서 주입한다.
+	 * 공공데이터 전시 API 전용 RestClient.
 	 * 응답이 XML이라 JSON 컨버터는 쓰지 않는다 — 문자열로 받아 {@link modi.backend.ingestion.infra.culture.CultureApiMapper}가 XmlMapper로 직접 파싱한다.
-	 * <p>
-	 * 읽기 타임아웃을 반드시 건다 — 상세 백필이 단일 스케줄러 스레드에서 이 클라이언트를 반복 호출하는데,
-	 * 게이트웨이가 TCP만 받고 응답을 안 주면(무응답 stall) 타임아웃이 없을 경우 스레드와 DB 커넥션이 영구 점유돼
-	 * 정기 동기화·보강이 전부 멈춘다(gemini 클라이언트와 동일한 방어).
 	 */
 	@Bean
 	public RestClient cultureRestClient(PublicDataProperties properties) {
-		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory();
+        // url
+        String baseURL = properties.baseUrl();
+        // HTTP 클라이언트 설정(JDK, 커넥트 타임아웃, 리드 타임아웃)
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(3))
+                .build();
+		JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
 		requestFactory.setReadTimeout(Duration.ofSeconds(properties.timeoutSeconds()));
-		String baseUrl = properties.baseUrl() == null ? "" : properties.baseUrl();
+
+        // MessageConverter
+        // 1. 외부 API 응답 헤더(Content-Type)에 charset이 누락될 경우를 대비한 설정입니다.
+        // 2. Spring 기본 String 컨버터(ISO-8859-1)가 작동하여 한글이 깨지는 현상을 방지합니다.
+        // 3. 명시된 인코딩 정보가 없더라도 항상 UTF-8로 해석하도록 기본값을 강제합니다.
+        StringHttpMessageConverter messageConverter = new StringHttpMessageConverter(StandardCharsets.UTF_8);
+
+        // 조립
 		return RestClient.builder()
-				.baseUrl(baseUrl)
+				.baseUrl(baseURL)
 				.requestFactory(requestFactory)
-				// 원천이 Content-Type에 charset을 안 실어도 UTF-8로 읽는다 — String 컨버터 기본값(ISO-8859-1)이면 한글이 깨진다.
 				.configureMessageConverters(builder -> builder
-						.withStringConverter(new StringHttpMessageConverter(StandardCharsets.UTF_8)))
+						.withStringConverter(messageConverter))
 				.build();
 	}
 

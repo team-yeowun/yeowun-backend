@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import modi.backend.application.exhibition.contract.PlaceHoursBackfill;
-import modi.backend.ingestion.config.OutboxProperties;
+import modi.backend.ingestion.properties.OutboxProperties;
 import modi.backend.ingestion.domain.outbox.OutboxFailureType;
 import modi.backend.ingestion.domain.outbox.OutboxMessage;
 import modi.backend.ingestion.domain.outbox.OutboxMessageRepository;

@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
-import modi.backend.ingestion.config.OutboxProperties;
+import modi.backend.ingestion.properties.OutboxProperties;
 import modi.backend.ingestion.domain.outbox.OutboxMessage;
 import modi.backend.ingestion.domain.outbox.OutboxMessageType;
 import modi.backend.domain.exhibition.hours.OpeningHoursFormatter;

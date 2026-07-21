@@ -18,7 +18,7 @@ import modi.backend.ingestion.application.draft.DraftEnrichmentService;
 import modi.backend.ingestion.application.outbox.ExhibitionOutboxFacade;
 import modi.backend.ingestion.application.outbox.OutboxFailures;
 import modi.backend.ingestion.application.outbox.OutboxProcessing;
-import modi.backend.ingestion.config.CatalogEnrichProperties;
+import modi.backend.ingestion.properties.CatalogEnrichProperties;
 import modi.backend.ingestion.domain.outbox.OutboxFailureType;
 import modi.backend.ingestion.domain.outbox.OutboxMessage;
 import modi.backend.ingestion.domain.outbox.OutboxMessageType;

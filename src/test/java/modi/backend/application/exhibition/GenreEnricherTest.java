@@ -16,7 +16,6 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,7 +30,7 @@ import modi.backend.domain.exhibition.genre.GenreResult;
 import modi.backend.ingestion.application.draft.DraftEnrichmentService;
 import modi.backend.ingestion.application.enricher.GenreEnricher;
 import modi.backend.ingestion.application.outbox.ExhibitionOutboxFacade;
-import modi.backend.ingestion.config.CatalogEnrichProperties;
+import modi.backend.ingestion.properties.CatalogEnrichProperties;
 import modi.backend.ingestion.domain.outbox.OutboxFailureType;
 import modi.backend.ingestion.domain.outbox.OutboxMessage;
 import modi.backend.ingestion.domain.outbox.OutboxMessageType;

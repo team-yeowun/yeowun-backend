@@ -64,38 +64,21 @@ app:
       - http://localhost:3005   # 여운 프론트 로컬(대체 포트)
       - http://localhost:8080   # 백엔드 내장 HTML 테스트 페이지
 
-  # OAuth 설정. client-id는 공개성 값이라 기본값을 둔다. client-secret은 시크릿 → 환경변수로만 주입.
-  # redirect-uri는 콘솔에 등록된 값과 정확히 일치해야 한다(현재 테스트는 백엔드 내장 페이지 = :8080/login).
   oauth:
     redirect-uri: ${OAUTH_REDIRECT_URI:http://localhost:8080/login}
-    # FE 주도 로그인에서 허용하는 redirectUri 화이트리스트 (로컬 프론트/테스트)
     allowed-redirect-uris:
       - http://localhost:3000/login
       - http://localhost:3005/login
       - http://localhost:8080/login
     kakao:
-      # 테스트앱 "여운-TEST"(앱ID 1500036)의 REST 키. 동의항목(이메일·연령대·출생연도)이 설정된 앱.
-      # 운영 비즈앱 검수 완료 시 KAKAO_CLIENT_ID env로 교체. client-secret은 시크릿 → env로만 주입.
       client-id: ${KAKAO_CLIENT_ID:bba3e1d954ec548062bc3c13fd9f72bc}
       client-secret: ${KAKAO_CLIENT_SECRET:}
-      # 동의항목 요청: 이메일 + 연령대 + 출생연도.
-      # ⚠️ 카카오 콘솔 [동의항목]에서 각 항목 ON 필수(테스트앱은 팀원만 검수 없이 동작).
-      #    미승인 항목을 scope에 넣으면 authorize 시 KOE006 → 로그인 깨짐. 콘솔 준비 전이면 KAKAO_SCOPE 로 줄여 둘 것.
       scope: ${KAKAO_SCOPE:account_email,age_range,birthyear}
     naver:
-      # client-id는 authorize URL·프론트에도 노출되는 공개값(카카오처럼) → 코드 기본값을 둔다.
-      # ⚠️ 프론트 VITE_NAVER_CLIENT_ID 와 반드시 같아야 한다 — 프론트가 A 앱으로 받은 code를 백엔드가 B 앱으로
-      #    교환하면 네이버가 거부하고 OAUTH_COMMUNICATION_FAILED 로만 보인다(2026-07-19 운영 장애: 네이버 앱을
-      #    새로 발급하며 프론트만 갱신돼 구 기본값 ZRdsYHmN3ncMkx2F6353 이 남아 있었다).
-      #    값을 바꾸면 OAuthClientIdDefaultTest 가 함께 깨지므로 프론트 동시 갱신 여부를 되묻게 된다.
-      # client-secret은 시크릿 → env(GitHub Secret NAVER_CLIENT_SECRET)로만 주입. 로컬 실연동 시엔 로컬 env로 넣어야 토큰교환 성공.
-      #    ⚠️ client-id를 새 앱으로 바꾸면 secret도 그 앱 것으로 함께 갱신해야 한다(쌍이 맞아야 통과).
       client-id: ${NAVER_CLIENT_ID:x5SSFHxy06Npeieb9JlA}
       client-secret: ${NAVER_CLIENT_SECRET:}
 
-  # 공공데이터 전시 API(한눈에보는문화정보조회서비스, data.go.kr 15138937). (03_전시.md CATALOG 출처)
-  # service-key: data.go.kr 일반 인증키. 공공데이터 오픈API 키라 저위험 + 재발급 가능해 yaml에 직접 둔다(팀 참고용).
-  #   env(CULTURE_API_KEY)로 오버라이드 가능. 미설정·무효면 외부 동기화 스킵되고 데모 시드로 동작.
+  # 공공데이터 전시 API(한눈에보는문화정보조회서비스, data.go.kr 15138937)
   public-data:
     culture:
       base-url: ${CULTURE_API_BASE_URL:https://apis.data.go.kr/B553457/cultureinfo}
@@ -110,7 +93,6 @@ app:
   exhibition:
     demo-seed:
       enabled: ${EXHIBITION_DEMO_SEED:false}
-    # 전시 카탈로그 정기 동기화 스케줄. sync.cron 시각에 목록 동기화 + 상세 보강을 수행한다(기본 매일 자정).
     sync:
       cron: ${EXHIBITION_SYNC_CRON:0 0 0 * * *}
     # 전시 장르 분류(ADR-11). classifier로 주 분류기를 고른다(구현들 빈 공존, 무중단 교체).

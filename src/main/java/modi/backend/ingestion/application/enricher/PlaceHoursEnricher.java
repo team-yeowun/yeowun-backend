@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
-import modi.backend.ingestion.config.PlaceHoursProperties;
+import modi.backend.ingestion.properties.PlaceHoursProperties;
 import modi.backend.domain.exhibition.hours.OpeningHoursFormatter;
 import modi.backend.ingestion.domain.data.PlaceHoursFetch;
 import modi.backend.ingestion.domain.port.PlaceHoursProvider;
