@@ -1,10 +1,7 @@
 package modi.backend.ingestion.domain.entity;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
-import java.util.HexFormat;
+import java.util.Objects;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,7 +12,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import modi.backend.ingestion.domain.data.CatalogVendorItem;
+import modi.backend.ingestion.domain.data.CatalogExhibitionData;
 
 /**
  * 한눈에보는문화정보 목록(realm2) 응답 스냅샷(벤더층) — {@code culture_list_snapshot} 매핑.
@@ -24,13 +21,13 @@ import modi.backend.ingestion.domain.data.CatalogVendorItem;
  * 되어 크기가 원천(280건 수준)에 수렴한다.
  *
  * <p><b>응답 구조 필드 적재(ADR-13, ADR-01 폐기)</b>: raw payload 문자열 대신 realm2 응답 아이템의 필드를
- * <b>원문 verbatim</b> 컬럼으로 적재한다 — 도메인 변환(디코드·타입 정제) 이전 값이라 "원천이 뭐라고 했나"의
- * 증거 역할은 유지되고, 도메인은 필요에 맞게 가져다 매핑·가공한다. 실측으로 응답 구조가 확정돼 있어(제공률
- * 분석 문서) 이 분해가 무손실이다. 대가: 원천이 신규 필드를 추가하면 {@code CatalogVendorItem}에 선언을
- * 더해야 한다(수용 — ADR-13).
+ * 컬럼으로 적재한다. 값의 출처는 {@link CatalogExhibitionData} — 별도의 원문 verbatim 어휘를 두지 않는다
+ * (같은 12필드를 두 벌 나르는 중복이었다). 날짜·좌표는 정제 타입이라 <b>문자열로 치환해</b> 담는다(컬럼은
+ * VARCHAR 유지 — 스키마 변경 없음). 대가: 원천이 파싱 불가한 값을 준 행에서는 그 원문이 남지 않는다.
  *
- * <p>{@code payload_hash}로 원천이 값을 정정했는지 <b>행 단위</b>로 감지한다(필드 정준 문자열의 SHA-256 —
- * 과거 payload 해시의 승계). {@code last_seen_at}은 이번 동기화에도 원천에 있었는지 — 사라진 항목 판별용.
+ * <p>원천이 값을 정정했는지는 <b>적재 필드를 직접 비교</b>해 행 단위로 감지한다 — 별도 해시 컬럼을 두지 않는다
+ * (payload를 통째로 들고 있던 시절의 잔재였고, 필드가 컬럼이 된 지금은 비교가 곧 판정이다).
+ * {@code last_seen_at}은 이번 동기화에도 원천에 있었는지 — 사라진 항목 판별용.
  *
  * <p>{@code exhibitions}와는 ID·키 참조도 두지 않는다 — 벤더층은 도메인이 적재하지 않은 항목(기간 불량 스킵 등)도
  * 기록한다. 감사 컬럼 대신 {@code first_seen_at}·{@code last_seen_at}이 도메인 언어로 그 역할을 한다.
@@ -48,7 +45,7 @@ public class CultureListSnapshot {
 	@Column(name = "external_id", nullable = false, length = 100)
 	private String externalId;
 
-	// ── realm2 응답 아이템 필드(원문 verbatim — 타입 정제는 도메인 몫) ──
+	// ── realm2 응답 아이템 필드(CatalogExhibitionData에서 옮겨 담는다 — 정제 타입은 문자열로 치환) ──
 	@Column(name = "title", length = 500)
 	private String title;
 
@@ -82,84 +79,67 @@ public class CultureListSnapshot {
 	@Column(name = "service_name", length = 200)
 	private String serviceName;
 
-	@Column(name = "place_seq", length = 50)
-	private String placeSeq;
-
-	/** 필드 정준 문자열의 SHA-256 hex(64자) — 원천 정정 감지용(과거 payload 해시의 승계, 컬럼명 유지). */
-	@Column(name = "payload_hash", length = 64)
-	private String payloadHash;
-
 	@Column(name = "first_seen_at")
 	private LocalDateTime firstSeenAt;
 
 	@Column(name = "last_seen_at")
 	private LocalDateTime lastSeenAt;
 
-	private CultureListSnapshot(String externalId, CatalogVendorItem item, LocalDateTime now) {
-		this.externalId = externalId;
-		copyFields(item);
-		this.payloadHash = hash(item);
+	private CultureListSnapshot(CatalogExhibitionData data, LocalDateTime now) {
+		this.externalId = data.externalId();
+		copyFields(data);
 		this.firstSeenAt = now;
 		this.lastSeenAt = now;
 	}
 
 	/** 원천에서 처음 본 아이템. */
-	public static CultureListSnapshot first(String externalId, CatalogVendorItem item, LocalDateTime now) {
-		return new CultureListSnapshot(externalId, item, now);
+	public static CultureListSnapshot first(CatalogExhibitionData data, LocalDateTime now) {
+		return new CultureListSnapshot(data, now);
 	}
 
 	/**
 	 * 이번 동기화에도 원천에 있었다 — {@code last_seen_at}은 값이 그대로여도 항상 갱신한다("아직 살아 있다"는 사실 자체가 정보다).
-	 * 필드는 <b>해시가 달라졌을 때만</b> 덮는다 — 원천이 값을 정정한 경우다(같은 값으로 매일 덮으면 "언제 바뀌었나"를 잃는다).
-	 * 레거시 행(V39 이전 — 해시 null 리셋)은 첫 재동기화에서 "변경됨"으로 판정돼 필드가 자동 채워진다.
+	 * 필드는 <b>값이 달라졌을 때만</b> 덮는다 — 원천이 값을 정정한 경우다(같은 값으로 매일 덮으면 "언제 바뀌었나"를 잃는다).
+	 * 레거시 행(V39 이전 — 구조화 필드 null)은 첫 재동기화에서 "변경됨"으로 판정돼 필드가 자동 채워진다.
 	 */
-	public void seenAgain(CatalogVendorItem item, LocalDateTime now) {
+	public void seenAgain(CatalogExhibitionData data, LocalDateTime now) {
 		this.lastSeenAt = now;
-		String incoming = hash(item);
-		if (incoming != null && !incoming.equals(this.payloadHash)) {
-			copyFields(item);
-			this.payloadHash = incoming;
+		if (isChangedFrom(data)) {
+			copyFields(data);
 		}
 	}
 
-	/** 원천이 이 아이템의 값을 정정했는가 — 저장된 해시와 비교한다. */
-	public boolean isChangedFrom(CatalogVendorItem item) {
-		String incoming = hash(item);
-		return incoming != null && !incoming.equals(this.payloadHash);
+	/** 원천이 이 아이템의 값을 정정했는가 — 적재 필드를 그대로 비교한다. */
+	private boolean isChangedFrom(CatalogExhibitionData data) {
+		return !Objects.equals(this.title, data.title())
+				|| !Objects.equals(this.startDate, text(data.startDate()))
+				|| !Objects.equals(this.endDate, text(data.endDate()))
+				|| !Objects.equals(this.place, data.place())
+				|| !Objects.equals(this.realmName, data.realmName())
+				|| !Objects.equals(this.area, data.areaText())
+				|| !Objects.equals(this.sigungu, data.sigungu())
+				|| !Objects.equals(this.thumbnail, data.posterUrl())
+				|| !Objects.equals(this.gpsX, text(data.gpsX()))
+				|| !Objects.equals(this.gpsY, text(data.gpsY()))
+				|| !Objects.equals(this.serviceName, data.serviceName());
 	}
 
-	private void copyFields(CatalogVendorItem item) {
-		if (item == null) {
-			return;
-		}
-		this.title = item.title();
-		this.startDate = item.startDate();
-		this.endDate = item.endDate();
-		this.place = item.place();
-		this.realmName = item.realmName();
-		this.area = item.area();
-		this.sigungu = item.sigungu();
-		this.thumbnail = item.thumbnail();
-		this.gpsX = item.gpsX();
-		this.gpsY = item.gpsY();
-		this.serviceName = item.serviceName();
-		this.placeSeq = item.placeSeq();
+	private void copyFields(CatalogExhibitionData data) {
+		this.title = data.title();
+		this.startDate = text(data.startDate());
+		this.endDate = text(data.endDate());
+		this.place = data.place();
+		this.realmName = data.realmName();
+		this.area = data.areaText();
+		this.sigungu = data.sigungu();
+		this.thumbnail = data.posterUrl();
+		this.gpsX = text(data.gpsX());
+		this.gpsY = text(data.gpsY());
+		this.serviceName = data.serviceName();
 	}
 
-	/**
-	 * 필드 정준 문자열의 SHA-256 hex. item이 null이면 null(해시할 원문이 없다 — "변경 없음"과 구분된다).
-	 * SHA-256은 모든 JRE가 반드시 제공하므로 미지원은 발생할 수 없다.
-	 */
-	private static String hash(CatalogVendorItem item) {
-		if (item == null) {
-			return null;
-		}
-		try {
-			byte[] digest = MessageDigest.getInstance("SHA-256")
-					.digest(item.canonical().getBytes(StandardCharsets.UTF_8));
-			return HexFormat.of().formatHex(digest);
-		} catch (NoSuchAlgorithmException e) {
-			throw new IllegalStateException("SHA-256 미지원 JRE", e);
-		}
+	/** 정제 타입을 컬럼(VARCHAR)에 담을 문자열로 — 결측은 null 그대로 둔다("" 로 만들면 결측과 빈 값이 섞인다). */
+	private static String text(Object value) {
+		return value == null ? null : value.toString();
 	}
 }

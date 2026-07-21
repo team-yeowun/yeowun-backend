@@ -81,7 +81,7 @@ class ExhibitionDraftPipelineIntegrationTest {
 		LocalDate today = LocalDate.now();
 		return new CatalogExhibitionData(externalId, "파이프라인 전시 " + externalId, placeName,
 				today.minusDays(1), today.plusDays(10), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING,
-				null, null, "기관", null, null, null, "전시", "서울", null);
+				null, null, "기관", null, null, null, "전시", "서울");
 	}
 
 	@Test
@@ -90,7 +90,7 @@ class ExhibitionDraftPipelineIntegrationTest {
 		int seq = SEQ.getAndIncrement();
 		String externalId = "PIPE-" + seq;
 		given(catalogClient.fetchAll(any())).willReturn(
-				new CatalogListData(java.util.List.of(listData(externalId, "파이프장소" + seq)), 1, false));
+				new CatalogListData(java.util.List.of(listData(externalId, "파이프장소" + seq)), 1));
 		given(catalogClient.fetchDetailSnapshot(anyString())).willReturn(Optional.of(new DetailFetch(
 				new CatalogDetailData("무료", "전시 소개", null, "02-000-0000", null, null, "서울시 종로구", null), null)));
 
@@ -133,7 +133,7 @@ class ExhibitionDraftPipelineIntegrationTest {
 		int seq = SEQ.getAndIncrement();
 		String externalId = "PIPE-ABSENT-" + seq;
 		given(catalogClient.fetchAll(any())).willReturn(
-				new CatalogListData(java.util.List.of(listData(externalId, "무상세장소" + seq)), 1, false));
+				new CatalogListData(java.util.List.of(listData(externalId, "무상세장소" + seq)), 1));
 		given(catalogClient.fetchDetailSnapshot(anyString())).willReturn(Optional.empty()); // 원천에 상세 없음
 
 		catalogSynchronizer.syncCatalog();

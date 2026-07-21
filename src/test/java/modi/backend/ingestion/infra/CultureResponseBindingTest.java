@@ -1,13 +1,13 @@
 package modi.backend.ingestion.infra;
 
-import modi.backend.ingestion.infra.culture.CultureApiResponse;
+import modi.backend.ingestion.infra.culture.CultureRealmListResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import tools.jackson.dataformat.xml.XmlMapper;
 import org.junit.jupiter.api.Test;
 
-class CultureApiResponseTest {
+class CultureResponseBindingTest {
     private final XmlMapper xml = new XmlMapper();
 
     @Test
@@ -19,7 +19,7 @@ class CultureApiResponseTest {
             + "<realmName>전시</realmName><area>부산</area><sigungu>사하구</sigungu>"
             + "<thumbnail>http://t/x.jpg</thumbnail><gpsX>128.9</gpsX><gpsY>35.1</gpsY></item>"
             + "</items></body></response>";
-        CultureApiResponse res = xml.readValue(body, CultureApiResponse.class);
+        CultureRealmListResponse res = xml.readValue(body, CultureRealmListResponse.class);
         assertThat(res.isSuccess()).isTrue();
         assertThat(res.items()).hasSize(1);
         assertThat(res.items().get(0).seq()).isEqualTo("319005");
@@ -29,6 +29,6 @@ class CultureApiResponseTest {
     @Test
     void 에러응답_isSuccess_false() throws Exception {
         String body = "<response><header><resultCode>99</resultCode><resultMsg>ERR</resultMsg></header><body/></response>";
-        assertThat(xml.readValue(body, CultureApiResponse.class).isSuccess()).isFalse();
+        assertThat(xml.readValue(body, CultureRealmListResponse.class).isSuccess()).isFalse();
     }
 }

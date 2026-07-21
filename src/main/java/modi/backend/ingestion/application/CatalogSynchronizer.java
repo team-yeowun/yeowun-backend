@@ -62,11 +62,7 @@ public class CatalogSynchronizer {
 		IngestionRun run = IngestionRun.started(trigger, syncedAt);
 		CatalogListData fetched = catalogClient.fetchAll(fetchProperties.toCriteria());
 		List<CatalogExhibitionData> collected = fetched.items();
-		run.fetched(fetched.totalCount(), fetched.truncated(), collected.size());
-		if (fetched.truncated()) {
-			log.warn("전시 동기화 절단 — 원천 총 {}건 중 상한(max-pages × num-of-rows)에 걸려 일부만 수집됨",
-					fetched.totalCount());
-		}
+		run.fetched(fetched.totalCount(), collected.size());
 		int staged = 0;
 		int touched = 0;
 		int skipped = 0;

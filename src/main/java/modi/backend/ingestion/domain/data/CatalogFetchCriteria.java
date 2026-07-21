@@ -22,8 +22,8 @@ import modi.backend.support.error.ErrorType;
  * @param serviceType 분야별 구분(필수). 원천 파라미터 {@code serviceTp}.
  * @param sortOrder   정렬 기준(필수). 원천 파라미터 {@code sortStdr}.
  * @param pageSize    한 번의 호출로 받을 행 수. 결과 데이터가 아니라 호출 횟수를 좌우한다.
- * @param maxItems    이번 실행에서 수집할 최대 건수(폭주 방지 상한). 원천에 더 있는데 이 상한에 걸리면
- *                  {@link CatalogListData#truncated()}로 보고된다.
+ * @param maxItems    이번 실행에서 수집할 최대 건수(폭주 방지 상한). 상한에 걸린 사실은 별도로 보고하지 않는다 —
+ *                  이 수집의 목표는 신규 등록 포착이지 전량 정합이 아니다(사용자 결정).
  * @param filter      선택 필터(지역·기간·장소·검색어·좌표·정렬). null이면 {@link CatalogFetchFilter#none()}.
  *                  값이 없는 항목은 원천 요청에 <b>파라미터 자체가 실리지 않는다.</b>
  */
@@ -36,7 +36,7 @@ public record CatalogFetchCriteria(ExhibitionRealm realm, CatalogServiceType ser
 	 */
 	public static CatalogFetchCriteria of(ExhibitionRealm realm, int pageSize, int maxItems) {
 		return new CatalogFetchCriteria(realm, CatalogServiceType.PERFORMANCE_EXHIBITION,
-				CatalogSortOrder.START_DATE_ASC, pageSize, maxItems, CatalogFetchFilter.none());
+				CatalogSortOrder.REGISTRATION_DESC, pageSize, maxItems, CatalogFetchFilter.none());
 	}
 
 	public CatalogFetchCriteria {

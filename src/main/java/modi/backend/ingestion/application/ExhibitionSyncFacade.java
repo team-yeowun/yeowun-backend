@@ -17,7 +17,7 @@ import modi.backend.domain.exhibition.hours.PlaceHoursStatus;
 import modi.backend.domain.exhibition.hours.PlaceHoursVendor;
 import modi.backend.ingestion.application.outbox.ExhibitionOutboxFacade;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
-import modi.backend.ingestion.domain.data.CatalogVendorItem;
+import modi.backend.ingestion.domain.data.CatalogDetailVendorItem;
 import modi.backend.ingestion.domain.data.DetailFetch;
 import modi.backend.ingestion.domain.data.GooglePlaceVendorItem;
 import modi.backend.ingestion.domain.entity.CultureDetailSnapshot;
@@ -96,16 +96,13 @@ public class ExhibitionSyncFacade {
 
 	/** 벤더 목록 스냅샷 upsert(필드 적재 — ADR-13). 부가 기록이라 실패해도 동기화를 깨지 않는다(이 행 스냅샷만 누락). */
 	public void archiveListSnapshot(CatalogExhibitionData data, LocalDateTime syncedAt) {
-		if (data.vendorItem() == null) {
-			return;
-		}
 		try {
 			cultureListSnapshotRepository.findByExternalId(data.externalId())
 					.ifPresentOrElse(row -> {
-						row.seenAgain(data.vendorItem(), syncedAt);
+						row.seenAgain(data, syncedAt);
 						cultureListSnapshotRepository.save(row);
 					}, () -> cultureListSnapshotRepository.save(
-							CultureListSnapshot.first(data.externalId(), data.vendorItem(), syncedAt)));
+							CultureListSnapshot.first(data, syncedAt)));
 		} catch (RuntimeException e) {
 			log.warn("목록 스냅샷 적재 실패(externalId={}, 동기화는 계속): {}", data.externalId(), e.getMessage());
 		}
@@ -129,7 +126,7 @@ public class ExhibitionSyncFacade {
 	 * 상세 스냅샷을 벤더층에 upsert한다(필드 적재 — ADR-13). 원문이 있을 때만 기록한다:
 	 * 원천에 상세가 없으면(빈 응답) 남길 스냅샷이 없어 행을 만들지 않는다(그 사실은 상세 satellite 행 존재가 안다).
 	 */
-	private void archiveDetailSnapshot(String externalId, CatalogVendorItem vendor) {
+	private void archiveDetailSnapshot(String externalId, CatalogDetailVendorItem vendor) {
 		if (vendor == null) {
 			return;
 		}

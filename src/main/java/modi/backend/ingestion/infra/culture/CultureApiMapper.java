@@ -9,7 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import modi.backend.ingestion.domain.data.CatalogVendorItem;
+import modi.backend.ingestion.domain.data.CatalogDetailVendorItem;
 import org.springframework.web.util.HtmlUtils;
 
 import modi.backend.domain.exhibition.catalog.CatalogDetailData;
@@ -42,37 +42,47 @@ public class CultureApiMapper {
 	 * <p>
 	 * 응답 본문({@code <body>})이 통째로 없는 실패 응답도 있으므로 {@code header}만으로 판정한다.
 	 */
-	public void verify(CultureApiResponse response) {
-		if (response == null) {
+	public void verify(CultureRealmListResponse response) {
+		verifyResult(response == null, response != null && response.isSuccess(),
+				response == null ? null : response.resultCode());
+	}
+
+	/** 상세 응답 검증 — 목록과 판정 규칙이 같다(응답 타입만 다르다). */
+	public void verify(CultureDetailResponse response) {
+		verifyResult(response == null, response != null && response.isSuccess(),
+				response == null ? null : response.resultCode());
+	}
+
+	private void verifyResult(boolean absent, boolean success, String resultCode) {
+		if (absent) {
 			throw new CoreException(EXTERNAL_API_UNAVAILABLE, "외부 전시 API 응답 없음");
 		}
-		if (!response.isSuccess()) {
+		if (!success) {
 			// 표준 코드를 사람이 읽는 라벨로 남긴다 — 운영 로그에서 "왜 실패했나"(한도초과 vs 키오류)를 코드 암기 없이 판독.
-			String resultCode = response.header() == null ? null : response.header().resultCode();
 			throw new CoreException(EXTERNAL_API_UNAVAILABLE,
 					"외부 전시 API 비정상: " + CultureResultCode.describe(resultCode));
 		}
 	}
 
 	/**
-	 * 응답 아이템 하나를 벤더 스냅샷 어휘(원문 verbatim)로 옮긴다 — {@code culture_*_snapshot} 적재용(ADR-13).
+	 * 상세 응답 아이템을 벤더 스냅샷 어휘(원문 verbatim)로 옮긴다 — {@code culture_detail_snapshot} 적재용(ADR-13).
 	 *
 	 * <p>도메인 변환({@code decode()}·HTML 평문 추출) <b>이전</b> 값이라 재파싱 원료로서 온전하다 — 특히
 	 * {@code contents1}의 워드프레스 HTML 원문이 보존되어, 평문 추출 규칙이 바뀌면 여기서 다시 뽑을 수 있다.
-	 * 원천의 응답 구조는 실측으로 확정돼 있다(목록 279건·상세 60건 태그 전수 집계 = Item 20필드와 일치 —
-	 * 제공률 분석 문서). 원천이 나중에 필드를 추가하면 {@code Item}에 선언을 더하는 것이 정상 대응이다.
+	 * 목록에는 대응물이 없다: 목록 스냅샷은 {@link CatalogExhibitionData}를 그대로 적재한다(평문 추출이 없어
+	 * 되돌릴 원문이 사실상 없고, 두 벌을 나르는 중복이 컸다).
 	 */
-	public CatalogVendorItem vendorOf(CultureApiResponse.Item item) {
+	public CatalogDetailVendorItem vendorOf(CultureDetailResponse.Item item) {
 		if (item == null) {
 			return null;
 		}
-		return new CatalogVendorItem(item.seq(), item.title(), item.startDate(), item.endDate(), item.place(),
-				item.realmName(), item.area(), item.sigungu(), item.thumbnail(), item.gpsX(), item.gpsY(),
-				item.serviceName(), item.price(), item.contents1(), item.url(), item.phone(), item.imgUrl(),
+		return new CatalogDetailVendorItem(item.seq(), item.title(), item.startDate(), item.endDate(), item.place(),
+				item.realmName(), item.area(), item.sigungu(), item.gpsX(), item.gpsY(),
+				item.price(), item.contents1(), item.url(), item.phone(), item.imgUrl(),
 				item.placeUrl(), item.placeAddr(), item.placeSeq());
 	}
 
-	public CatalogExhibitionData toCatalog(CultureApiResponse.Item item) {
+	public CatalogExhibitionData toCatalog(CultureRealmListResponse.Item item) {
 		return new CatalogExhibitionData(
 				item.seq(),
 				decode(item.title()),
@@ -82,17 +92,16 @@ public class CultureApiMapper {
 				ExhibitionRegion.fromAreaText(item.area()),
 				ExhibitionCategory.fromRealmName(item.realmName()),
 				blankToNull(item.thumbnail()),
-				blankToNull(item.url()),
+				null, // detailUrl — 목록 응답에는 없다(상세 조회가 채운다)
 				blankToNull(item.serviceName()),
 				parseCoordinate(item.gpsX()),
 				parseCoordinate(item.gpsY()),
 				blankToNull(item.sigungu()),
 				decode(blankToNull(item.realmName())),
-				decode(blankToNull(item.area())),
-				vendorOf(item));
+				decode(blankToNull(item.area())));
 	}
 
-	public CatalogDetailData toDetail(CultureApiResponse.Item item) {
+	public CatalogDetailData toDetail(CultureDetailResponse.Item item) {
 		return new CatalogDetailData(
 				decode(blankToNull(item.price())), decodeDescription(blankToNull(item.contents1())), blankToNull(item.url()),
 				decode(blankToNull(item.phone())), blankToNull(item.imgUrl()), blankToNull(item.placeUrl()),

@@ -9,7 +9,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import modi.backend.ingestion.domain.data.CatalogVendorItem;
+import modi.backend.ingestion.domain.data.CatalogDetailVendorItem;
 
 /**
  * 한눈에보는문화정보 상세(detail2) 응답 스냅샷(벤더층) — {@code culture_detail_snapshot} 매핑.
@@ -54,17 +54,11 @@ public class CultureDetailSnapshot {
 	@Column(name = "sigungu", length = 100)
 	private String sigungu;
 
-	@Column(name = "thumbnail", length = 1000)
-	private String thumbnail;
-
 	@Column(name = "gps_x", length = 50)
 	private String gpsX;
 
 	@Column(name = "gps_y", length = 50)
 	private String gpsY;
-
-	@Column(name = "service_name", length = 200)
-	private String serviceName;
 
 	@Column(name = "price", columnDefinition = "text")
 	private String price;
@@ -91,22 +85,22 @@ public class CultureDetailSnapshot {
 	@Column(name = "place_seq", length = 50)
 	private String placeSeq;
 
-	private CultureDetailSnapshot(String externalId, CatalogVendorItem item) {
+	private CultureDetailSnapshot(String externalId, CatalogDetailVendorItem item) {
 		this.externalId = externalId;
 		copyFields(item);
 	}
 
 	/** 원천이 상세를 준 첫 응답의 스냅샷을 보관한다. */
-	public static CultureDetailSnapshot first(String externalId, CatalogVendorItem item) {
+	public static CultureDetailSnapshot first(String externalId, CatalogDetailVendorItem item) {
 		return new CultureDetailSnapshot(externalId, item);
 	}
 
 	/** 재조회로 받은 최신 스냅샷으로 갱신한다(멱등 upsert — 같은 external_id는 항상 1행). */
-	public void refresh(CatalogVendorItem item) {
+	public void refresh(CatalogDetailVendorItem item) {
 		copyFields(item);
 	}
 
-	private void copyFields(CatalogVendorItem item) {
+	private void copyFields(CatalogDetailVendorItem item) {
 		if (item == null) {
 			return;
 		}
@@ -117,10 +111,8 @@ public class CultureDetailSnapshot {
 		this.realmName = item.realmName();
 		this.area = item.area();
 		this.sigungu = item.sigungu();
-		this.thumbnail = item.thumbnail();
 		this.gpsX = item.gpsX();
 		this.gpsY = item.gpsY();
-		this.serviceName = item.serviceName();
 		this.price = item.price();
 		this.contents = item.contents();
 		this.url = item.url();

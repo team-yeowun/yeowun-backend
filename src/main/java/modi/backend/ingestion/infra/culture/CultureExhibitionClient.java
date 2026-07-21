@@ -65,14 +65,14 @@ public class CultureExhibitionClient {
 	 * 목록 <b>한 페이지</b>를 가져온다 — 전송·검증·감사 한 벌.
 	 * 전체 순회는 {@link CultureCatalogReader}의 몫이다.
 	 */
-	public CultureApiResponse fetchListPage(CatalogFetchCriteria criteria, int page) {
+	public CultureRealmListResponse fetchListPage(CatalogFetchCriteria criteria, int page) {
 		LocalDateTime calledAt = LocalDateTime.now();
 		String realmCode = criteria.realm().code();
 		String requestKey = "realmCode=" + realmCode + "&page=" + page;
 
 		try {
 			CatalogFetchFilter filter = criteria.filter();
-			CultureApiResponse response = koreaCultureInformationClient.get()
+			CultureRealmListResponse response = koreaCultureInformationClient.get()
 					.uri(uriBuilder -> uriBuilder.path("/realm2")
 							// 필수 — 인증·페이징·분야·분야별구분·정렬
 							.queryParam("serviceKey", properties.serviceKey())
@@ -98,7 +98,7 @@ public class CultureExhibitionClient {
 									Optional.ofNullable(filter.bounds()).map(CatalogFetchFilter.Bounds::northLatitude))
 							.build())
 					.retrieve()
-					.body(CultureApiResponse.class);
+					.body(CultureRealmListResponse.class);
 			// 역직렬화 성공 != 정상 응답. 이 원천은 200을 주면서 본문 resultCode로 실패를 알린다.
 			mapper.verify(response);
 			record(ExternalApiCallLog.free(ExternalApi.CULTURE_LIST, requestKey, ExternalApiOutcome.SUCCESS, calledAt));
@@ -125,15 +125,15 @@ public class CultureExhibitionClient {
 		}
 		LocalDateTime calledAt = LocalDateTime.now();
 		try {
-			CultureApiResponse response = koreaCultureInformationClient.get()
+			CultureDetailResponse response = koreaCultureInformationClient.get()
 					.uri(uriBuilder -> uriBuilder.path("/detail2")
 							.queryParam("serviceKey", properties.serviceKey())
 							.queryParam("seq", externalId)
 							.build())
 					.retrieve()
-					.body(CultureApiResponse.class);
+					.body(CultureDetailResponse.class);
 			mapper.verify(response);
-			List<CultureApiResponse.Item> items = response.items();
+			List<CultureDetailResponse.Item> items = response.items();
 			if (items.isEmpty()) {
 				// 호출은 정상인데 원천에 상세가 없다 — 실패가 아니라 원천의 사실이다(재조회해도 소용없다).
 				record(ExternalApiCallLog.free(ExternalApi.CULTURE_DETAIL, externalId, ExternalApiOutcome.NO_DATA,
@@ -141,7 +141,7 @@ public class CultureExhibitionClient {
 				return Optional.empty();
 			}
 			record(ExternalApiCallLog.free(ExternalApi.CULTURE_DETAIL, externalId, ExternalApiOutcome.SUCCESS, calledAt));
-			CultureApiResponse.Item item = items.get(0);
+			CultureDetailResponse.Item item = items.get(0);
 			return Optional.of(new DetailFetch(mapper.toDetail(item), mapper.vendorOf(item)));
 		} catch (RuntimeException e) {
 			record(ExternalApiCallLog.free(ExternalApi.CULTURE_DETAIL, externalId, ExternalApiOutcome.FAILED, calledAt));

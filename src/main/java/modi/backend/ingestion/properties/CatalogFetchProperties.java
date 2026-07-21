@@ -19,8 +19,7 @@ import modi.backend.ingestion.domain.data.CatalogFetchFilter;
  * @param serviceType 분야별 구분(필수, 기본 공연/전시) — 원천 {@code serviceTp}.
  * @param sortOrder   정렬 기준(필수, 기본 시작일 오름차순) — 원천 {@code sortStdr}.
  * @param pageSize    1회 호출당 행 수(원천 {@code numOfrows}). 결과가 아니라 호출 횟수를 좌우한다.
- * @param maxItems    한 실행의 수집 상한(폭주 방지). 2026-07-15 실측 원천 총량 280건 대비 여유를 둔 값이며,
- *                 원천이 이 값을 넘기면 {@code sync_run.truncated}로 드러난다.
+ * @param maxItems    한 실행의 수집 상한(폭주 방지). 2026-07-15 실측 원천 총량 280건 대비 여유를 둔 값이다.
  */
 @ConfigurationProperties(prefix = "app.ingestion.exhibition-catalog")
 public record CatalogFetchProperties(ExhibitionRealm realm, CatalogServiceType serviceType,

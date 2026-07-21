@@ -27,8 +27,7 @@ class ExhibitionDraftTest {
 	private static CatalogExhibitionData listData(String externalId, String title, String place) {
 		LocalDate today = LocalDate.of(2026, 7, 1);
 		return new CatalogExhibitionData(externalId, title, place, today, today.plusDays(30),
-				ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING, null, null, "기관", null, null, null, "전시", "서울",
-				null);
+				ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING, null, null, "기관", null, null, null, "전시", "서울");
 	}
 
 	private static CatalogDetailData detail() {

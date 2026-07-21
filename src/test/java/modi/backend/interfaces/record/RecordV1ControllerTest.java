@@ -179,7 +179,7 @@ class RecordV1ControllerTest {
 		given(catalogClient.fetchAll(any())).willReturn(listData(List.of(
 				new CatalogExhibitionData(externalId, originalTitle, "스냅샷 갤러리", today.minusDays(5),
 						today.plusDays(25), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING,
-						"https://poster/snapshot.jpg", null, "기관", null, null, null, "전시", "서울", null))));
+						"https://poster/snapshot.jpg", null, "기관", null, null, null, "전시", "서울"))));
 		catalogSynchronizer.syncCatalog();
 		detailEnricher.enrichDetails(); // 스테이징 → 상세 해소(ADR-10 — 전시는 승격 후에만 나타난다)
 		genreEnricher.enrichGenres();
@@ -218,7 +218,7 @@ class RecordV1ControllerTest {
 		given(catalogClient.fetchAll(any())).willReturn(listData(List.of(
 				new CatalogExhibitionData(externalId, mutatedTitle, "스냅샷 갤러리 이전", today.minusDays(5),
 						today.plusDays(25), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING,
-						"https://poster/mutated.jpg", null, "기관", null, null, null, "전시", "서울", null))));
+						"https://poster/mutated.jpg", null, "기관", null, null, null, "전시", "서울"))));
 		catalogSynchronizer.syncCatalog();
 		detailEnricher.enrichDetails(); // 스테이징 → 상세 해소(ADR-10 — 전시는 승격 후에만 나타난다)
 		genreEnricher.enrichGenres();
@@ -367,7 +367,7 @@ class RecordV1ControllerTest {
 	 * 이 테스트들의 관심사가 아니라 아이템만 담고 totalCount는 수집 수와 같게 둔다(= 절단 없음).
 	 */
 	private static CatalogListData listData(java.util.List<CatalogExhibitionData> items) {
-		return new CatalogListData(items, items.size(), false);
+		return new CatalogListData(items, items.size());
 	}
 
 }

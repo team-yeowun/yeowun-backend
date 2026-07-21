@@ -16,7 +16,7 @@ import modi.backend.domain.exhibition.genre.GenreClassification;
 import modi.backend.domain.exhibition.genre.GenreResult;
 import modi.backend.ingestion.application.outbox.ExhibitionOutboxFacade;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
-import modi.backend.ingestion.domain.data.CatalogVendorItem;
+import modi.backend.ingestion.domain.data.CatalogDetailVendorItem;
 import modi.backend.ingestion.domain.draft.ExhibitionDraft;
 import modi.backend.ingestion.domain.draft.ExhibitionDraftRepository;
 import modi.backend.ingestion.domain.entity.CultureDetailSnapshot;
@@ -122,7 +122,7 @@ public class ExhibitionDraftFacade {
 	 * 다음 필수 스텝(장르)이 상세 도착 <b>후에</b> 걸리는 이유: 분류 입력(설명·장소)이 그때 온전해진다(스텝 체인).
 	 */
 	@Transactional
-	public void applyDetail(String externalId, CatalogDetailData detail, CatalogVendorItem vendor, LocalDateTime now) {
+	public void applyDetail(String externalId, CatalogDetailData detail, CatalogDetailVendorItem vendor, LocalDateTime now) {
 		ExhibitionDraft draft = exhibitionDraftRepository.findByExternalId(externalId).orElse(null);
 		if (draft == null || !draft.needsDetail()) {
 			return; // 재전달·경합 — 이미 해소됐거나 대상이 아니다.
@@ -211,7 +211,7 @@ public class ExhibitionDraftFacade {
 	}
 
 	/** 상세 스냅샷을 벤더층에 upsert한다(필드 적재 — ADR-13, 원문 있을 때만). 부가 기록이라 실패해도 반영을 깨지 않는다. */
-	private void archiveDetailSnapshot(String externalId, CatalogVendorItem vendor) {
+	private void archiveDetailSnapshot(String externalId, CatalogDetailVendorItem vendor) {
 		if (vendor == null) {
 			return;
 		}

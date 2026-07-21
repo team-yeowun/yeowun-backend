@@ -15,7 +15,7 @@ import modi.backend.ingestion.config.KoreaCultureInformationClientConfig;
 import modi.backend.ingestion.domain.ExhibitionRealm;
 import modi.backend.ingestion.domain.data.CatalogFetchCriteria;
 import modi.backend.ingestion.infra.culture.CultureApiMapper;
-import modi.backend.ingestion.infra.culture.CultureApiResponse;
+import modi.backend.ingestion.infra.culture.CultureRealmListResponse;
 import modi.backend.ingestion.infra.culture.CultureExhibitionClient;
 import modi.backend.ingestion.properties.PublicDataProperties;
 import modi.backend.support.error.CoreException;
@@ -28,7 +28,7 @@ import okhttp3.mockwebserver.MockWebServer;
  * <p>
  * <b>왜 이 테스트가 필요한가</b>: {@code RestClient.builder().configureMessageConverters(...)}를 <b>한 번이라도</b>
  * 호출하면 기본 컨버터 등록이 통째로 꺼진다. 그러면 XML 컨버터가 사라져
- * {@code .body(CultureApiResponse.class)}가 정상 응답에서도 {@code UnknownContentTypeException}으로 죽는다.
+ * {@code .body(CultureRealmListResponse.class)}가 정상 응답에서도 {@code UnknownContentTypeException}으로 죽는다.
  * 다른 테스트들은 자체 조립한 RestClient를 쓰므로 이 사고를 잡지 못한다 — <b>운영 조립을 직접 태우는 건 여기뿐이다.</b>
  * 누군가 "UTF-8 컨버터를 다시 넣자"고 config를 고치면 이 테스트가 먼저 깨진다.
  */
@@ -66,12 +66,12 @@ class CultureClientConverterWiringTest {
 	}
 
 	@Test
-	@DisplayName("운영 설정의 RestClient가 XML을 CultureApiResponse로 바인딩한다(기본 컨버터 유지 확인)")
+	@DisplayName("운영 설정의 RestClient가 XML을 CultureRealmListResponse로 바인딩한다(기본 컨버터 유지 확인)")
 	void 운영조립_XML_바인딩() {
 		// 원천과 동일하게 charset 없는 application/xml — 인코딩은 본문 XML 선언이 정한다.
 		server.enqueue(new MockResponse().setBody(REALM2_XML).addHeader("Content-Type", "application/xml"));
 
-		CultureApiResponse response = client.fetchListPage(CRITERIA, 1);
+		CultureRealmListResponse response = client.fetchListPage(CRITERIA, 1);
 
 		assertThat(response.isSuccess()).isTrue();
 		assertThat(response.items()).hasSize(1);

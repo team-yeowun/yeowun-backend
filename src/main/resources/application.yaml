@@ -112,9 +112,9 @@ app:
     exhibition-catalog:
       realm: EXHIBITION       # 수집 분야(도메인 개념) — 원천 코드 D000으로의 번역은 어댑터가 한다
       service-type: PERFORMANCE_EXHIBITION   # 분야별구분(필수, 원천 serviceTp)
-      sort-order: START_DATE_ASC             # 정렬(필수, 원천 sortStdr) — 정렬 미지정과 같은 결과
+      sort-order: REGISTRATION_DESC          # 정렬(필수, 원천 sortStdr=8) — 최근 등록분이 먼저(신규 등록 포착이 수집 목표)
       page-size: 100          # 1회 호출당 행 수(원천 numOfrows) — 결과가 아니라 호출 횟수를 좌우
-      max-items: 500          # 한 실행 수집 상한 — 넘치면 sync_run.truncated=true로 드러난다(실측 원천 266건)
+      max-items: 500          # 한 실행 수집 상한(폭주 방지) — 실측 원천 266건
 
   # 공공데이터 전시 API(한눈에보는문화정보조회서비스, data.go.kr 15138937) 접속 설정. (03_전시.md CATALOG 출처)
   # service-key: data.go.kr 일반 인증키. 공공데이터 오픈API 키라 저위험 + 재발급 가능해 yaml에 직접 둔다(팀 참고용).

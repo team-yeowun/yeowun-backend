@@ -55,14 +55,13 @@ class ExhibitionCatalogSyncTest {
 	}
 
 	private static CatalogListData listData(List<CatalogExhibitionData> items) {
-		return new CatalogListData(items, items.size(), false);
+		return new CatalogListData(items, items.size());
 	}
 
 	private static CatalogExhibitionData data(String externalId, String title) {
 		LocalDate today = LocalDate.now();
 		return new CatalogExhibitionData(externalId, title, "장소", today.minusDays(1), today.plusDays(10),
-				ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING, null, null, "기관", null, null, null, "전시", "서울",
-				null);
+				ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING, null, null, "기관", null, null, null, "전시", "서울");
 	}
 
 	@Test
@@ -112,7 +111,7 @@ class ExhibitionCatalogSyncTest {
 		LocalDate today = LocalDate.now();
 		CatalogExhibitionData invalid = new CatalogExhibitionData("CAT-BAD", "역전 기간", "장소", today,
 				today.minusDays(1), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING, null, null, "기관",
-				null, null, null, "전시", "서울", null);
+				null, null, null, "전시", "서울");
 		given(catalogClient.fetchAll(any())).willReturn(listData(List.of(invalid, data("CAT-OK", "정상 전시"))));
 		given(backfill.findDetailTargetState("CAT-OK")).willReturn(DetailTargetState.MISSING);
 		given(draftFacade.stageFromList(any(), any())).willReturn(ExhibitionDraftFacade.StageOutcome.STAGED);

@@ -56,7 +56,7 @@ class ExternalApiCallAuditTest {
 	void syncCatalog_실행기록_적재() {
 		String externalId = nextId();
 		given(exhibitionCatalogClient.fetchAll(any()))
-				.willReturn(new CatalogListData(List.of(listItem(externalId)), 280, false));
+				.willReturn(new CatalogListData(List.of(listItem(externalId)), 280));
 		given(exhibitionCatalogClient.fetchDetailSnapshot(eq(externalId))).willReturn(Optional.empty());
 		long before = countSyncRuns();
 
@@ -65,7 +65,6 @@ class ExternalApiCallAuditTest {
 		assertThat(countSyncRuns()).isEqualTo(before + 1);
 		var run = latestSyncRun();
 		assertThat(run.get("total_count")).isEqualTo(280); // 원천이 말한 총 건수 — 현행은 파싱만 하고 버렸다
-		assertThat(run.get("truncated")).isEqualTo(false);
 		assertThat(run.get("collected")).isEqualTo(1);
 		assertThat(run.get("inserted")).isEqualTo(1);
 		assertThat(run.get("started_at")).isNotNull();
@@ -73,16 +72,16 @@ class ExternalApiCallAuditTest {
 	}
 
 	@Test
-	@DisplayName("조용한 절단 — 원천에 더 있는데 상한에 걸리면 truncated=true로 드러난다(현행은 감지 불가)")
-	void syncCatalog_절단_기록() {
-		// 원천이 "총 600건"이라는데 상한(max-pages 5 × num-of-rows 100 = 500)에 걸려 일부만 수집된 상황.
+	@DisplayName("원천이 말한 총 건수는 수집 건수와 무관하게 그대로 기록된다(원천 규모 추이용)")
+	void syncCatalog_총건수_기록() {
+		// 원천이 "총 600건"이라는데 상한에 걸려 일부만 수집된 상황 — 절단 여부는 더 기록하지 않지만 총 건수는 남는다.
 		given(exhibitionCatalogClient.fetchAll(any()))
-				.willReturn(new CatalogListData(List.of(listItem(nextId())), 600, true));
+				.willReturn(new CatalogListData(List.of(listItem(nextId())), 600));
 
 		catalogSynchronizer.syncCatalog();
 
-		assertThat(latestSyncRun().get("truncated")).isEqualTo(true);
 		assertThat(latestSyncRun().get("total_count")).isEqualTo(600);
+		assertThat(latestSyncRun().get("collected")).isEqualTo(1);
 	}
 
 	@Test
@@ -108,7 +107,7 @@ class ExternalApiCallAuditTest {
 		LocalDate today = LocalDate.now();
 		return new CatalogExhibitionData(externalId, "감사 기록 전시", "시립미술관", today.minusDays(1),
 				today.plusDays(10), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING, null, null, "기관",
-				null, null, null, "전시", "서울", null);
+				null, null, null, "전시", "서울");
 	}
 
 	private long countSyncRuns() {

@@ -114,19 +114,19 @@ class CultureExhibitionClientTest {
 	}
 
 	@Test
-	@DisplayName("fetchAll — 각 아이템에 자기 응답의 벤더 원문(verbatim)이 실려 나온다")
-	void fetchAll_벤더원문_동승() {
+	@DisplayName("fetchAll — 응답 아이템의 필드가 끝까지 실려 나온다(이 record가 스냅샷 적재 원천이다)")
+	void fetchAll_전필드_동승() {
 		server.enqueue(new MockResponse().setBody(REALM2_XML).addHeader("Content-Type", "application/xml"));
 
 		List<CatalogExhibitionData> result = client.fetchAll(CRITERIA).items();
 
-		assertThat(result.get(0).vendorItem().seq()).isEqualTo("319005");
-		assertThat(result.get(0).vendorItem().gpsY()).isEqualTo("35.1"); // 마지막 필드까지 온전히 담긴다
+		assertThat(result.get(0).externalId()).isEqualTo("319005");
+		assertThat(result.get(0).gpsY()).isEqualTo(35.1); // 마지막 필드까지 온전히 담긴다
 	}
 
 	@Test
-	@DisplayName("fetchAll — 여러 아이템이면 각자 자기 원본을 받는다(A의 원본이 B에 붙지 않는다)")
-	void fetchAll_payload_아이템별_짝짓기() {
+	@DisplayName("fetchAll — 여러 아이템이면 각자 자기 값을 받는다(A의 값이 B에 붙지 않는다)")
+	void fetchAll_아이템별_짝짓기() {
 		String twoItems = "<response><header><resultCode>00</resultCode><resultMsg>정상</resultMsg></header>"
 				+ "<body><totalCount>2</totalCount><items>"
 				+ "<item><seq>1001</seq><title>첫째</title><area>서울</area></item>"
@@ -136,12 +136,12 @@ class CultureExhibitionClientTest {
 
 		List<CatalogExhibitionData> result = client.fetchAll(CRITERIA).items();
 
-		// 짝이 밀리면 재파싱 원료가 통째로 오염된다 — 없는 것보다 나쁘다.
+		// 짝이 밀리면 스냅샷이 통째로 오염된다 — 없는 것보다 나쁘다.
 		assertThat(result).hasSize(2);
 		assertThat(result.get(0).externalId()).isEqualTo("1001");
-		assertThat(result.get(0).vendorItem().seq()).isEqualTo("1001");
+		assertThat(result.get(0).title()).isEqualTo("첫째");
 		assertThat(result.get(1).externalId()).isEqualTo("1002");
-		assertThat(result.get(1).vendorItem().seq()).isEqualTo("1002");
+		assertThat(result.get(1).title()).isEqualTo("둘째");
 	}
 
 	@Test
@@ -165,53 +165,34 @@ class CultureExhibitionClientTest {
 
 		assertThat(result.items()).hasSize(3);
 		assertThat(server.getRequestCount()).isEqualTo(2); // 3콜 상한이지만 2콜에서 멈춘다
-		assertThat(result.truncated()).isFalse();
 	}
 
 	@Test
-	@DisplayName("절단 — 원천이 말한 총 건수보다 덜 봤으면 truncated(상한에 걸린 조용한 절단)")
-	void 절단_직접증거_총건수미달() {
-		// 총 5건이라 하는데 상한이 2콜 × 2행 = 4건이라 다 못 가져온다.
+	@DisplayName("총 건수 — 원천이 말한 값을 그대로 싣는다(없으면 null = \"모른다\", 0이 아니다)")
+	void 총건수_원천값_전달() {
 		server.enqueue(page(5, "1001", "1002"));
 		server.enqueue(page(5, "2001", "2002"));
 
 		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 2, 4));
 
 		assertThat(result.totalCount()).isEqualTo(5);
-		assertThat(result.truncated()).isTrue();
 	}
 
 	@Test
-	@DisplayName("절단 아님 — 상한과 원천 크기가 정확히 같으면 다 가져온 것이다(간접 증거만으론 오판하는 경계)")
-	void 절단아님_상한과_원천크기가_같을때() {
-		// 총 4건 = 상한 4건. 마지막 페이지가 꽉 찬 채로 끝나므로 "덜 찬 페이지를 못 만났다"는 간접 증거는 절단이라 말한다.
-		// 총 건수라는 직접 증거를 먼저 보기 때문에 오판하지 않는다.
-		server.enqueue(page(4, "1001", "1002"));
-		server.enqueue(page(4, "2001", "2002"));
-
-		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 2, 4));
-
-		assertThat(result.items()).hasSize(4);
-		assertThat(result.truncated()).isFalse();
-	}
-
-	@Test
-	@DisplayName("절단 — 총 건수를 모르면 마지막 페이지가 꽉 찬 채 끝났는지로 판정한다(간접 증거)")
-	void 절단_간접증거_총건수없음() {
+	@DisplayName("총 건수 — 응답에 없으면 null(0으로 뭉개지 않는다)")
+	void 총건수_결측이면_null() {
 		server.enqueue(pageWithoutTotalCount("1001", "1002"));
 		server.enqueue(pageWithoutTotalCount("2001", "2002"));
 
 		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 2, 4));
 
 		assertThat(result.totalCount()).isNull(); // 모른다(0이 아니다)
-		assertThat(result.truncated()).isTrue();
 	}
 
 	@Test
-	@DisplayName("절단 판정은 필터 이전 행 수로 한다 — 걸러진 불량 행을 절단으로 오인하지 않는다")
-	void 절단판정_필터이전_행수기준() {
-		// 원천이 3건을 줬고 총 건수도 3건인데, 그중 1건은 title이 없어 적재 불가로 걸러진다.
-		// collected.size()(2)로 판정하면 2 < 3 이라 절단 거짓 양성이 난다.
+	@DisplayName("적재 불가 행은 걸러서 싣는다 — 원천 식별자·제목이 없으면 통과시키지 않는다")
+	void 적재불가행_필터링() {
+		// 원천이 3건을 줬는데 그중 1건은 title이 없어 적재 불가다.
 		String body = "<response><header><resultCode>00</resultCode><resultMsg>정상</resultMsg></header>"
 				+ "<body><totalCount>3</totalCount><items>"
 				+ "<item><seq>1001</seq><title>첫째</title><area>서울</area></item>"
@@ -223,7 +204,7 @@ class CultureExhibitionClientTest {
 		CatalogListData result = client.fetchAll(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 3, 3));
 
 		assertThat(result.items()).hasSize(2); // 불량 1건은 빠진다
-		assertThat(result.truncated()).isFalse(); // 원천이 준 3건은 다 봤다
+		assertThat(result.totalCount()).isEqualTo(3); // 원천이 말한 수는 필터와 무관하게 그대로
 	}
 
 	private MockResponse page(int totalCount, String... seqs) {
@@ -258,7 +239,7 @@ class CultureExhibitionClientTest {
 		assertThat(path).doesNotContain("sido", "from", "to", "place", "keyword",
 				"gpsxfrom", "gpsyfrom", "gpsxto", "gpsyto");
 		// 정렬·분야별구분은 필수라 필터가 비어도 항상 실린다.
-		assertThat(path).contains("sortStdr=1").contains("serviceTp=A");
+		assertThat(path).contains("sortStdr=8").contains("serviceTp=A");
 	}
 
 	@Test
@@ -308,7 +289,7 @@ class CultureExhibitionClientTest {
 		// 응답 파싱만 보는 테스트는 이 오류를 못 잡으므로 요청선 자체를 못박는다.
 		assertThat(server.takeRequest().getPath())
 				.isEqualTo("/realm2?serviceKey=test-service-key&PageNo=1&numOfrows=100&realmCode=D000"
-						+ "&serviceTp=A&sortStdr=1");
+						+ "&serviceTp=A&sortStdr=8");
 		assertThat(server.takeRequest().getPath())
 				.isEqualTo("/detail2?serviceKey=test-service-key&seq=319005");
 	}

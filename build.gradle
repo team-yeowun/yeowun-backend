@@ -74,9 +74,29 @@ dependencies {
 }
 
 tasks.named('test') {
-	useJUnitPlatform()
+	// 'manual' 태그는 실제 외부 API를 호출하는 수동 확인용이라 자동 실행에서 제외한다(CI·로컬 전체 실행 모두).
+	//   돌리려면 ./gradlew manualTest — IDE에서 개별 실행도 된다.
+	useJUnitPlatform {
+		excludeTags 'manual'
+	}
 	jvmArgs '-Duser.timezone=Asia/Seoul'
 	finalizedBy tasks.named('jacocoTestReport')
+}
+
+// 수동 확인 전용 — 실제 외부 API를 호출한다(호출 한도 소모). 자동화 파이프라인에서 부르지 않는다.
+tasks.register('manualTest', Test) {
+	description = '실제 외부 API를 호출하는 수동 확인 테스트(@Tag("manual"))만 실행한다.'
+	group = 'verification'
+	testClassesDirs = sourceSets.test.output.classesDirs
+	classpath = sourceSets.test.runtimeClasspath
+	useJUnitPlatform {
+		includeTags 'manual'
+	}
+	jvmArgs '-Duser.timezone=Asia/Seoul'
+	outputs.upToDateWhen { false }   // 매번 실제로 호출해 확인하는 게 목적이다
+	testLogging {
+		showStandardStreams = true
+	}
 }
 
 tasks.named('jacocoTestReport') {

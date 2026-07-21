@@ -70,7 +70,7 @@ class ExhibitionSyncAtomicityIntegrationTest {
 		LocalDate today = LocalDate.now();
 		return new CatalogExhibitionData(externalId, "스테이징 전시 " + externalId, placeName,
 				today.minusDays(1), today.plusDays(10), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING,
-				null, null, "기관", null, null, null, "전시", "서울", null);
+				null, null, "기관", null, null, null, "전시", "서울");
 	}
 
 	@Test

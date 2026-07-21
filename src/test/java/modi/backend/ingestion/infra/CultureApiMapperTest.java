@@ -1,7 +1,8 @@
 package modi.backend.ingestion.infra;
 
 import modi.backend.ingestion.infra.culture.CultureApiMapper;
-import modi.backend.ingestion.infra.culture.CultureApiResponse;
+import modi.backend.ingestion.infra.culture.CultureDetailResponse;
+import modi.backend.ingestion.infra.culture.CultureRealmListResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -12,14 +13,16 @@ import org.junit.jupiter.api.Test;
 
 import modi.backend.domain.exhibition.catalog.CatalogDetailData;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
-import modi.backend.ingestion.domain.data.CatalogVendorItem;
+import java.time.LocalDate;
+
+import modi.backend.ingestion.domain.data.CatalogDetailVendorItem;
 import modi.backend.domain.exhibition.catalog.ExhibitionRegion;
 import modi.backend.support.error.CoreException;
 
 /**
- * {@link CultureApiMapper} 순수 단위 테스트(HTTP 없음) — XML 문자열 → {@link CultureApiResponse} 파싱 +
+ * {@link CultureApiMapper} 순수 단위 테스트(HTTP 없음) — XML 문자열 → 응답 레코드 파싱 +
  * 도메인({@link CatalogExhibitionData}/{@link CatalogDetailData}) 매핑을 검증한다.
- * 샘플은 {@link CultureApiResponseTest}·{@link CultureExhibitionClientTest}와 동일 표본(seq=319005, 부산/사하구)을 재사용한다.
+ * 샘플은 {@link CultureResponseBindingTest}·{@link CultureExhibitionClientTest}와 동일 표본(seq=319005, 부산/사하구)을 재사용한다.
  */
 class CultureApiMapperTest {
 
@@ -78,14 +81,18 @@ class CultureApiMapperTest {
 	/** 역직렬화는 이제 운영에서 Spring XML 컨버터가 한다 — 테스트는 같은 Jackson 3 XmlMapper로 픽스처만 만든다. */
 	private static final XmlMapper XML = new XmlMapper();
 
-	private static CultureApiResponse parse(String xml) {
-		return XML.readValue(xml, CultureApiResponse.class);
+	private static CultureRealmListResponse parseList(String xml) {
+		return XML.readValue(xml, CultureRealmListResponse.class);
+	}
+
+	private static CultureDetailResponse parseDetail(String xml) {
+		return XML.readValue(xml, CultureDetailResponse.class);
 	}
 
 	@Test
 	@DisplayName("verify — 정상 응답이면 통과하고 items 접근 가능")
 	void verify_성공() {
-		CultureApiResponse response = parse(REALM2_XML);
+		CultureRealmListResponse response = parseList(REALM2_XML);
 
 		mapper.verify(response);
 
@@ -96,7 +103,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("verify — resultCode 비정상이면 EXTERNAL_API_UNAVAILABLE(역직렬화는 성공해도 내용은 실패)")
 	void verify_비정상_resultCode() {
-		assertThatThrownBy(() -> mapper.verify(parse(ERROR_XML)))
+		assertThatThrownBy(() -> mapper.verify(parseList(ERROR_XML)))
 				.isInstanceOf(CoreException.class);
 	}
 
@@ -106,52 +113,40 @@ class CultureApiMapperTest {
 		String 한도초과 = "<response><header><resultCode>22</resultCode>"
 				+ "<resultMsg>서비스 요청제한횟수 초과</resultMsg></header></response>";
 
-		assertThatThrownBy(() -> mapper.verify(parse(한도초과)))
+		assertThatThrownBy(() -> mapper.verify(parseList(한도초과)))
 				.isInstanceOf(CoreException.class)
 				.hasMessageContaining("LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR");
 	}
 
 	@Test
-	@DisplayName("vendorOf — 응답 아이템이 준 필드를 빠짐없이 원문 verbatim으로 옮긴다(실측 기준 무손실 — ADR-13)")
-	void vendorOf_전필드_원문() {
-		CultureApiResponse.Item item = parse(REALM2_XML).items().get(0);
+	@DisplayName("toCatalog — 목록 응답 12필드가 하나도 빠짐없이 옮겨진다(스냅샷 적재 원천이므로 누락 = 증거 손실)")
+	void toCatalog_전필드_이관() {
+		CultureRealmListResponse.Item item = parseList(REALM2_XML).items().get(0);
 
-		CatalogVendorItem vendor = mapper.vendorOf(item);
+		CatalogExhibitionData data = mapper.toCatalog(item);
 
-		// 실측(realm2 12필드)이 확정한 목록 응답의 전 필드가 스냅샷 어휘에 남아야 한다 — 하나라도 빠지면 재가공 원료가 아니다.
-		assertThat(vendor.seq()).isEqualTo("319005");
-		assertThat(vendor.title()).isEqualTo("패트릭 블랑");
-		assertThat(vendor.startDate()).isEqualTo("20180616");
-		assertThat(vendor.endDate()).isEqualTo("20281231");
-		assertThat(vendor.place()).isEqualTo("부산현대미술관");
-		assertThat(vendor.realmName()).isEqualTo("전시");
-		assertThat(vendor.area()).isEqualTo("부산");
-		assertThat(vendor.sigungu()).isEqualTo("사하구");
-		assertThat(vendor.thumbnail()).isEqualTo("http://t/x.jpg");
-		assertThat(vendor.gpsX()).isEqualTo("128.9");
-		assertThat(vendor.gpsY()).isEqualTo("35.1");
-		assertThat(vendor.serviceName()).isEqualTo("전시");
-	}
-
-	@Test
-	@DisplayName("vendorOf — 원천이 주지 않은 필드는 null(안 준 것이 그대로 보인다)")
-	void vendorOf_결측필드_null() {
-		CultureApiResponse.Item item = parse(REALM2_XML).items().get(0);
-
-		CatalogVendorItem vendor = mapper.vendorOf(item);
-
-		// 목록 응답엔 상세 필드가 없다 — 컬럼 null = "원천이 안 줬다"(ADR-13 수용 단순화).
-		assertThat(vendor.price()).isNull();
-		assertThat(vendor.contents()).isNull();
-		assertThat(vendor.placeAddr()).isNull();
+		// 실측(realm2 12필드)이 확정한 목록 응답의 전 필드가 이 record에 남아야 한다 — culture_list_snapshot이
+		// 이걸 그대로 적재하므로, 하나라도 빠지면 그 컬럼이 영영 빈다(별도 verbatim 어휘가 더는 없다).
+		assertThat(data.externalId()).isEqualTo("319005");
+		assertThat(data.title()).isEqualTo("패트릭 블랑");
+		assertThat(data.startDate()).isEqualTo(LocalDate.of(2018, 6, 16));
+		assertThat(data.endDate()).isEqualTo(LocalDate.of(2028, 12, 31));
+		assertThat(data.place()).isEqualTo("부산현대미술관");
+		assertThat(data.realmName()).isEqualTo("전시");
+		assertThat(data.areaText()).isEqualTo("부산");
+		assertThat(data.sigungu()).isEqualTo("사하구");
+		assertThat(data.posterUrl()).isEqualTo("http://t/x.jpg");
+		assertThat(data.gpsX()).isEqualTo(128.9);
+		assertThat(data.gpsY()).isEqualTo(35.1);
+		assertThat(data.serviceName()).isEqualTo("전시");
 	}
 
 	@Test
 	@DisplayName("vendorOf — 상세의 워드프레스 HTML 본문을 도메인 변환 전 원문 그대로 보존한다(재추출 원료)")
 	void vendorOf_HTML원문_보존() {
-		CultureApiResponse.Item item = parse(DETAIL2_WORDPRESS_XML).items().get(0);
+		CultureDetailResponse.Item item = parseDetail(DETAIL2_WORDPRESS_XML).items().get(0);
 
-		CatalogVendorItem vendor = mapper.vendorOf(item);
+		CatalogDetailVendorItem vendor = mapper.vendorOf(item);
 
 		// 평문 추출은 toDetail의 몫이고, 스냅샷 어휘엔 그 이전 원문이 남아야 한다 — 규칙이 바뀌면 여기서 다시 뽑는다.
 		assertThat(vendor.contents()).contains("wp:paragraph");
@@ -167,7 +162,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("toCatalog — area→region=BUSAN·sigungu·realmName·areaText 매핑")
 	void toCatalog_매핑() {
-		CultureApiResponse.Item item = parse(REALM2_XML).items().get(0);
+		CultureRealmListResponse.Item item = parseList(REALM2_XML).items().get(0);
 
 		CatalogExhibitionData data = mapper.toCatalog(item);
 
@@ -182,7 +177,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("toDetail — price·placeAddr·placeSeq 매핑")
 	void toDetail_매핑() {
-		CultureApiResponse.Item item = parse(DETAIL2_XML).items().get(0);
+		CultureDetailResponse.Item item = parseDetail(DETAIL2_XML).items().get(0);
 
 		CatalogDetailData detail = mapper.toDetail(item);
 
@@ -194,7 +189,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("toCatalog — 원본이 HTML 엔티티로 이스케이프돼 있으면 디코딩해 저장한다")
 	void toCatalog_HTML_엔티티_디코딩() {
-		CultureApiResponse.Item item = parse(REALM2_ESCAPED_XML).items().get(0);
+		CultureRealmListResponse.Item item = parseList(REALM2_ESCAPED_XML).items().get(0);
 
 		CatalogExhibitionData data = mapper.toCatalog(item);
 
@@ -205,7 +200,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("toDetail — description의 HTML 엔티티를 디코딩하고 br 태그를 줄바꿈으로 정리한다")
 	void toDetail_HTML_엔티티_디코딩() {
-		CultureApiResponse.Item item = parse(DETAIL2_ESCAPED_XML).items().get(0);
+		CultureDetailResponse.Item item = parseDetail(DETAIL2_ESCAPED_XML).items().get(0);
 
 		CatalogDetailData detail = mapper.toDetail(item);
 
@@ -215,7 +210,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("toDetail — 워드프레스 블록 주석·<p>·<span> 태그를 벗겨 읽기 좋은 평문으로 만든다")
 	void toDetail_워드프레스_태그제거() {
-		CultureApiResponse.Item item = parse(DETAIL2_WORDPRESS_XML).items().get(0);
+		CultureDetailResponse.Item item = parseDetail(DETAIL2_WORDPRESS_XML).items().get(0);
 
 		CatalogDetailData detail = mapper.toDetail(item);
 
@@ -232,7 +227,7 @@ class CultureApiMapperTest {
 	@Test
 	@DisplayName("toDetail — 이중 이스케이프(&lt;p&gt;)된 본문도 태그까지 완전히 벗겨낸다")
 	void toDetail_이중이스케이프_태그제거() {
-		CultureApiResponse.Item item = parse(DETAIL2_DOUBLE_ESCAPED_XML).items().get(0);
+		CultureDetailResponse.Item item = parseDetail(DETAIL2_DOUBLE_ESCAPED_XML).items().get(0);
 
 		CatalogDetailData detail = mapper.toDetail(item);
 

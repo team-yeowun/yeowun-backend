@@ -44,7 +44,7 @@ public class CultureCatalogReader implements ExhibitionCatalogClient {
 			log.info("CULTURE_API_KEY 미설정 — 동기화 스킵");
 			return CatalogListData.none();
 		}
-		return toListData(fetchPages(criteria), criteria);
+		return toListData(fetchPages(criteria));
 	}
 
 	/**
@@ -61,10 +61,10 @@ public class CultureCatalogReader implements ExhibitionCatalogClient {
 	 * <p>
 	 * "어디까지 부를까"만 판단하고 내용은 보지 않는다 — 누적·판정은 {@link #toListData}의 몫이다.
 	 */
-	private List<CultureApiResponse> fetchPages(CatalogFetchCriteria criteria) {
-		List<CultureApiResponse> pages = new ArrayList<>();
+	private List<CultureRealmListResponse> fetchPages(CatalogFetchCriteria criteria) {
+		List<CultureRealmListResponse> pages = new ArrayList<>();
 		for (int pageNo = 1; pageNo <= criteria.maxCalls(); pageNo++) {
-			CultureApiResponse page = client.fetchListPage(criteria, pageNo);
+			CultureRealmListResponse page = client.fetchListPage(criteria, pageNo);
 			pages.add(page);
 			if (page.items().size() < criteria.pageSize()) {
 				break; // 마지막 페이지
@@ -73,52 +73,25 @@ public class CultureCatalogReader implements ExhibitionCatalogClient {
 		return pages;
 	}
 
-	/**
-	 * 받아 온 페이지들을 수집 결과 한 벌로 접는다 — 적재 가능 필터 + 조용한 절단 판정.
-	 * <p>
-	 * <b>{@code seen}과 {@code collected}는 다른 수다.</b> 절단 판정은 "원천이 준 행 수"와 비교해야 하므로
-	 * 필터 이전 수를 쓴다 — 걸러진 불량 행을 절단으로 오인하면 {@code sync_run.truncated}에 거짓 양성이 쌓인다.
-	 */
-	private CatalogListData toListData(List<CultureApiResponse> pages, CatalogFetchCriteria criteria) {
-		// 원본(payload)은 아이템 객체에서 바로 직렬화한다 — 응답 문자열을 잘라 인덱스로 짝지을 필요가 없으므로
-		// "A 전시의 원본이 B에 붙는" 오염이 원인부터 불가능하다.
+	/** 받아 온 페이지들을 수집 결과 한 벌로 접는다 — 적재 가능 필터 + 원천이 말한 총 건수. */
+	private CatalogListData toListData(List<CultureRealmListResponse> pages) {
 		List<CatalogExhibitionData> collected = pages.stream()
 				.flatMap(page -> page.items().stream())
 				.map(mapper::toCatalog)
 				.filter(CatalogExhibitionData::isPersistable)
 				.toList();
-		Integer totalCount = totalCountOf(pages);
-		int seen = pages.stream().mapToInt(page -> page.items().size()).sum();
-		return new CatalogListData(collected, totalCount, isTruncated(pages, criteria, totalCount, seen));
+		return new CatalogListData(collected, totalCountOf(pages));
 	}
 
 	/**
 	 * 원천이 말한 총 건수 — <b>가장 먼저 값을 준 페이지의 것으로 고정</b>한다(결측 페이지는 건너뛴다).
 	 * 페이지마다 덮으면 중간 응답의 결측에 흔들린다.
 	 */
-	private Integer totalCountOf(List<CultureApiResponse> pages) {
+	private Integer totalCountOf(List<CultureRealmListResponse> pages) {
 		return pages.stream()
-				.map(CultureApiResponse::body)
-				.filter(Objects::nonNull)
-				.map(CultureApiResponse.Body::totalCount)
+				.map(CultureRealmListResponse::totalCount)
 				.filter(Objects::nonNull)
 				.findFirst()
 				.orElse(null);
-	}
-
-	/**
-	 * 조용한 절단 판정 — 원천에 더 있는데 수집 상한({@code max-items})에 걸려 못 가져왔나.
-	 * <p>
-	 * 원천이 총 건수를 알려줬으면 <b>그 말과 우리가 본 수를 비교하는 게 가장 직접적인 증거</b>다.
-	 * 총 건수를 모를 때만(응답에 없음) "마지막 페이지를 끝내 못 만났다"는 간접 증거로 판정한다 —
-	 * 상한이 원천 크기와 정확히 같은 경우(예: 500건/500건) 간접 증거만으론 절단으로 오판하므로 판정 순서가 규칙의 일부다.
-	 */
-	private boolean isTruncated(List<CultureApiResponse> pages, CatalogFetchCriteria criteria,
-			Integer totalCount, int seen) {
-		if (totalCount != null) {
-			return seen < totalCount;
-		}
-		// 마지막 페이지를 봤다 = 마지막으로 받은 페이지가 덜 찼다. 순회 종료 사유를 플래그로 나를 필요가 없다.
-		return !pages.isEmpty() && pages.get(pages.size() - 1).items().size() >= criteria.pageSize();
 	}
 }
