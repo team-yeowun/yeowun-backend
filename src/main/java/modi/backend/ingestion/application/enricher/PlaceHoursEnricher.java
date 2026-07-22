@@ -13,10 +13,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
-import modi.backend.ingestion.properties.GoogleMapsProperties;
+import modi.backend.ingestion.properties.GooglePlaceProperties;
 import modi.backend.domain.exhibition.hours.OpeningHoursFormatter;
-import modi.backend.ingestion.domain.data.PlaceHoursFetch;
-import modi.backend.ingestion.domain.port.PlaceHoursProvider;
+import modi.backend.ingestion.domain.data.PlaceHoursResult;
 
 /**
  * 전시 영업시간(운영시간) 보강 오케스트레이션 — 장르 보강({@link GenreEnricher})과 동형.
@@ -45,7 +44,7 @@ public class PlaceHoursEnricher {
 	/** 조회 1건 + 그 호출의 감사. */
 	private final PlaceHoursReader placeHoursReader;
 	private final OpeningHoursFormatter openingHoursFormatter;
-	private final GoogleMapsProperties properties;
+	private final GooglePlaceProperties properties;
 
 	/**
 	 * 조회 대상 장소들의 영업시간을 채운다(장소당 1콜). 스테디 상태(전부 최신)에선 대상이 비어 외부 호출 없이 끝난다.
@@ -61,11 +60,10 @@ public class PlaceHoursEnricher {
 		int touched = 0;
 		for (PlaceHoursTarget target : targets) {
 			try {
-				Optional<PlaceHoursFetch> fetched = placeHoursReader.read(target);
+				Optional<PlaceHoursResult> fetched = placeHoursReader.read(target);
 				String formatted = fetched.map(f -> openingHoursFormatter.format(f.data().weeklyHours())).orElse(null);
-				exhibitionSyncFacade.applyVenueHours(target, fetched.map(PlaceHoursFetch::data).orElse(null),
-						fetched.map(PlaceHoursFetch::vendor).orElse(null), formatted, placeHoursReader.vendor(),
-						LocalDateTime.now());
+				exhibitionSyncFacade.applyVenueHours(target, fetched.orElse(null), formatted,
+						placeHoursReader.vendor(), LocalDateTime.now());
 				touched += 1;
 			} catch (RuntimeException e) {
 				// 전송 실패 등 — 이 장소만 건너뛰고 synced_at을 남기지 않아 다음 주기에 재시도한다(기존 동작 불변).

@@ -25,7 +25,7 @@ import modi.backend.ingestion.domain.ExternalApi;
 import modi.backend.ingestion.domain.ExternalApiOutcome;
 import modi.backend.ingestion.domain.entity.CultureDetailSnapshot;
 import modi.backend.ingestion.domain.entity.ExternalApiCallLog;
-import modi.backend.ingestion.domain.data.GooglePlaceVendorItem;
+import modi.backend.ingestion.domain.data.PlaceHoursResult;
 import modi.backend.ingestion.domain.entity.CultureListSnapshot;
 import modi.backend.ingestion.domain.entity.GooglePlaceSnapshot;
 import modi.backend.ingestion.domain.entity.IngestionRun;
@@ -83,10 +83,11 @@ public class ExhibitionSyncFacade {
 	 * {@code data}가 null(미발견)이면 {@code formatted=null}로 값은 비우되 동기화 시각은 남긴다(재조회 백오프).
 	 */
 	@Transactional
-	public void applyVenueHours(PlaceHoursTarget target, PlaceHoursData data, GooglePlaceVendorItem vendorItem,
+	public void applyVenueHours(PlaceHoursTarget target, PlaceHoursResult result,
 			String formatted, PlaceHoursVendor vendor, LocalDateTime now) {
 		Long placeId = target.exhibitionPlaceId();
-		archiveGooglePlaceSnapshot(placeId, vendorItem, vendor, now);
+		archiveGooglePlaceSnapshot(placeId, result, vendor, now);
+		PlaceHoursData data = result == null ? null : result.data();
 		placeHoursBackfill.applyHours(placeId, formatted, PlaceHoursStatus.of(data, formatted), vendor, now);
 	}
 
@@ -161,17 +162,17 @@ public class ExhibitionSyncFacade {
 	}
 
 	/** 벤더 스냅샷 upsert — 구글이 준 응답만 적재한다(mock은 정준층에 provider=MOCK으로만 남고 벤더층은 비어 있는 게 정상). */
-	private void archiveGooglePlaceSnapshot(Long placeId, GooglePlaceVendorItem vendorItem, PlaceHoursVendor vendor,
+	private void archiveGooglePlaceSnapshot(Long placeId, PlaceHoursResult result, PlaceHoursVendor vendor,
 			LocalDateTime now) {
-		if (placeId == null || vendorItem == null || vendor != PlaceHoursVendor.GOOGLE) {
+		if (placeId == null || result == null || vendor != PlaceHoursVendor.GOOGLE) {
 			return;
 		}
 		googlePlaceSnapshotRepository.findByExhibitionPlaceId(placeId)
 				.ifPresentOrElse(row -> {
-					row.refresh(vendorItem, now);
+					row.refresh(result, now);
 					googlePlaceSnapshotRepository.save(row);
 				}, () -> googlePlaceSnapshotRepository.save(
-						GooglePlaceSnapshot.first(placeId, vendorItem, now)));
+						GooglePlaceSnapshot.first(placeId, result, now)));
 	}
 
 }

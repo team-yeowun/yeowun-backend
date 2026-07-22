@@ -11,7 +11,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import modi.backend.ingestion.domain.data.GooglePlaceVendorItem;
+import modi.backend.ingestion.domain.data.PlaceHoursResult;
 
 /**
  * 구글 Places(New) 응답 스냅샷(벤더층) — {@code google_place_snapshot} 매핑, 전시장({@code exhibition_place})당 1행.
@@ -50,29 +50,29 @@ public class GooglePlaceSnapshot {
 	@Column(name = "fetched_at")
 	private LocalDateTime fetchedAt;
 
-	private GooglePlaceSnapshot(Long exhibitionPlaceId, GooglePlaceVendorItem item, LocalDateTime fetchedAt) {
+	private GooglePlaceSnapshot(Long exhibitionPlaceId, PlaceHoursResult item, LocalDateTime fetchedAt) {
 		this.exhibitionPlaceId = exhibitionPlaceId;
 		copyFields(item);
 		this.fetchedAt = fetchedAt;
 	}
 
 	/** 이 전시장의 첫 구글 응답 스냅샷. */
-	public static GooglePlaceSnapshot first(Long exhibitionPlaceId, GooglePlaceVendorItem item, LocalDateTime fetchedAt) {
+	public static GooglePlaceSnapshot first(Long exhibitionPlaceId, PlaceHoursResult item, LocalDateTime fetchedAt) {
 		return new GooglePlaceSnapshot(exhibitionPlaceId, item, fetchedAt);
 	}
 
 	/** 재검증으로 받은 최신 스냅샷으로 갱신한다(전시장당 1행 유지). */
-	public void refresh(GooglePlaceVendorItem item, LocalDateTime fetchedAt) {
+	public void refresh(PlaceHoursResult item, LocalDateTime fetchedAt) {
 		copyFields(item);
 		this.fetchedAt = fetchedAt;
 	}
 
-	private void copyFields(GooglePlaceVendorItem item) {
+	private void copyFields(PlaceHoursResult item) {
 		if (item == null) {
 			return;
 		}
 		this.placeId = item.placeId();
-		this.displayName = item.displayName();
+		this.displayName = item.displayNameText();
 		this.formattedAddress = item.formattedAddress();
 		this.regularOpeningHours = item.regularOpeningHoursJson();
 	}

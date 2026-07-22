@@ -13,34 +13,34 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
-import modi.backend.ingestion.domain.data.PlaceHoursFetch;
-import modi.backend.ingestion.properties.GoogleMapsProperties;
+import modi.backend.ingestion.domain.data.PlaceHoursResult;
+import modi.backend.ingestion.properties.GooglePlaceProperties;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 
 /**
- * {@link GoogleMapsClient} 실HTTP 계약 검증(MockWebServer) — 선언형 HTTP Interface 프록시를 걷어내고
+ * {@link GooglePlaceClient} 실HTTP 계약 검증(MockWebServer) — 선언형 HTTP Interface 프록시를 걷어내고
  * {@link RestClient}로 직접 요청선을 조립하도록 바꾸면서, 그 <b>전송 계약</b>(경로·헤더·본문)을 여기서 못박는다.
  * 프록시 시절엔 어노테이션이 대신 보증하던 것들이라 검증이 없었다.
  */
-class GoogleMapsClientTest {
+class GooglePlaceClientTest {
 
 	private MockWebServer server;
-	private GoogleMapsClient provider;
+	private GooglePlaceClient provider;
 
 	@BeforeEach
 	void setUp() throws IOException {
 		server = new MockWebServer();
 		server.start();
-		GoogleMapsProperties properties = new GoogleMapsProperties("google", server.url("/").toString(),
+		GooglePlaceProperties properties = new GooglePlaceProperties("google", server.url("/").toString(),
 				"test-api-key", "ko", "KR", 5L, 30, 100);
 		// 운영 조립(PlaceHoursConfig)과 동일하게 JDK 팩토리 고정 — 테스트 클래스패스의 Apache HttpClient5가
 		// 자동감지되면 전송 계층이 한 번 더 재시도해 요청 수 검증이 흔들린다(Gemini 테스트와 같은 이유).
 		RestClient restClient = RestClient.builder().baseUrl(properties.baseUrl())
 				.requestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory())
 				.build();
-		provider = new GoogleMapsClient(restClient, properties);
+		provider = new GooglePlaceClient(restClient, properties);
 	}
 
 	@AfterEach
@@ -60,7 +60,7 @@ class GoogleMapsClientTest {
 				"formattedAddress":"부산 사하구","regularOpeningHours":{"periods":[
 				{"open":{"day":2,"hour":10,"minute":0},"close":{"day":2,"hour":18,"minute":0}}]}}]}"""));
 
-		Optional<PlaceHoursFetch> fetched = provider.fetch("부산현대미술관", "부산 사하구 낙동남로 1191");
+		Optional<PlaceHoursResult> fetched = provider.fetch("부산현대미술관", "부산 사하구 낙동남로 1191");
 
 		assertThat(fetched).isPresent();
 		assertThat(fetched.get().data().weeklyHours().byDay()).containsOnlyKeys(DayOfWeek.TUESDAY);

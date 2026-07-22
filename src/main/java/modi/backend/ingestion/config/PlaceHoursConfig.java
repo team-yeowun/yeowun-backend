@@ -3,7 +3,8 @@ package modi.backend.ingestion.config;
 import java.net.http.HttpClient;
 import java.time.Duration;
 
-import modi.backend.ingestion.properties.GoogleMapsProperties;
+import modi.backend.ingestion.infra.google.GooglePlaceClient;
+import modi.backend.ingestion.properties.GooglePlaceProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,7 +13,6 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 import modi.backend.ingestion.domain.port.PlaceHoursProvider;
-import modi.backend.ingestion.infra.google.GoogleMapsClient;
 import modi.backend.ingestion.infra.mock.MockPlaceHoursProvider;
 
 /**
@@ -22,7 +22,7 @@ import modi.backend.ingestion.infra.mock.MockPlaceHoursProvider;
  * 주 조회기(@Primary)를 고른다. 주입 지점(enricher)은 선택된 하나만 본다(DIP). 기본은 mock이라 로컬·CI·develop은 유료호출 0.
  */
 @Configuration
-@EnableConfigurationProperties(GoogleMapsProperties.class)
+@EnableConfigurationProperties(GooglePlaceProperties.class)
 public class PlaceHoursConfig {
 
 	/** 연결 수립 상한(읽기 타임아웃과 별개) — 세 수집 클라이언트가 같은 값을 쓴다. */
@@ -30,11 +30,11 @@ public class PlaceHoursConfig {
 
 	/**
 	 * 구글 Places 전용 RestClient. baseUrl·읽기 타임아웃(워커 스레드 장기 점유·부팅 지연 방지)을 설정에서 주입한다.
-	 * 요청선(경로·헤더·본문)은 {@link GoogleMapsClient}가 이 클라이언트로 직접 조립한다 —
+	 * 요청선(경로·헤더·본문)은 {@link GooglePlaceClient}가 이 클라이언트로 직접 조립한다 —
 	 * 선언형 HTTP Interface 프록시를 두지 않는다(공공데이터 전시 API와 같은 구조).
 	 */
 	@Bean
-	public RestClient googleMapsRestClient(GoogleMapsProperties properties) {
+	public RestClient googleMapsRestClient(GooglePlaceProperties properties) {
 		// 연결 수립 상한 — 살아있는 상대는 1초 안에 붙는다. 팩토리엔 세터가 없어 HttpClient에 걸어 넘긴다.
 		HttpClient httpClient = HttpClient.newBuilder()
 				.connectTimeout(CONNECT_TIMEOUT)
@@ -53,8 +53,8 @@ public class PlaceHoursConfig {
 	 */
 	@Bean
 	@Primary
-	public PlaceHoursProvider placeHoursProvider(GoogleMapsProperties properties,
-			MockPlaceHoursProvider mockPlaceHoursProvider, GoogleMapsClient googleMapsClient) {
-		return properties.useGoogle() ? googleMapsClient : mockPlaceHoursProvider;
+	public PlaceHoursProvider placeHoursProvider(GooglePlaceProperties properties,
+                                                 MockPlaceHoursProvider mockPlaceHoursProvider, GooglePlaceClient googlePlaceClient) {
+		return properties.useGoogle() ? googlePlaceClient : mockPlaceHoursProvider;
 	}
 }

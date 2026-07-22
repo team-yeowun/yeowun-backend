@@ -29,8 +29,7 @@ import modi.backend.domain.exhibition.catalog.ExhibitionPlaceRepository;
 import modi.backend.domain.exhibition.catalog.ExhibitionRegion;
 import modi.backend.domain.exhibition.hours.PlaceHours;
 import modi.backend.domain.exhibition.hours.PlaceHoursData;
-import modi.backend.ingestion.domain.data.GooglePlaceVendorItem;
-import modi.backend.ingestion.domain.data.PlaceHoursFetch;
+import modi.backend.ingestion.domain.data.PlaceHoursResult;
 import modi.backend.ingestion.domain.port.PlaceHoursProvider;
 import modi.backend.infra.exhibition.hours.PlaceHoursJpaRepository;
 import modi.backend.domain.exhibition.hours.PlaceHoursStatus;
@@ -198,8 +197,28 @@ class PlaceHoursIntegrationTest {
 		return builder.build();
 	}
 
-	private PlaceHoursFetch data(String addr, WeeklyOpeningHours hours) {
-		return new PlaceHoursFetch(new PlaceHoursData(hours),
-				new GooglePlaceVendorItem("pid-" + addr, null, addr, null));
+	/** 구글 응답을 흉내낸 조회 결과 — 파싱된 hours + 스냅샷 필드(placeId·주소). archival이 GOOGLE로 적재하는지 검증용. */
+	private PlaceHoursResult data(String addr, WeeklyOpeningHours hours) {
+		return new PlaceHoursResult() {
+			public PlaceHoursData data() {
+				return new PlaceHoursData(hours);
+			}
+
+			public String placeId() {
+				return "pid-" + addr;
+			}
+
+			public String displayNameText() {
+				return null;
+			}
+
+			public String formattedAddress() {
+				return addr;
+			}
+
+			public String regularOpeningHoursJson() {
+				return null;
+			}
+		};
 	}
 }

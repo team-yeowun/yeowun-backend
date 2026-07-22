@@ -21,7 +21,7 @@ import modi.backend.ingestion.properties.OutboxProperties;
 import modi.backend.ingestion.domain.outbox.OutboxMessage;
 import modi.backend.ingestion.domain.outbox.OutboxMessageType;
 import modi.backend.domain.exhibition.hours.OpeningHoursFormatter;
-import modi.backend.ingestion.domain.data.PlaceHoursFetch;
+import modi.backend.ingestion.domain.data.PlaceHoursResult;
 import modi.backend.ingestion.domain.port.PlaceHoursProvider;
 
 /**
@@ -84,10 +84,9 @@ public class PlaceHoursRefresher {
 		}
 		PlaceHoursTarget target = resolved.get();
 		try {
-			Optional<PlaceHoursFetch> fetched = placeHoursReader.read(target);
+			Optional<PlaceHoursResult> fetched = placeHoursReader.read(target);
 			String formatted = fetched.map(f -> openingHoursFormatter.format(f.data().weeklyHours())).orElse(null);
-			exhibitionSyncFacade.applyVenueHours(target, fetched.map(PlaceHoursFetch::data).orElse(null),
-						fetched.map(PlaceHoursFetch::vendor).orElse(null), formatted, placeHoursReader.vendor(), now);
+			exhibitionSyncFacade.applyVenueHours(target, fetched.orElse(null), formatted, placeHoursReader.vendor(), now);
 		} catch (org.springframework.dao.OptimisticLockingFailureException e) {
 			return false; // 반영 중 충돌 — 다른 워커가 처리
 		} catch (RuntimeException e) {

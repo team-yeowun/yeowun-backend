@@ -24,7 +24,7 @@ import modi.backend.domain.exhibition.hours.WeeklyOpeningHours;
 import modi.backend.ingestion.application.ExhibitionSyncFacade;
 import modi.backend.ingestion.domain.ExternalApi;
 import modi.backend.ingestion.domain.ExternalApiOutcome;
-import modi.backend.ingestion.domain.data.PlaceHoursFetch;
+import modi.backend.ingestion.domain.data.PlaceHoursResult;
 import modi.backend.ingestion.domain.port.PlaceHoursProvider;
 
 /**
@@ -51,15 +51,36 @@ class PlaceHoursReaderTest {
 		reader = new PlaceHoursReader(provider, facade);
 	}
 
-	private static PlaceHoursFetch anyFetch() {
-		return new PlaceHoursFetch(new PlaceHoursData(WeeklyOpeningHours.empty()), null);
+	/** reader는 결과를 그대로 흘려보내므로 내용은 무관 — 빈 영업시간 결과 하나면 충분하다. */
+	private static PlaceHoursResult anyResult() {
+		return new PlaceHoursResult() {
+			public PlaceHoursData data() {
+				return new PlaceHoursData(WeeklyOpeningHours.empty());
+			}
+
+			public String placeId() {
+				return null;
+			}
+
+			public String displayNameText() {
+				return null;
+			}
+
+			public String formattedAddress() {
+				return null;
+			}
+
+			public String regularOpeningHoursJson() {
+				return null;
+			}
+		};
 	}
 
 	@Test
 	@DisplayName("구글 조회 성공 → SUCCESS 한 행, 감사 키는 전시장 이름의 정규화 키(주소 아님)")
 	void read_google_success_recordsOneRowKeyedByNormalizedPlaceName() {
 		given(provider.vendor()).willReturn(PlaceHoursVendor.GOOGLE);
-		given(provider.fetch(target.placeName(), target.placeAddr())).willReturn(Optional.of(anyFetch()));
+		given(provider.fetch(target.placeName(), target.placeAddr())).willReturn(Optional.of(anyResult()));
 
 		assertThat(reader.read(target)).isPresent();
 
@@ -98,7 +119,7 @@ class PlaceHoursReaderTest {
 	@DisplayName("mock 조회기는 외부를 부르지 않으므로 감사 행을 남기지 않는다(유령 감사 행 차단)")
 	void read_mock_recordsNothing() {
 		given(provider.vendor()).willReturn(PlaceHoursVendor.MOCK);
-		given(provider.fetch(any(), any())).willReturn(Optional.of(anyFetch()));
+		given(provider.fetch(any(), any())).willReturn(Optional.of(anyResult()));
 
 		assertThat(reader.read(target)).isPresent();
 
