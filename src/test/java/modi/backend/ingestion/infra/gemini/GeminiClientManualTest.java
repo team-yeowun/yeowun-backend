@@ -6,7 +6,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.observation.ObservationRegistry;
 import modi.backend.domain.exhibition.genre.GenreClassification;
 import modi.backend.domain.exhibition.genre.GenreKeyword;
@@ -51,8 +50,7 @@ class GeminiClientManualTest {
 		}
 
 		GeminiClient classifier = new GenreConfig().geminiClient(
-				new GeminiProperties(null, apiKey, "gemini-2.5-flash", 30L),
-				new SimpleMeterRegistry(), ObservationRegistry.NOOP);
+				new GeminiProperties(null, apiKey, "gemini-2.5-flash", 30L), ObservationRegistry.NOOP);
 
 		GenreResult result = classifier.classify(input);
 

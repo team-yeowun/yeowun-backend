@@ -9,21 +9,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.google.genai.GoogleGenAiChatModel;
-import org.springframework.core.retry.RetryPolicy;
-import org.springframework.core.retry.RetryTemplate;
 
-import com.google.genai.Client;
-import com.google.genai.types.HttpOptions;
-import com.google.genai.types.HttpRetryOptions;
 
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 import modi.backend.domain.exhibition.genre.GenreClassification;
 import modi.backend.domain.exhibition.genre.GenreClassificationException;
 import modi.backend.domain.exhibition.genre.GenreProvider;
 import modi.backend.domain.exhibition.genre.GenreResult;
-import org.springframework.ai.chat.client.ChatClient;
+import modi.backend.ingestion.config.GenreConfig;
 import modi.backend.ingestion.properties.GeminiProperties;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -38,10 +31,6 @@ import okhttp3.mockwebserver.RecordedRequest;
  * <b>계약은 그대로</b>여야 한다 — 그래서 검증 항목을 바꾸지 않고 조립만 갈아끼웠다.
  */
 class GeminiClientTest {
-
-	/** 운영 조립(GenreConfig)과 같은 정책 — 재시도 없음(단일 시도 계약). */
-	private static final RetryTemplate SINGLE_ATTEMPT = new RetryTemplate(
-			RetryPolicy.builder().maxRetries(0).build());
 
 	private MockWebServer server;
 	private GeminiClient classifier;
@@ -62,25 +51,12 @@ class GeminiClientTest {
 		server.shutdown();
 	}
 
-	/** 운영(GenreConfig.geminiClient)과 같은 조립 — 목 서버를 겨냥하도록 SDK baseUrl만 바꾼다. */
+	/**
+	 * 운영({@code GenreConfig.geminiClient})과 같은 조립을 그대로 부른다 — 목 서버를 겨냥하도록
+	 * baseUrl만 바꿔 넘긴다. 배선이 운영과 틀어지면 이 테스트가 먼저 깨진다.
+	 */
 	private GeminiClient classifierWith(GeminiProperties properties) {
-		if (!properties.isConfigured()) {
-			return new GeminiClient(null, properties, new SimpleMeterRegistry());
-		}
-		Client genAiClient = Client.builder()
-				.apiKey(properties.apiKey())
-				.httpOptions(HttpOptions.builder()
-						.baseUrl(properties.baseUrl())
-						.apiVersion("v1beta")
-						.timeout(Math.toIntExact(properties.timeoutSeconds() * 1000))
-						.retryOptions(HttpRetryOptions.builder().attempts(1).build())
-						.build())
-				.build();
-		ChatModel chatModel = GoogleGenAiChatModel.builder()
-				.genAiClient(genAiClient)
-				.retryTemplate(SINGLE_ATTEMPT)
-				.build();
-		return new GeminiClient(ChatClient.create(chatModel), properties, new SimpleMeterRegistry());
+		return new GenreConfig().geminiClient(properties, ObservationRegistry.NOOP);
 	}
 
 	@Test

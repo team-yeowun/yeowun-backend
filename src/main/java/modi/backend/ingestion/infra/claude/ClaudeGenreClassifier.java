@@ -10,7 +10,6 @@ import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
 
-import io.micrometer.core.instrument.MeterRegistry;
 import modi.backend.ingestion.properties.GenreClaudeProperties;
 import modi.backend.domain.exhibition.genre.GenreKeyword;
 import modi.backend.domain.exhibition.genre.GenreProvider;
@@ -43,12 +42,10 @@ public class ClaudeGenreClassifier implements GenreClassifier {
 			장르 목록: %s""";
 
 	private final GenreClaudeProperties properties;
-	private final MeterRegistry meterRegistry;
 	private final AnthropicClient client; // api-key 미설정 시 null(호출 시 예외 — 체인/아웃박스가 잇는다)
 
-	public ClaudeGenreClassifier(GenreClaudeProperties properties, MeterRegistry meterRegistry) {
+	public ClaudeGenreClassifier(GenreClaudeProperties properties) {
 		this.properties = properties;
-		this.meterRegistry = meterRegistry;
 		this.client = properties.isConfigured()
 				? AnthropicOkHttpClient.builder()
 						.apiKey(properties.apiKey())
@@ -63,16 +60,13 @@ public class ClaudeGenreClassifier implements GenreClassifier {
 				input.toPromptText());
 		String genre = text == null ? null : text.trim();
 		if (!GenreKeyword.contains(genre)) {
-			count("invalid_response");
 			throw new GenreClassificationException("Claude 장르 응답이 마스터에 없음: " + genre);
 		}
-		count("success");
 		return GenreResult.ai(genre, GenreProvider.CLAUDE, properties.model());
 	}
 	/** 단일 시도 호출 — 미설정·전송 오류는 분류 실패로 감싸 던진다(재시도·전환은 체인·아웃박스의 몫). */
 	private String complete(String systemPrompt, String userPrompt) {
 		if (client == null) {
-			count("disabled");
 			throw new GenreClassificationException("Claude(장르) api-key 미설정 — 2차 전환 불가");
 		}
 		try {
@@ -88,16 +82,7 @@ public class ClaudeGenreClassifier implements GenreClassifier {
 					.collect(Collectors.joining("\n"))
 					.trim();
 		} catch (RuntimeException e) {
-			count("error");
 			throw new GenreClassificationException("Claude 장르 분류 호출 실패: " + e.getMessage(), e);
-		}
-	}
-
-	private void count(String outcome) {
-		try {
-			meterRegistry.counter("modi.genre.classify", "classifier", "claude", "outcome", outcome).increment();
-		} catch (RuntimeException ignored) {
-			// 관측은 부가 기능 — 실패해도 분류 결과엔 영향 없음
 		}
 	}
 }
