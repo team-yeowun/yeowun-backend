@@ -10,7 +10,7 @@ import modi.backend.domain.exhibition.hours.PlaceHoursVendor;
 import modi.backend.domain.exhibition.hours.WeeklyOpeningHours;
 import modi.backend.ingestion.domain.data.PlaceHoursFetch;
 import modi.backend.ingestion.domain.port.PlaceHoursProvider;
-import modi.backend.ingestion.properties.PlaceHoursProperties;
+import modi.backend.ingestion.properties.GoogleMapsProperties;
 
 /**
  * 구글 Places(New) 실호출 영업시간 조회기. 장소명+주소로 Text Search({@code /v1/places:searchText}) 1콜을 보내
@@ -34,7 +34,7 @@ public class GoogleMapsClient implements PlaceHoursProvider {
 
 	/** 필드명이 곧 빈 이름이다 — RestClient 빈이 여럿이라 이름으로 해소된다(@Qualifier 대체). */
 	private final RestClient googleMapsRestClient;
-	private final PlaceHoursProperties properties;
+	private final GoogleMapsProperties properties;
 
 	@Override
 	public Optional<PlaceHoursFetch> fetch(String placeName, String placeAddr) {

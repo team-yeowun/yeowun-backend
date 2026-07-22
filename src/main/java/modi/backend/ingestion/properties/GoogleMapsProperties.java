@@ -11,10 +11,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * refresh-after-days: 이보다 오래 전에 조회된 장소만 재호출(스테디 상태 호출 최소화). max-venues-per-run: 실행당 장소 호출 상한(비용 캡).
  */
 @ConfigurationProperties(prefix = "app.exhibition.place-hours")
-public record PlaceHoursProperties(String provider, String baseUrl, String apiKey, String languageCode,
+public record GoogleMapsProperties(String provider, String baseUrl, String apiKey, String languageCode,
 		String regionCode, Long timeoutSeconds, Integer refreshAfterDays, Integer maxVenuesPerRun) {
 
-	public PlaceHoursProperties {
+	public GoogleMapsProperties {
 		if (provider == null || provider.isBlank()) {
 			provider = "mock";
 		}

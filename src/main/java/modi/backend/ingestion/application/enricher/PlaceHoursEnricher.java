@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
-import modi.backend.ingestion.properties.PlaceHoursProperties;
+import modi.backend.ingestion.properties.GoogleMapsProperties;
 import modi.backend.domain.exhibition.hours.OpeningHoursFormatter;
 import modi.backend.ingestion.domain.data.PlaceHoursFetch;
 import modi.backend.ingestion.domain.port.PlaceHoursProvider;
@@ -45,7 +45,7 @@ public class PlaceHoursEnricher {
 	/** 조회 1건 + 그 호출의 감사. */
 	private final PlaceHoursReader placeHoursReader;
 	private final OpeningHoursFormatter openingHoursFormatter;
-	private final PlaceHoursProperties properties;
+	private final GoogleMapsProperties properties;
 
 	/**
 	 * 조회 대상 장소들의 영업시간을 채운다(장소당 1콜). 스테디 상태(전부 최신)에선 대상이 비어 외부 호출 없이 끝난다.

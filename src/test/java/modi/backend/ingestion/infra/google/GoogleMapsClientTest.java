@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
 import modi.backend.ingestion.domain.data.PlaceHoursFetch;
-import modi.backend.ingestion.properties.PlaceHoursProperties;
+import modi.backend.ingestion.properties.GoogleMapsProperties;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -33,7 +33,7 @@ class GoogleMapsClientTest {
 	void setUp() throws IOException {
 		server = new MockWebServer();
 		server.start();
-		PlaceHoursProperties properties = new PlaceHoursProperties("google", server.url("/").toString(),
+		GoogleMapsProperties properties = new GoogleMapsProperties("google", server.url("/").toString(),
 				"test-api-key", "ko", "KR", 5L, 30, 100);
 		// 운영 조립(PlaceHoursConfig)과 동일하게 JDK 팩토리 고정 — 테스트 클래스패스의 Apache HttpClient5가
 		// 자동감지되면 전송 계층이 한 번 더 재시도해 요청 수 검증이 흔들린다(Gemini 테스트와 같은 이유).

@@ -3,7 +3,7 @@ package modi.backend.ingestion.config;
 import java.net.http.HttpClient;
 import java.time.Duration;
 
-import modi.backend.ingestion.properties.PlaceHoursProperties;
+import modi.backend.ingestion.properties.GoogleMapsProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,7 +22,7 @@ import modi.backend.ingestion.infra.mock.MockPlaceHoursProvider;
  * 주 조회기(@Primary)를 고른다. 주입 지점(enricher)은 선택된 하나만 본다(DIP). 기본은 mock이라 로컬·CI·develop은 유료호출 0.
  */
 @Configuration
-@EnableConfigurationProperties(PlaceHoursProperties.class)
+@EnableConfigurationProperties(GoogleMapsProperties.class)
 public class PlaceHoursConfig {
 
 	/** 연결 수립 상한(읽기 타임아웃과 별개) — 세 수집 클라이언트가 같은 값을 쓴다. */
@@ -34,7 +34,7 @@ public class PlaceHoursConfig {
 	 * 선언형 HTTP Interface 프록시를 두지 않는다(공공데이터 전시 API와 같은 구조).
 	 */
 	@Bean
-	public RestClient googleMapsRestClient(PlaceHoursProperties properties) {
+	public RestClient googleMapsRestClient(GoogleMapsProperties properties) {
 		// 연결 수립 상한 — 살아있는 상대는 1초 안에 붙는다. 팩토리엔 세터가 없어 HttpClient에 걸어 넘긴다.
 		HttpClient httpClient = HttpClient.newBuilder()
 				.connectTimeout(CONNECT_TIMEOUT)
@@ -53,7 +53,7 @@ public class PlaceHoursConfig {
 	 */
 	@Bean
 	@Primary
-	public PlaceHoursProvider placeHoursProvider(PlaceHoursProperties properties,
+	public PlaceHoursProvider placeHoursProvider(GoogleMapsProperties properties,
 			MockPlaceHoursProvider mockPlaceHoursProvider, GoogleMapsClient googleMapsClient) {
 		return properties.useGoogle() ? googleMapsClient : mockPlaceHoursProvider;
 	}
