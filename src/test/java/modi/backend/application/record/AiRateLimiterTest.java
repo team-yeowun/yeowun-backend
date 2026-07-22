@@ -12,7 +12,7 @@ import modi.backend.support.error.CoreException;
 class AiRateLimiterTest {
 
 	private AiRateLimiter limiter(long rateLimitSeconds) {
-		return new AiRateLimiter(new AiProperties(null, null, null, null, null, rateLimitSeconds, null, null));
+		return new AiRateLimiter(new AiProperties(null, null, null, null, rateLimitSeconds, null, null));
 	}
 
 	@Test

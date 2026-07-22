@@ -5,7 +5,6 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.anthropic.client.AnthropicClient;
@@ -27,10 +26,8 @@ import modi.backend.support.error.CoreException;
  * (AI만 비활성, 나머지 기능은 정상). 모델·max-tokens·타임아웃은 {@link AiProperties} 설정값을 사용한다.
  * 응답마다 토큰 사용량을 로깅 + Micrometer 카운터로 기록한다(비용/스파이크 모니터링).
  * 구조화 출력({@code completeStructured})은 SDK의 output_config(스키마 강제)를 사용한다.
- * {@code app.ai.provider=claude}(기본값)일 때만 빈 등록 — provider를 바꾸면 다른 어댑터(예: Gemini)로 전환된다.
  */
 @Component
-@ConditionalOnProperty(name = "app.ai.provider", havingValue = "claude", matchIfMissing = true)
 public class ClaudeAiChatClient implements AiChatClient {
 
 	private static final Logger log = LoggerFactory.getLogger(ClaudeAiChatClient.class);
