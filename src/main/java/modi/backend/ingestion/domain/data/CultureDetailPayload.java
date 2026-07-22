@@ -6,7 +6,7 @@ import modi.backend.domain.exhibition.catalog.CatalogDetailData;
  * 상세(detail2) 응답 한 건이 <b>수집 도메인에 보여야 하는 모양</b> — 도메인이 선언하고 infra 응답이 구현한다(DIP 역전).
  *
  * <p><b>왜 이 인터페이스가 있나</b>: 벤더 스냅샷({@code CultureDetailSnapshot})은 응답 원문을 그대로 적재해야 하는데,
- * 그렇다고 도메인이 Jackson 바인딩 타입({@code CultureDetail2Response})을 알 수는 없다. 그래서 <b>도메인이 필요한
+ * 그렇다고 도메인이 Jackson 바인딩 타입({@code KoreaCultureDto.Detail2Response})을 알 수는 없다. 그래서 <b>도메인이 필요한
  * 접근자만 선언</b>하고 infra의 응답 record가 이걸 구현한다 — 의존이 안쪽으로만 흐르면서 원문은 복사 없이 흐른다.
  *
  * <p>필드를 <b>복사한 DTO를 두지 않는 이유</b>가 여기 있다: 복사본은 원문과 같은 값을 두 벌 들고 다니게 되고,

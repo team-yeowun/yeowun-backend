@@ -10,7 +10,7 @@ import modi.backend.support.text.HtmlTextExtractor;
 /**
  * 한눈에보는문화정보 응답 필드를 도메인 값으로 정제하는 <b>변환 규칙 모음</b>(infra 전용).
  *
- * <p>목록({@link CultureRealm2ListResponse.Item})과 상세({@link CultureDetail2Response.Item})가 <b>같은 규칙을
+ * <p>목록({@link KoreaCultureDto.Realm2ListResponse.Item})과 상세({@link KoreaCultureDto.Detail2Response.Item})가 <b>같은 규칙을
  * 공유</b>한다 — 각 record에 복사해 두면 "XML 이스케이프 원복" 같은 규칙이 두 벌이 되어 한쪽만 고치는 사고가 난다.
  *
  * <p>도메인이 아니라 여기 있는 이유: {@link HtmlUtils}(Spring)에 의존하고, 다루는 대상이 <b>이 벤더의 표기</b>

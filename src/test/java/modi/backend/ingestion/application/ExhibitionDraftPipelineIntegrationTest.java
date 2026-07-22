@@ -33,7 +33,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import modi.backend.domain.exhibition.catalog.CatalogDetailData;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
 import modi.backend.ingestion.domain.data.CatalogPage;
-import modi.backend.ingestion.infra.culture.CultureDetail2Response;
+import modi.backend.ingestion.infra.culture.KoreaCultureDto;
 import modi.backend.ingestion.domain.draft.DraftStatus;
 import modi.backend.ingestion.domain.draft.ExhibitionDraft;
 import modi.backend.ingestion.domain.draft.ExhibitionDraftRepository;
@@ -95,7 +95,7 @@ class ExhibitionDraftPipelineIntegrationTest {
 		given(catalogClient.isConfigured()).willReturn(true);
 		given(catalogClient.fetchPage(any(), anyInt())).willReturn(
 				new CatalogPage(java.util.List.of(listData(externalId, "파이프장소" + seq)), 1));
-		given(catalogClient.fetchDetail(anyString())).willReturn(new CultureDetail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
+		given(catalogClient.fetchDetail(anyString())).willReturn(new KoreaCultureDto.Detail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
 				"무료", "전시 소개", null, "02-000-0000", null, null, "서울시 종로구", null));
 
 		// 1) sync — 목록 외 외부 호출 0: draft 스테이징 + FETCH_DETAIL enqueue만.

@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 
-import modi.backend.ingestion.infra.culture.CultureRealm2ListResponse;
+import modi.backend.ingestion.infra.culture.KoreaCultureDto;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,7 +29,7 @@ import okhttp3.mockwebserver.MockWebServer;
  * <p>
  * <b>왜 이 테스트가 필요한가</b>: {@code RestClient.builder().configureMessageConverters(...)}를 <b>한 번이라도</b>
  * 호출하면 기본 컨버터 등록이 통째로 꺼진다. 그러면 XML 컨버터가 사라져
- * {@code .body(CultureRealm2ListResponse.class)}가 정상 응답에서도 {@code UnknownContentTypeException}으로 죽는다.
+ * {@code .body(KoreaCultureDto.Realm2ListResponse.class)}가 정상 응답에서도 {@code UnknownContentTypeException}으로 죽는다.
  * 다른 테스트들은 자체 조립한 RestClient를 쓰므로 이 사고를 잡지 못한다 — <b>운영 조립을 직접 태우는 건 여기뿐이다.</b>
  * 누군가 "UTF-8 컨버터를 다시 넣자"고 config를 고치면 이 테스트가 먼저 깨진다.
  */

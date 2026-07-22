@@ -1,6 +1,6 @@
 package modi.backend.application.exhibition;
 
-import modi.backend.ingestion.infra.culture.CultureDetail2Response;
+import modi.backend.ingestion.infra.culture.KoreaCultureDto;
 import modi.backend.ingestion.application.enricher.DetailEnricher;
 import modi.backend.application.exhibition.contract.DetailTargetState;
 import modi.backend.ingestion.application.draft.DraftEnrichmentService;
@@ -46,8 +46,8 @@ class DetailEnricherTest {
 		return OutboxMessage.enqueue(OutboxMessageType.FETCH_DETAIL, externalId, LocalDateTime.now());
 	}
 
-	private static CultureDetail2Response.Item detail() {
-		return new CultureDetail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
+	private static KoreaCultureDto.Detail2Response.Item detail() {
+		return new KoreaCultureDto.Detail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
 				"무료", null, null, null, null, null, null, "PLACE-1");
 	}
 

@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.dataformat.xml.XmlMapper;
 
 import modi.backend.ingestion.infra.culture.CultureApiErrorHandler;
-import modi.backend.ingestion.infra.culture.CultureRealm2ListResponse;
+import modi.backend.ingestion.infra.culture.KoreaCultureDto;
 import modi.backend.support.error.CoreException;
 
 /**
@@ -32,14 +32,14 @@ class CultureApiErrorHandlerTest {
 	private final CultureApiErrorHandler errorHandler = new CultureApiErrorHandler();
 	private static final XmlMapper XML = new XmlMapper();
 
-	private static CultureRealm2ListResponse parseList(String xml) {
-		return XML.readValue(xml, CultureRealm2ListResponse.class);
+	private static KoreaCultureDto.Realm2ListResponse parseList(String xml) {
+		return XML.readValue(xml, KoreaCultureDto.Realm2ListResponse.class);
 	}
 
 	@Test
 	@DisplayName("정상 응답이면 통과한다(items 접근 가능)")
 	void 정상응답_통과() {
-		CultureRealm2ListResponse response = parseList(REALM2_XML);
+		KoreaCultureDto.Realm2ListResponse response = parseList(REALM2_XML);
 
 		assertThatCode(() -> errorHandler.throwIfVendorError(response)).doesNotThrowAnyException();
 
@@ -68,7 +68,7 @@ class CultureApiErrorHandlerTest {
 	@Test
 	@DisplayName("응답 자체가 없으면(null) 예외 — '빈 목록'과 구분한다")
 	void 응답없음_예외() {
-		assertThatThrownBy(() -> errorHandler.throwIfVendorError((CultureRealm2ListResponse) null))
+		assertThatThrownBy(() -> errorHandler.throwIfVendorError((KoreaCultureDto.Realm2ListResponse) null))
 				.isInstanceOf(CoreException.class)
 				.hasMessageContaining("응답 없음");
 	}

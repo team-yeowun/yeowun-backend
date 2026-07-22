@@ -1,6 +1,6 @@
 package modi.backend.ingestion.application;
 
-import modi.backend.ingestion.infra.culture.CultureDetail2Response;
+import modi.backend.ingestion.infra.culture.KoreaCultureDto;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
@@ -103,7 +103,7 @@ class ExhibitionSyncAtomicityIntegrationTest {
 				PlaceHoursStatus.SUCCEEDED, PlaceHoursVendor.GOOGLE, now.minusDays(60)));
 
 		exhibitionDraftFacade.stageFromList(listData(externalId, placeName), now);
-		exhibitionDraftFacade.applyDetail(externalId, new CultureDetail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
+		exhibitionDraftFacade.applyDetail(externalId, new KoreaCultureDto.Detail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
 				"무료", "전시 소개", null, "02-000-0000", null, null, "서울시 종로구", null), now);
 		exhibitionDraftFacade.applyGenre(externalId,
 				GenreResult.ai("사진", GenreProvider.GEMINI, "gemini-2.5-flash"), now);

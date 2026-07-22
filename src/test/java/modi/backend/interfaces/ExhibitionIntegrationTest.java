@@ -1,6 +1,6 @@
 package modi.backend.interfaces;
 
-import modi.backend.ingestion.infra.culture.CultureDetail2Response;
+import modi.backend.ingestion.infra.culture.KoreaCultureDto;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -123,9 +123,9 @@ class ExhibitionIntegrationTest {
 						null, "사진", "서울"))));
 		// detail2는 유효한 seq면 항상 값을 준다(실측) — 상세를 못 받으면 예외라 승격이 막힌다.
 		// 그래서 나머지 전시도 최소 상세를 준다(예전엔 빈 Optional로 "무상세 확인" 경로를 탔다).
-		given(catalogClient.fetchDetail(anyString())).willReturn(new CultureDetail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
+		given(catalogClient.fetchDetail(anyString())).willReturn(new KoreaCultureDto.Detail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
 				null, null, null, null, null, null, null, null));
-		given(catalogClient.fetchDetail("CAT-MONET")).willReturn(new CultureDetail2Response.Item("CAT-MONET", null, null, null, null, null, null, null, null, null,
+		given(catalogClient.fetchDetail("CAT-MONET")).willReturn(new KoreaCultureDto.Detail2Response.Item("CAT-MONET", null, null, null, null, null, null, null, null, null,
 				"성인 20,000원", "모네 특별전 설명", "https://detail/monet", "02-1234-5678",
 				"https://img/monet.jpg", "https://place/monet", "서울 어딘가", "PLACE-SEQ-1"));
 		catalogSynchronizer.syncCatalog();

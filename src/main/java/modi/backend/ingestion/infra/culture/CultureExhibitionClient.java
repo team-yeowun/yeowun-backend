@@ -63,9 +63,9 @@ public class CultureExhibitionClient implements ExhibitionCatalogClient {
 	 */
 	@Override
 	public CatalogPage fetchPage(CatalogFetchCriteria criteria, int page) {
-		CultureRealm2ListResponse response = fetchListPage(criteria, page);
+		KoreaCultureDto.Realm2ListResponse response = fetchListPage(criteria, page);
 		return new CatalogPage(
-				response.items().stream().map(CultureRealm2ListResponse.Item::toCatalog).toList(),
+				response.items().stream().map(KoreaCultureDto.Realm2ListResponse.Item::toCatalog).toList(),
 				response.totalCount());
 	}
 
@@ -79,11 +79,11 @@ public class CultureExhibitionClient implements ExhibitionCatalogClient {
 	}
 
 	/** 원문 응답 그대로 — 같은 패키지의 수동 확인 테스트가 응답 구조를 들여다볼 수 있게 package-private으로 둔다. */
-	CultureRealm2ListResponse fetchListPage(CatalogFetchCriteria criteria, int page) {
+	KoreaCultureDto.Realm2ListResponse fetchListPage(CatalogFetchCriteria criteria, int page) {
 		String realmCode = criteria.realm().code();
 		try {
 			CatalogFetchFilter filter = criteria.filter();
-			CultureRealm2ListResponse response = koreaCultureInformationClient.get()
+			KoreaCultureDto.Realm2ListResponse response = koreaCultureInformationClient.get()
 					.uri(uriBuilder -> uriBuilder.path("/realm2")
 							// 필수 — 인증·페이징·분야·분야별구분·정렬
 							.queryParam("serviceKey", properties.serviceKey())
@@ -109,7 +109,7 @@ public class CultureExhibitionClient implements ExhibitionCatalogClient {
 									Optional.ofNullable(filter.bounds()).map(CatalogFetchFilter.Bounds::northLatitude))
 							.build())
 					.retrieve()
-					.body(CultureRealm2ListResponse.class);
+					.body(KoreaCultureDto.Realm2ListResponse.class);
 			errorHandler.throwIfVendorError(response);
 			return response;
 		} catch (RuntimeException e) {
@@ -127,20 +127,20 @@ public class CultureExhibitionClient implements ExhibitionCatalogClient {
 	 * 상세 1건을 벤더 원문과 함께 가져온다 — 상세는 페이징이 없어 단건 호출이 곧 결과다.
 	 * 인증키 미설정·원천에 상세 없음은 빈 Optional.
 	 */
-	private CultureDetail2Response fetchExhibitionDetail(String externalId) {
+	private KoreaCultureDto.Detail2Response fetchExhibitionDetail(String externalId) {
 		if (!properties.isConfigured()) {
 			throw new CoreException(ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "외부 전시 API 인증키 미설정");
 		}
 		try {
-			CultureDetail2Response response = koreaCultureInformationClient.get()
+			KoreaCultureDto.Detail2Response response = koreaCultureInformationClient.get()
 					.uri(uriBuilder -> uriBuilder.path("/detail2")
 							.queryParam("serviceKey", properties.serviceKey())
 							.queryParam("seq", externalId)
 							.build())
 					.retrieve()
-					.body(CultureDetail2Response.class);
+					.body(KoreaCultureDto.Detail2Response.class);
 			errorHandler.throwIfVendorError(response);
-			List<CultureDetail2Response.Item> items = response.items();
+			List<KoreaCultureDto.Detail2Response.Item> items = response.items();
 			if (items.isEmpty()) {
 				// resultCode=00인데 items가 빈 응답 — 없는 seq에서 실제로 나온다(실측 2026-07-21).
 				// 정상 운영에선 목록에서 받은 seq만 부르므로, 이건 "목록 이후 원천에서 삭제됨"을 뜻한다.

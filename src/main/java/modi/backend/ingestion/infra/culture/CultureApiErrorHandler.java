@@ -29,13 +29,13 @@ public class CultureApiErrorHandler {
 	 * 목록(realm2) 응답이 벤더 실패면 {@link ExhibitionErrorCode#EXTERNAL_API_UNAVAILABLE}로 던진다.
 	 * 응답을 객체로 받은 <b>직후</b> 통과시켜야 한다.
 	 */
-	public void throwIfVendorError(CultureRealm2ListResponse response) {
+	public void throwIfVendorError(KoreaCultureDto.Realm2ListResponse response) {
 		throwIfVendorError(response == null, response == null ? null : response.resultCode(),
 				response != null && response.isSuccess());
 	}
 
 	/** 상세(detail2) 응답 — 판정 규칙은 목록과 같다(응답 타입만 다르다). */
-	public void throwIfVendorError(CultureDetail2Response response) {
+	public void throwIfVendorError(KoreaCultureDto.Detail2Response response) {
 		throwIfVendorError(response == null, response == null ? null : response.resultCode(),
 				response != null && response.isSuccess());
 	}

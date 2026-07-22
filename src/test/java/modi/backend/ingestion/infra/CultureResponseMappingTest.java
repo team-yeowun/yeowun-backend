@@ -1,7 +1,6 @@
 package modi.backend.ingestion.infra;
 
-import modi.backend.ingestion.infra.culture.CultureDetail2Response;
-import modi.backend.ingestion.infra.culture.CultureRealm2ListResponse;
+import modi.backend.ingestion.infra.culture.KoreaCultureDto;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -80,18 +79,18 @@ class CultureResponseMappingTest {
 	/** 역직렬화는 이제 운영에서 Spring XML 컨버터가 한다 — 테스트는 같은 Jackson 3 XmlMapper로 픽스처만 만든다. */
 	private static final XmlMapper XML = new XmlMapper();
 
-	private static CultureRealm2ListResponse parseList(String xml) {
-		return XML.readValue(xml, CultureRealm2ListResponse.class);
+	private static KoreaCultureDto.Realm2ListResponse parseList(String xml) {
+		return XML.readValue(xml, KoreaCultureDto.Realm2ListResponse.class);
 	}
 
-	private static CultureDetail2Response parseDetail(String xml) {
-		return XML.readValue(xml, CultureDetail2Response.class);
+	private static KoreaCultureDto.Detail2Response parseDetail(String xml) {
+		return XML.readValue(xml, KoreaCultureDto.Detail2Response.class);
 	}
 
 	@Test
 	@DisplayName("toCatalog — 목록 응답 12필드가 하나도 빠짐없이 옮겨진다(스냅샷 적재 원천이므로 누락 = 증거 손실)")
 	void toCatalog_전필드_이관() {
-		CultureRealm2ListResponse.Item item = parseList(REALM2_XML).items().get(0);
+		KoreaCultureDto.Realm2ListResponse.Item item = parseList(REALM2_XML).items().get(0);
 
 		CatalogExhibitionData data = item.toCatalog();
 
@@ -114,7 +113,7 @@ class CultureResponseMappingTest {
 	@Test
 	@DisplayName("toDetail — 워드프레스 HTML 본문을 읽기 좋은 평문으로 만든다(원문은 스냅샷이 보관한다)")
 	void toDetail_HTML_평문화() {
-		CultureDetail2Response.Item item = parseDetail(DETAIL2_WORDPRESS_XML).items().get(0);
+		KoreaCultureDto.Detail2Response.Item item = parseDetail(DETAIL2_WORDPRESS_XML).items().get(0);
 
 		// 도메인 값은 평문. 변환 전 원문은 어댑터가 CultureDetailSnapshot에 그대로 적재한다.
 		assertThat(item.toDetail().description()).doesNotContain("wp:paragraph");
@@ -124,7 +123,7 @@ class CultureResponseMappingTest {
 	@Test
 	@DisplayName("toCatalog — area→region=BUSAN·sigungu·realmName·areaText 매핑")
 	void toCatalog_매핑() {
-		CultureRealm2ListResponse.Item item = parseList(REALM2_XML).items().get(0);
+		KoreaCultureDto.Realm2ListResponse.Item item = parseList(REALM2_XML).items().get(0);
 
 		CatalogExhibitionData data = item.toCatalog();
 
@@ -139,7 +138,7 @@ class CultureResponseMappingTest {
 	@Test
 	@DisplayName("toDetail — price·placeAddr·placeSeq 매핑")
 	void toDetail_매핑() {
-		CultureDetail2Response.Item item = parseDetail(DETAIL2_XML).items().get(0);
+		KoreaCultureDto.Detail2Response.Item item = parseDetail(DETAIL2_XML).items().get(0);
 
 		CatalogDetailData detail = item.toDetail();
 
@@ -151,7 +150,7 @@ class CultureResponseMappingTest {
 	@Test
 	@DisplayName("toCatalog — 원본이 HTML 엔티티로 이스케이프돼 있으면 디코딩해 저장한다")
 	void toCatalog_HTML_엔티티_디코딩() {
-		CultureRealm2ListResponse.Item item = parseList(REALM2_ESCAPED_XML).items().get(0);
+		KoreaCultureDto.Realm2ListResponse.Item item = parseList(REALM2_ESCAPED_XML).items().get(0);
 
 		CatalogExhibitionData data = item.toCatalog();
 
@@ -162,7 +161,7 @@ class CultureResponseMappingTest {
 	@Test
 	@DisplayName("toDetail — description의 HTML 엔티티를 디코딩하고 br 태그를 줄바꿈으로 정리한다")
 	void toDetail_HTML_엔티티_디코딩() {
-		CultureDetail2Response.Item item = parseDetail(DETAIL2_ESCAPED_XML).items().get(0);
+		KoreaCultureDto.Detail2Response.Item item = parseDetail(DETAIL2_ESCAPED_XML).items().get(0);
 
 		CatalogDetailData detail = item.toDetail();
 
@@ -172,7 +171,7 @@ class CultureResponseMappingTest {
 	@Test
 	@DisplayName("toDetail — 워드프레스 블록 주석·<p>·<span> 태그를 벗겨 읽기 좋은 평문으로 만든다")
 	void toDetail_워드프레스_태그제거() {
-		CultureDetail2Response.Item item = parseDetail(DETAIL2_WORDPRESS_XML).items().get(0);
+		KoreaCultureDto.Detail2Response.Item item = parseDetail(DETAIL2_WORDPRESS_XML).items().get(0);
 
 		CatalogDetailData detail = item.toDetail();
 
@@ -189,7 +188,7 @@ class CultureResponseMappingTest {
 	@Test
 	@DisplayName("toDetail — 이중 이스케이프(&lt;p&gt;)된 본문도 태그까지 완전히 벗겨낸다")
 	void toDetail_이중이스케이프_태그제거() {
-		CultureDetail2Response.Item item = parseDetail(DETAIL2_DOUBLE_ESCAPED_XML).items().get(0);
+		KoreaCultureDto.Detail2Response.Item item = parseDetail(DETAIL2_DOUBLE_ESCAPED_XML).items().get(0);
 
 		CatalogDetailData detail = item.toDetail();
 

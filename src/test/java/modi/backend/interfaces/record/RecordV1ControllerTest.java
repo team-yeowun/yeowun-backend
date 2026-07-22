@@ -1,6 +1,6 @@
 package modi.backend.interfaces.record;
 
-import modi.backend.ingestion.infra.culture.CultureDetail2Response;
+import modi.backend.ingestion.infra.culture.KoreaCultureDto;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
@@ -186,7 +186,7 @@ class RecordV1ControllerTest {
 						today.plusDays(25), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING,
 						"https://poster/snapshot.jpg", null, "기관", null, null, null, "전시", "서울"))));
 		// 상세를 못 받으면 게이트를 못 채워 승격이 막힌다(Optional 제거 이후) — 이 테스트 주제와 무관하므로 최소 상세를 준다.
-		given(catalogClient.fetchDetail(anyString())).willReturn(new CultureDetail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
+		given(catalogClient.fetchDetail(anyString())).willReturn(new KoreaCultureDto.Detail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
 				null, null, null, null, null, null, null, null));
 		catalogSynchronizer.syncCatalog();
 		detailEnricher.enrichDetails(); // 스테이징 → 상세 해소(ADR-10 — 전시는 승격 후에만 나타난다)

@@ -1,6 +1,6 @@
 package modi.backend.application.exhibition;
 
-import modi.backend.ingestion.infra.culture.CultureDetail2Response;
+import modi.backend.ingestion.infra.culture.KoreaCultureDto;
 import modi.backend.ingestion.application.CatalogSynchronizer;
 import modi.backend.ingestion.application.enricher.GenreEnricher;
 import modi.backend.ingestion.application.enricher.DraftPromoter;
@@ -260,8 +260,8 @@ class CultureVendorArchiveTest {
 	}
 
 	/** 상세 응답 1건 — 스냅샷은 이 원문을 그대로 적재하고, 도메인 값은 toDetail()이 만든다. */
-	private CultureDetail2Response.Item detailData() {
-		return new CultureDetail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
+	private KoreaCultureDto.Detail2Response.Item detailData() {
+		return new KoreaCultureDto.Detail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
 				"무료", "<p>설명</p>", null, null, null, null, "서울시 종로구", "PLACE-1");
 	}
 
