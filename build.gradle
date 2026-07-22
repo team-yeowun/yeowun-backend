@@ -42,11 +42,18 @@ dependencies {
 	implementation('com.anthropic:anthropic-java:2.34.0') {
 		exclude group: 'io.swagger.core.v3', module: 'swagger-annotations'
 	}
-	// 장르 분류 호출 내 즉시 재시도·서킷브레이커(ADR-11 — 1차 Gemini→2차 Claude 폴백 체인).
-	//   스타터가 아니라 core 모듈만 프로그래매틱 조립(GenreConfig) — Boot 4.1 스타터 호환 리스크 회피.
-	//   아웃박스 폴러의 durable 재시도와 계층이 다르다: resilience4j=호출 내, 아웃박스=재시작을 넘는 재시도.
-	implementation 'io.github.resilience4j:resilience4j-retry:2.2.0'
-	implementation 'io.github.resilience4j:resilience4j-circuitbreaker:2.2.0'
+	// 장르 분류(ingestion)의 AI provider 통합 — Spring AI 2.0(Boot 4.0/4.1 + Framework 7.0 라인. 1.x는 Boot 3.x 전용).
+	//   스타터가 아니라 core 모듈만 쓰고 GenreConfig에서 프로그래매틱 조립한다 —
+	//   스타터 오토컨피그는 api-key가 없으면 컨텍스트 기동 자체를 실패시켜("Incomplete Google GenAI configuration")
+	//   "키 없으면 AI만 비활성, 나머지는 정상"이라는 기존 계약(mock 분류기·로컬/CI 키 없음)을 깬다.
+	implementation platform('org.springframework.ai:spring-ai-bom:2.0.0')
+	//   1차(Gemini)만 올린다 — 2차 Claude(ClaudeGenreClassifier)는 anthropic-java SDK 그대로다. spring-ai-anthropic을
+	//   쓰면 anthropic-java-core가 올라가며 구버전 swagger-annotations(2.2.31)를 끌어와 springdoc과 충돌하는데,
+	//   얻는 건 "API 통일" 하나뿐이라 값이 안 된다(필요해지면 그때 exclude와 함께 추가).
+	implementation 'org.springframework.ai:spring-ai-google-genai'
+	//   ChatClient(프롬프트 조립·호출·응답 추출을 한 줄로 잇는 상위 API). google-genai가 전이로 끌고 오지만
+	//   compile 클래스패스엔 안 올라와서 명시한다 — 우리가 직접 import하는 API라 명시가 맞다.
+	implementation 'org.springframework.ai:spring-ai-client-chat'
 	// OAuth 후 자체 JWT(access/refresh) 발급용
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'

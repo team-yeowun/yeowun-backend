@@ -9,24 +9,39 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.web.client.RestClient;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.google.genai.GoogleGenAiChatModel;
+import org.springframework.core.retry.RetryPolicy;
+import org.springframework.core.retry.RetryTemplate;
+
+import com.google.genai.Client;
+import com.google.genai.types.HttpOptions;
+import com.google.genai.types.HttpRetryOptions;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import modi.backend.ingestion.properties.GeminiProperties;
-import modi.backend.domain.exhibition.genre.GenreProvider;
 import modi.backend.domain.exhibition.genre.GenreClassification;
-import modi.backend.domain.exhibition.genre.GenreResult;
 import modi.backend.domain.exhibition.genre.GenreClassificationException;
+import modi.backend.domain.exhibition.genre.GenreProvider;
+import modi.backend.domain.exhibition.genre.GenreResult;
+import org.springframework.ai.chat.client.ChatClient;
+import modi.backend.ingestion.properties.GeminiProperties;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 
 /**
- * {@link GeminiClient} 실HTTP 계약 검증(MockWebServer). 실제 Gemini 대신 목 서버로
- * 응답 포맷·구조화 요청·<b>실패 시 예외(ADR-11 계약 반전)</b>를 확인한다 — 폴백값·내부 재시도는 이제 없다
- * (즉시 재시도·2차 전환은 폴백 체인, durable 재시도는 아웃박스의 몫).
+ * {@link GeminiClient} 실HTTP 계약 검증(MockWebServer). 실제 Gemini 대신 목 서버로 응답 포맷·구조화 요청·
+ * <b>실패 시 예외(ADR-11 계약 반전)</b>를 확인한다 — 폴백값·내부 재시도는 없다(2차 전환은 폴백 체인,
+ * durable 재시도는 아웃박스의 몫).
+ *
+ * <p>전송이 RestClient에서 Spring AI({@code GoogleGenAiChatModel} + google-genai SDK)로 바뀌었어도
+ * <b>계약은 그대로</b>여야 한다 — 그래서 검증 항목을 바꾸지 않고 조립만 갈아끼웠다.
  */
 class GeminiClientTest {
+
+	/** 운영 조립(GenreConfig)과 같은 정책 — 재시도 없음(단일 시도 계약). */
+	private static final RetryTemplate SINGLE_ATTEMPT = new RetryTemplate(
+			RetryPolicy.builder().maxRetries(0).build());
 
 	private MockWebServer server;
 	private GeminiClient classifier;
@@ -39,7 +54,7 @@ class GeminiClientTest {
 		server = new MockWebServer();
 		server.start();
 		classifier = classifierWith(new GeminiProperties(
-				server.url("/").toString(), "test-api-key", "gemini-2.5-flash", 5L, 1, 0L));
+				server.url("/").toString(), "test-api-key", "gemini-2.5-flash", 5L));
 	}
 
 	@AfterEach
@@ -47,13 +62,25 @@ class GeminiClientTest {
 		server.shutdown();
 	}
 
+	/** 운영(GenreConfig.geminiClient)과 같은 조립 — 목 서버를 겨냥하도록 SDK baseUrl만 바꾼다. */
 	private GeminiClient classifierWith(GeminiProperties properties) {
-		// 운영 조립(GenreConfig)과 동일하게 JDK 팩토리 고정 — 테스트 클래스패스의 Apache HttpClient5(Testcontainers 전이)가
-		// 자동감지되면 429를 전송 계층에서 한 번 더 재시도해(DefaultHttpRequestRetryStrategy) 요청 수 검증이 깨진다.
-		RestClient restClient = RestClient.builder().baseUrl(properties.baseUrl())
-				.requestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory())
+		if (!properties.isConfigured()) {
+			return new GeminiClient(null, properties, new SimpleMeterRegistry());
+		}
+		Client genAiClient = Client.builder()
+				.apiKey(properties.apiKey())
+				.httpOptions(HttpOptions.builder()
+						.baseUrl(properties.baseUrl())
+						.apiVersion("v1beta")
+						.timeout(Math.toIntExact(properties.timeoutSeconds() * 1000))
+						.retryOptions(HttpRetryOptions.builder().attempts(1).build())
+						.build())
 				.build();
-		return new GeminiClient(restClient, properties, new SimpleMeterRegistry());
+		ChatModel chatModel = GoogleGenAiChatModel.builder()
+				.genAiClient(genAiClient)
+				.retryTemplate(SINGLE_ATTEMPT)
+				.build();
+		return new GeminiClient(ChatClient.create(chatModel), properties, new SimpleMeterRegistry());
 	}
 
 	@Test
@@ -101,14 +128,14 @@ class GeminiClientTest {
 
 		assertThatThrownBy(() -> classifier.classify(input))
 				.isInstanceOf(GenreClassificationException.class);
-		assertThat(server.getRequestCount()).isEqualTo(1); // 수동 429 백오프 루프가 제거됐다 — 단일 시도.
+		assertThat(server.getRequestCount()).isEqualTo(1); // 단일 시도 — 재시도는 이 계층의 책임이 아니다.
 	}
 
 	@Test
 	@DisplayName("api-key 미설정이면 외부 호출 없이 분류 실패 예외를 던진다(체인이 2차로 전환)")
 	void classify_notConfigured_throwsWithoutCall() {
 		GeminiClient disabled = classifierWith(new GeminiProperties(
-				server.url("/").toString(), "", "gemini-2.5-flash", 5L, 1, 0L));
+				server.url("/").toString(), "", "gemini-2.5-flash", 5L));
 
 		assertThatThrownBy(() -> disabled.classify(input))
 				.isInstanceOf(GenreClassificationException.class);

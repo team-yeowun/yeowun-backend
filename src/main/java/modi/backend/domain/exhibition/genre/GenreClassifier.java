@@ -12,8 +12,8 @@ package modi.backend.domain.exhibition.genre;
  * 호출부가 provider 표식으로 되분류하는 우회를 낳았다 — 이제 실패는 아웃박스 메시지 RETRYABLE로 남아
  * durable 재시도되고, draft는 분류될 때까지 승격을 대기한다.
  *
- * <p>호출 내 즉시 재시도·2차 공급자 전환(resilience4j)은 구현(폴백 체인)의 몫이고, 재시작을 넘는 durable
- * 재시도는 아웃박스 폴러의 몫이다 — 두 계층을 섞지 않는다(ADR-10).
+ * <p>2차 공급자 전환은 구현(폴백 체인)의 몫이고, 재시작을 넘는 durable 재시도는 아웃박스 폴러의 몫이다 —
+ * 두 계층을 섞지 않는다(ADR-10).
  */
 public interface GenreClassifier {
 
