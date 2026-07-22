@@ -29,7 +29,7 @@ import modi.backend.domain.exhibition.genre.GenreClassifier;
  * 배열 스키마·JSON 배열 파서)가 호출부 없이 남아 있어 "배치도 지원한다"로 읽혔기에 걷어냈다. 재도입하지 마라.
  */
 @Component
-public class GeminiGenreClassifier implements GenreClassifier {
+public class GeminiClient implements GenreClassifier {
 
 	/** 사용자·외부 텍스트를 참고 자료로만 다루게 하는 프롬프트 주입 가드(remind 요약기와 동일 방침). */
 	private static final String SYSTEM_PROMPT = """
@@ -43,7 +43,7 @@ public class GeminiGenreClassifier implements GenreClassifier {
 	private final MeterRegistry meterRegistry;
 	private final GeminiDto.ResponseSchema genreSchema;
 
-	public GeminiGenreClassifier(RestClient geminiRestClient, GeminiProperties properties,
+	public GeminiClient(RestClient geminiRestClient, GeminiProperties properties,
 			MeterRegistry meterRegistry) {
 		this.geminiRestClient = geminiRestClient;
 		this.properties = properties;

@@ -22,14 +22,14 @@ import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 
 /**
- * {@link GeminiGenreClassifier} 실HTTP 계약 검증(MockWebServer). 실제 Gemini 대신 목 서버로
+ * {@link GeminiClient} 실HTTP 계약 검증(MockWebServer). 실제 Gemini 대신 목 서버로
  * 응답 포맷·구조화 요청·<b>실패 시 예외(ADR-11 계약 반전)</b>를 확인한다 — 폴백값·내부 재시도는 이제 없다
  * (즉시 재시도·2차 전환은 폴백 체인, durable 재시도는 아웃박스의 몫).
  */
-class GeminiGenreClassifierTest {
+class GeminiClientTest {
 
 	private MockWebServer server;
-	private GeminiGenreClassifier classifier;
+	private GeminiClient classifier;
 
 	private final GenreClassification input = new GenreClassification(
 			"모네에서 세잔까지 — 인상주의 특별전", "PAINTING", "인상주의 대표작 특별전", "예술의전당 한가람미술관", null, "전시");
@@ -47,13 +47,13 @@ class GeminiGenreClassifierTest {
 		server.shutdown();
 	}
 
-	private GeminiGenreClassifier classifierWith(GeminiProperties properties) {
+	private GeminiClient classifierWith(GeminiProperties properties) {
 		// 운영 조립(GenreConfig)과 동일하게 JDK 팩토리 고정 — 테스트 클래스패스의 Apache HttpClient5(Testcontainers 전이)가
 		// 자동감지되면 429를 전송 계층에서 한 번 더 재시도해(DefaultHttpRequestRetryStrategy) 요청 수 검증이 깨진다.
 		RestClient restClient = RestClient.builder().baseUrl(properties.baseUrl())
 				.requestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory())
 				.build();
-		return new GeminiGenreClassifier(restClient, properties, new SimpleMeterRegistry());
+		return new GeminiClient(restClient, properties, new SimpleMeterRegistry());
 	}
 
 	@Test
@@ -107,7 +107,7 @@ class GeminiGenreClassifierTest {
 	@Test
 	@DisplayName("api-key 미설정이면 외부 호출 없이 분류 실패 예외를 던진다(체인이 2차로 전환)")
 	void classify_notConfigured_throwsWithoutCall() {
-		GeminiGenreClassifier disabled = classifierWith(new GeminiProperties(
+		GeminiClient disabled = classifierWith(new GeminiProperties(
 				server.url("/").toString(), "", "gemini-2.5-flash", 5L, 1, 0L));
 
 		assertThatThrownBy(() -> disabled.classify(input))

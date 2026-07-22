@@ -1,6 +1,6 @@
 package modi.backend.ingestion.infra.mock;
 
-import modi.backend.ingestion.infra.google.GooglePlaceHoursProvider;
+import modi.backend.ingestion.infra.google.GoogleMapsClient;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
@@ -19,7 +19,7 @@ import modi.backend.domain.exhibition.hours.WeeklyOpeningHours;
  * 데모/개발 화면에도 영업시간이 뜨도록 고정 샘플을 반환한다.
  * <p>
  * 샘플(전형적 미술관): 화~일 10:00~18:00, 월 휴무 → 표시 규칙 적용 시 {@code 매일 10:00 ~ 18:00} + {@code 월 휴무}.
- * 실호출({@link GooglePlaceHoursProvider})과 함께 빈으로 공존하며, {@code app.exhibition.place-hours.provider=google}이고
+ * 실호출({@link GoogleMapsClient})과 함께 빈으로 공존하며, {@code app.exhibition.place-hours.provider=google}이고
  * 키가 있을 때만 실호출기가 @Primary로 선택된다.
  */
 @Component

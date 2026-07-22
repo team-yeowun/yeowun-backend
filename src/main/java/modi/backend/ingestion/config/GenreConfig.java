@@ -21,7 +21,7 @@ import io.github.resilience4j.retry.RetryConfig;
 import modi.backend.domain.exhibition.genre.GenreClassifier;
 import modi.backend.ingestion.infra.claude.ClaudeGenreClassifier;
 import modi.backend.ingestion.infra.failover.FailoverGenreClassifier;
-import modi.backend.ingestion.infra.gemini.GeminiGenreClassifier;
+import modi.backend.ingestion.infra.gemini.GeminiClient;
 import modi.backend.ingestion.infra.mock.MockGenreClassifier;
 
 /**
@@ -44,7 +44,7 @@ public class GenreConfig {
 	 * Gemini 전용 RestClient. baseUrl·읽기 타임아웃(워커 스레드 장기 점유·부팅 지연 방지)을 설정에서 주입한다.
 	 * 응답의 여분 필드(role·thoughtSignature·usageMetadata 등)는 {@code GeminiDto} 응답 record의
 	 * {@code @JsonIgnoreProperties(ignoreUnknown)}로 관대하게 파싱하므로 별도 컨버터 커스터마이즈는 두지 않는다.
-	 * 요청선(경로·헤더·본문)은 {@link GeminiGenreClassifier}가 이 클라이언트로 직접 조립한다 —
+	 * 요청선(경로·헤더·본문)은 {@link GeminiClient}가 이 클라이언트로 직접 조립한다 —
 	 * 선언형 HTTP Interface 프록시를 두지 않는다(공공데이터 전시 API와 같은 구조).
 	 */
 	@Bean
@@ -72,7 +72,7 @@ public class GenreConfig {
 	@Bean
 	@Primary
 	public GenreClassifier genreClassifier(GenreProperties properties,
-			GeminiGenreClassifier geminiGenreClassifier, ClaudeGenreClassifier claudeGenreClassifier,
+			GeminiClient geminiClient, ClaudeGenreClassifier claudeGenreClassifier,
 			MockGenreClassifier mockGenreClassifier) {
 		if (!properties.useGemini()) {
 			return mockGenreClassifier;
@@ -89,7 +89,7 @@ public class GenreConfig {
 				.waitDurationInOpenState(Duration.ofSeconds(60))
 				.permittedNumberOfCallsInHalfOpenState(1)
 				.build();
-		return new FailoverGenreClassifier(geminiGenreClassifier, claudeGenreClassifier,
+		return new FailoverGenreClassifier(geminiClient, claudeGenreClassifier,
 				Retry.of("genre-gemini", retryConfig), Retry.of("genre-claude", retryConfig),
 				CircuitBreaker.of("genre-gemini", breakerConfig), CircuitBreaker.of("genre-claude", breakerConfig));
 	}

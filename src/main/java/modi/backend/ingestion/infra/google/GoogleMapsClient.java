@@ -26,7 +26,7 @@ import modi.backend.ingestion.properties.PlaceHoursProperties;
  */
 @Component
 @RequiredArgsConstructor
-public class GooglePlaceHoursProvider implements PlaceHoursProvider {
+public class GoogleMapsClient implements PlaceHoursProvider {
 
 	/** New API 필수 헤더 — 받을 필드만. 영업시간까지 한 콜로 받는다(2단계 Place Details 불필요). */
 	private static final String FIELD_MASK =

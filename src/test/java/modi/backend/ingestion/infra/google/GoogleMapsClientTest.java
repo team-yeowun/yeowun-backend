@@ -20,14 +20,14 @@ import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 
 /**
- * {@link GooglePlaceHoursProvider} 실HTTP 계약 검증(MockWebServer) — 선언형 HTTP Interface 프록시를 걷어내고
+ * {@link GoogleMapsClient} 실HTTP 계약 검증(MockWebServer) — 선언형 HTTP Interface 프록시를 걷어내고
  * {@link RestClient}로 직접 요청선을 조립하도록 바꾸면서, 그 <b>전송 계약</b>(경로·헤더·본문)을 여기서 못박는다.
  * 프록시 시절엔 어노테이션이 대신 보증하던 것들이라 검증이 없었다.
  */
-class GooglePlaceHoursProviderTest {
+class GoogleMapsClientTest {
 
 	private MockWebServer server;
-	private GooglePlaceHoursProvider provider;
+	private GoogleMapsClient provider;
 
 	@BeforeEach
 	void setUp() throws IOException {
@@ -40,7 +40,7 @@ class GooglePlaceHoursProviderTest {
 		RestClient restClient = RestClient.builder().baseUrl(properties.baseUrl())
 				.requestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory())
 				.build();
-		provider = new GooglePlaceHoursProvider(restClient, properties);
+		provider = new GoogleMapsClient(restClient, properties);
 	}
 
 	@AfterEach

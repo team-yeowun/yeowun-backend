@@ -15,7 +15,7 @@ import modi.backend.ingestion.domain.data.PlaceHoursFetch;
 /**
  * 구글 응답 record가 <b>자기를 도메인 값으로 표현</b>하는 계약 검증(순수 단위 — HTTP·리포지토리 없음).
  * <p>
- * 이 파싱은 예전엔 {@code GooglePlaceHoursProvider} 안에 있어 전송·감사와 얽혀 단독 검증이 불가능했다.
+ * 이 파싱은 예전엔 {@code GoogleMapsClient} 안에 있어 전송·감사와 얽혀 단독 검증이 불가능했다.
  * record로 내려오면서 순수 함수가 됐고, 그래서 여기서 벤더 어휘(0=일요일 인덱스·결측·범위 밖)를 직접 찌른다.
  */
 class GoogleMapsDtoTest {

@@ -12,7 +12,7 @@ import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 
 import modi.backend.ingestion.domain.port.PlaceHoursProvider;
-import modi.backend.ingestion.infra.google.GooglePlaceHoursProvider;
+import modi.backend.ingestion.infra.google.GoogleMapsClient;
 import modi.backend.ingestion.infra.mock.MockPlaceHoursProvider;
 
 /**
@@ -30,7 +30,7 @@ public class PlaceHoursConfig {
 
 	/**
 	 * 구글 Places 전용 RestClient. baseUrl·읽기 타임아웃(워커 스레드 장기 점유·부팅 지연 방지)을 설정에서 주입한다.
-	 * 요청선(경로·헤더·본문)은 {@link GooglePlaceHoursProvider}가 이 클라이언트로 직접 조립한다 —
+	 * 요청선(경로·헤더·본문)은 {@link GoogleMapsClient}가 이 클라이언트로 직접 조립한다 —
 	 * 선언형 HTTP Interface 프록시를 두지 않는다(공공데이터 전시 API와 같은 구조).
 	 */
 	@Bean
@@ -54,7 +54,7 @@ public class PlaceHoursConfig {
 	@Bean
 	@Primary
 	public PlaceHoursProvider placeHoursProvider(PlaceHoursProperties properties,
-			MockPlaceHoursProvider mockPlaceHoursProvider, GooglePlaceHoursProvider googlePlaceHoursProvider) {
-		return properties.useGoogle() ? googlePlaceHoursProvider : mockPlaceHoursProvider;
+			MockPlaceHoursProvider mockPlaceHoursProvider, GoogleMapsClient googleMapsClient) {
+		return properties.useGoogle() ? googleMapsClient : mockPlaceHoursProvider;
 	}
 }

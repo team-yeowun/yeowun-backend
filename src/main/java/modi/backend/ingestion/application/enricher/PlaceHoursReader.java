@@ -20,7 +20,7 @@ import modi.backend.ingestion.domain.port.PlaceHoursProvider;
  *
  * <p><b>왜 조회기(infra)가 아니라 여기인가</b>: 조회기의 책임은 "불러서 응답을 준다"까지다(culture에서 정한 방침).
  * 감사 행의 단위는 <b>한 번의 HTTP 호출</b>인데 영업시간은 1콜=1행이라, 목록(fetchAll 1회 = 3콜)처럼 순회를 올려야
- * 하는 문제가 없다 — 호출부가 그대로 감사의 경계다. 덕분에 {@code GooglePlaceHoursProvider}에서 리포지토리가 빠졌다.
+ * 하는 문제가 없다 — 호출부가 그대로 감사의 경계다. 덕분에 {@code GoogleMapsClient}에서 리포지토리가 빠졌다.
  *
  * <p><b>유령 감사 행을 막는다</b>: mock 조회기는 외부를 부르지 않으므로 기록하지 않는다. 이 게이트가 없으면
  * mock이 기본인 로컬·CI·develop에서 {@code api=GOOGLE} 행이 쌓여 "구글을 이만큼 불렀다"는 거짓이 남는다
