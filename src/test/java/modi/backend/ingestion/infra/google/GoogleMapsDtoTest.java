@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -127,5 +128,29 @@ class GoogleMapsDtoTest {
 				.contains(first);
 		assertThat(new GoogleMapsDto.SearchTextResponse(List.of()).firstPlace()).isEmpty();
 		assertThat(new GoogleMapsDto.SearchTextResponse(null).firstPlace()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("toPlaceHours()가 응답→도메인값 진입점 — 1순위 후보를 조회 결과로 옮기고, 후보 없으면 empty")
+	void toPlaceHours_isTheResponseToDomainEntry() {
+		GoogleMapsDto.Place place = new GoogleMapsDto.Place("places/abc",
+				new GoogleMapsDto.DisplayName("부산현대미술관", "ko"), "부산 사하구",
+				hours(new GoogleMapsDto.Period(at(2, 10, 0), at(2, 18, 0))));
+
+		Optional<PlaceHoursFetch> fetched = new GoogleMapsDto.SearchTextResponse(List.of(place)).toPlaceHours();
+
+		assertThat(fetched).isPresent();
+		assertThat(fetched.get().vendor().placeId()).isEqualTo("places/abc");
+		assertThat(fetched.get().data().weeklyHours().byDay()).containsOnlyKeys(DayOfWeek.TUESDAY);
+		// 후보 없음 = 미발견
+		assertThat(new GoogleMapsDto.SearchTextResponse(List.of()).toPlaceHours()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("TimePoint.dayOfWeek()가 구글 day 인덱스를 요일로 옮긴다(0=일요일 … 6=토요일)")
+	void timePoint_dayOfWeek_mapsGoogleIndex() {
+		assertThat(new GoogleMapsDto.TimePoint(0, 10, 0).dayOfWeek()).isEqualTo(DayOfWeek.SUNDAY);
+		assertThat(new GoogleMapsDto.TimePoint(1, 10, 0).dayOfWeek()).isEqualTo(DayOfWeek.MONDAY);
+		assertThat(new GoogleMapsDto.TimePoint(6, 10, 0).dayOfWeek()).isEqualTo(DayOfWeek.SATURDAY);
 	}
 }
