@@ -22,7 +22,7 @@ import org.yaml.snakeyaml.Yaml;
  * <p>실제로 2026-07-19 네이버 로그인 운영 장애가 이것이었다. 서버 {@code .env}엔 값이 있었지만
  * ({@code NAVER_CLIENT_ID} len=20, {@code NAVER_CLIENT_SECRET} len=10) 컨테이너 안에선 <b>둘 다 len=0</b>이라
  * 네이버가 {@code {error=invalid_request, error_description=client_secret is missing.}}로 거부했고,
- * 사용자에겐 {@code OAUTH_COMMUNICATION_FAILED}로만 보였다. 같은 날 {@code GENRE_CLAUDE_API_KEY}도
+ * 사용자에겐 {@code OAUTH_COMMUNICATION_FAILED}로만 보였다. 같은 날 장르 2차 공급자 키도
  * 동일 유형으로 깨졌다(be6cf67) — <b>재발형 함정</b>이라 테스트로 못 박는다.
  *
  * <p>이 테스트가 깨지면: 새로 추가한 env를 {@code compose.yaml} app 서비스 {@code environment:}에 선언하라.

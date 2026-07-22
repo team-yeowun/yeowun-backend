@@ -35,6 +35,8 @@ import modi.backend.domain.exhibition.catalog.ExhibitionRegionGroup;
 import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
 import modi.backend.domain.exhibition.catalog.ExhibitionSection;
 import modi.backend.domain.exhibition.genre.GenreClassification;
+import modi.backend.domain.exhibition.genre.GenreClassificationRequest;
+import modi.backend.domain.exhibition.genre.GenreInstruction;
 import modi.backend.domain.exhibition.genre.GenreClassificationException;
 import modi.backend.domain.exhibition.genre.GenreClassifier;
 import modi.backend.domain.exhibition.genre.GenreKeyword;
@@ -279,8 +281,9 @@ public class ExhibitionFacade {
 			genre = GenreResult.user(criteria.genreKeyword());
 		} else {
 			try {
-				genre = genreClassifier.classify(new GenreClassification(criteria.title(),
-						category == null ? null : category.name(), null, placeName, criteria.artist(), null));
+				genre = genreClassifier.classify(genreRequest(
+						new GenreClassification(criteria.title(), category == null ? null : category.name(),
+								null, placeName, criteria.artist(), null)));
 			} catch (GenreClassificationException e) {
 				log.warn("CUSTOM 등록 장르 분류 실패 — 장르 없이 등록(기능 강등): {}", e.getMessage());
 			}
@@ -440,4 +443,11 @@ public class ExhibitionFacade {
 		}
 		return Math.min(size, MAX_SIZE);
 	}
+
+	/** 이 유스케이스가 분류기에게 무엇을 시킬지 — 표준 지시 + 마스터 전체 허용. 요청 조립은 서비스의 결정이다. */
+	private GenreClassificationRequest genreRequest(GenreClassification subject) {
+		return new GenreClassificationRequest(
+				GenreInstruction.STANDARD, GenreKeyword.all(), subject.toPromptText());
+	}
+
 }

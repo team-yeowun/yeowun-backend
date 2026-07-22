@@ -7,6 +7,9 @@ import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
 import modi.backend.domain.exhibition.genre.GenreClassification;
+import modi.backend.domain.exhibition.genre.GenreClassificationRequest;
+import modi.backend.domain.exhibition.genre.GenreInstruction;
+import modi.backend.domain.exhibition.genre.GenreKeyword;
 import modi.backend.domain.exhibition.genre.GenreClassifier;
 import modi.backend.domain.exhibition.genre.GenreResult;
 import modi.backend.ingestion.domain.data.CultureDetailPayload;
@@ -58,7 +61,7 @@ public class DraftEnrichmentService {
 		if (input.isEmpty()) {
 			return false;
 		}
-		GenreResult result = genreClassifier.classify(input.get());                      // ② 외부 호출(tx 밖)
+		GenreResult result = genreClassifier.classify(genreRequest(input.get())); // ② 외부 호출(tx 밖)
 		exhibitionDraftFacade.applyGenre(externalId, result, now);                       // ③ 반영(tx)
 		return true;
 	}
@@ -70,4 +73,11 @@ public class DraftEnrichmentService {
 	public void promoteStep(String externalId, LocalDateTime now) {
 		exhibitionDraftFacade.completePromotion(externalId, now);
 	}
+
+	/** 이 유스케이스가 분류기에게 무엇을 시킬지 — 표준 지시 + 마스터 전체 허용. 요청 조립은 서비스의 결정이다. */
+	private GenreClassificationRequest genreRequest(GenreClassification subject) {
+		return new GenreClassificationRequest(
+				GenreInstruction.STANDARD, GenreKeyword.all(), subject.toPromptText());
+	}
+
 }

@@ -135,14 +135,14 @@ app:
       cron: ${EXHIBITION_SYNC_CRON:0 0 0 * * *}
     # 전시 장르 분류(ADR-11). classifier로 주 분류기를 고른다(구현들 빈 공존, 무중단 교체).
     #   mock(기본, develop·로컬·CI): 제목 해시 결정적 분류 — AI 호출·비용 0, provider=MOCK 계보.
-    #   gemini(운영 prod): 폴백 체인 = 1차 Gemini → 2차 Claude(각 1회 시도 — 호출 내 재시도·서킷브레이커 없음).
+    #   gemini(운영 prod): 폴백 체인 = 1차 Gemini → 2차 OpenAI(각 1회 시도 — 호출 내 재시도·서킷브레이커 없음).
     #     전 공급자 실패 시 폴백값 없이 예외 → 아웃박스 RETRYABLE(무기한) → draft 승격 대기.
-    #   claude.*: 2차 공급자 전용 버킷 — 감상문용 app.ai.*와 한도 분리(장르 백필이 감상문 한도를 안 태움).
+    #   openai.*: 2차 공급자 전용 버킷 — 감상문용 app.ai.*와 한도 분리(장르 백필이 감상문 한도를 안 태움).
     genre:
       classifier: ${GENRE_CLASSIFIER:mock}
-      claude:
-        api-key: ${GENRE_CLAUDE_API_KEY:}
-        model: ${GENRE_CLAUDE_MODEL:claude-haiku-4-5-20251001}
+      openai:
+        api-key: ${OPENAPI_KEY:}
+        model: ${GENRE_OPENAI_MODEL:gpt-5.4-nano}
     # 공공데이터(CATALOG) 보강 — 목록 동기화는 목록 필드만 적재하므로 장르(분류)·상세2(price 등)를 이어서 채운다.
     #   장르: 동기화(부팅 1회·매일 자정) "직후에만" 신규 적재분(미분류 행)을 배치로(배치당 AI 1콜) 분류한다.
     #        별도 주기 백필 없음 — 동기화가 신규만 추가하므로 미분류 행 = 방금 추가된 전시(멱등, 신규 없으면 no-op).
@@ -199,19 +199,13 @@ app:
     emails: ${ADMIN_EMAILS:}
     password: ${ADMIN_PASSWORD:}
 
-  # AI 감상문 생성(질문/compose). provider 교체 가능 — claude(Anthropic) | gemini(Google).
-  #   AI_PROVIDER로 어댑터를 전환한다(코드 변경 불필요). 예: AI_PROVIDER=gemini.
+  # AI 감상문 생성(질문/compose). 공급자는 Claude 하나다(Gemini 어댑터는 제거 — 안 쓰는 두 번째 경로를 유지할 값이 없었다).
   #   api-key 미설정이면 AI 엔드포인트는 503(AI_DISABLED)로 응답하고 나머지 기능은 정상 동작한다.
   ai:
-    provider: ${AI_PROVIDER:claude}
-    # 미지정 시 provider별 기본 모델(claude-sonnet-5 / gemini-2.5-flash-lite). gemini 기본을 flash-lite로 —
-    #   무료 일일 한도가 flash보다 훨씬 크고 감상문 질문/다듬기엔 품질 충분. 장르 분류(app.ai.gemini, 기본 flash)와
-    #   모델을 다르게 유지해 무료 한도 버킷을 분리한다(같은 모델로 맞추면 한도를 공유하게 되니 주의).
+    # 미지정 시 claude-sonnet-5. 더 빠르게 하려면 AI_MODEL=claude-haiku-4-5-20251001.
     model: ${AI_MODEL:}
-    # 키는 provider와 짝을 이뤄 명시한다(교차 오염 방지): 공통 AI_API_KEY > Claude ANTHROPIC_API_KEY.
-    #   gemini 사용 시엔 AI_PROVIDER=gemini + AI_API_KEY=<Gemini 키>(예: AI_API_KEY=${GEMINI_API_KEY}).
-    #   ※ GEMINI_API_KEY를 여기 자동 폴백에 넣지 않는다 — 배포 env에 GEMINI_API_KEY만 있고 provider=claude면
-    #     Claude 어댑터가 Gemini 키를 오용(AI_GENERATION_FAILED)하기 때문. 장르 분류는 별도로 app.ai.gemini에서 GEMINI_API_KEY 사용.
+    # ※ GEMINI_API_KEY를 여기 폴백에 넣지 않는다 — Claude 어댑터가 Gemini 키를 오용(AI_GENERATION_FAILED)한다.
+    #   전시 장르 분류는 완전히 별개 경로(app.exhibition.genre.*)이고 키도 따로다.
     api-key: ${AI_API_KEY:${ANTHROPIC_API_KEY:}}
     max-tokens: ${AI_MAX_TOKENS:768}               # ≤300자 감상문/요약·질문 3개에 충분하면서 폭주 생성 바운드(M-4). 상향은 AI_MAX_TOKENS.
     timeout-seconds: ${AI_TIMEOUT_SECONDS:30}     # 외부 LLM 호출 타임아웃(워커 스레드 장기 점유 방지)
@@ -255,7 +249,7 @@ app:
   local-seed:
     enabled: false
   exhibition:
-    # 운영에서만 AI 체인(1차 gemini → 2차 claude) 장르 분류를 쓴다. develop·로컬(기본 프로파일)은 mock(무비용·결정적).
+    # 운영에서만 AI 체인(1차 gemini → 2차 openai) 장르 분류를 쓴다. develop·로컬(기본 프로파일)은 mock(무비용·결정적).
     genre:
       classifier: ${GENRE_CLASSIFIER:gemini}
   # ⚠️ 베타 한정: 리마인드 소환 대기를 3초로 단축(2~3일 베타에서 즉시 검증용, 리마인드는 조회 시점 판정이라 값만 줄이면 됨).

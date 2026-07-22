@@ -9,6 +9,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import modi.backend.domain.exhibition.genre.GenreClassification;
+import modi.backend.domain.exhibition.genre.GenreClassificationRequest;
+import modi.backend.domain.exhibition.genre.GenreInstruction;
+import modi.backend.domain.exhibition.genre.GenreKeyword;
 import modi.backend.domain.exhibition.genre.GenreClassificationException;
 import modi.backend.domain.exhibition.genre.GenreClassifier;
 import modi.backend.domain.exhibition.genre.GenreProvider;
@@ -20,14 +23,16 @@ import modi.backend.domain.exhibition.genre.GenreResult;
  */
 class FailoverGenreClassifierTest {
 
-	private static final GenreClassification INPUT = new GenreClassification("전시", null, null, null, null, null);
+	private static final GenreClassificationRequest INPUT = new GenreClassificationRequest(
+			GenreInstruction.STANDARD, GenreKeyword.all(),
+			new GenreClassification("전시", null, null, null, null, null).toPromptText());
 
 	private static GenreResult gemini() {
 		return GenreResult.ai("사진", GenreProvider.GEMINI, "gemini-2.5-flash");
 	}
 
-	private static GenreResult claude() {
-		return GenreResult.ai("공예", GenreProvider.CLAUDE, "claude-haiku-4-5-20251001");
+	private static GenreResult openAi() {
+		return GenreResult.ai("공예", GenreProvider.OPENAI, "gpt-5.4-nano");
 	}
 
 	private static GenreClassifier failing(AtomicInteger calls) {
@@ -43,7 +48,7 @@ class FailoverGenreClassifierTest {
 		AtomicInteger secondaryCalls = new AtomicInteger();
 		GenreClassifier secondary = input -> {
 			secondaryCalls.incrementAndGet();
-			return claude();
+			return openAi();
 		};
 		FailoverGenreClassifier chain = new FailoverGenreClassifier(input -> gemini(), secondary);
 
@@ -54,20 +59,20 @@ class FailoverGenreClassifierTest {
 	}
 
 	@Test
-	@DisplayName("1차 실패 시 2차로 전환하고, 계보엔 실제 분류자(CLAUDE)가 남는다")
+	@DisplayName("1차 실패 시 2차로 전환하고, 계보엔 실제 분류자(OPENAI)가 남는다")
 	void 일차실패_이차전환() {
-		FailoverGenreClassifier chain = new FailoverGenreClassifier(failing(new AtomicInteger()), input -> claude());
+		FailoverGenreClassifier chain = new FailoverGenreClassifier(failing(new AtomicInteger()), input -> openAi());
 
 		GenreResult result = chain.classify(INPUT);
 
-		assertThat(result.provider()).isEqualTo(GenreProvider.CLAUDE);
+		assertThat(result.provider()).isEqualTo(GenreProvider.OPENAI);
 	}
 
 	@Test
 	@DisplayName("1차는 재시도 없이 한 번만 호출한다(호출 내 재시도는 이 계층의 책임이 아니다)")
 	void 일차_단일시도() {
 		AtomicInteger primaryCalls = new AtomicInteger();
-		FailoverGenreClassifier chain = new FailoverGenreClassifier(failing(primaryCalls), input -> claude());
+		FailoverGenreClassifier chain = new FailoverGenreClassifier(failing(primaryCalls), input -> openAi());
 
 		chain.classify(INPUT);
 

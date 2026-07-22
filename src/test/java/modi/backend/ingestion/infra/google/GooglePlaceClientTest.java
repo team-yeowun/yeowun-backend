@@ -35,7 +35,7 @@ class GooglePlaceClientTest {
 		server.start();
 		GooglePlaceProperties properties = new GooglePlaceProperties("google", server.url("/").toString(),
 				"test-api-key", "ko", "KR", 5L, 30, 100);
-		// 운영 조립(PlaceHoursConfig)과 동일하게 JDK 팩토리 고정 — 테스트 클래스패스의 Apache HttpClient5가
+		// 운영 조립(GooglePlaceConfig)과 동일하게 JDK 팩토리 고정 — 테스트 클래스패스의 Apache HttpClient5가
 		// 자동감지되면 전송 계층이 한 번 더 재시도해 요청 수 검증이 흔들린다(Gemini 테스트와 같은 이유).
 		RestClient restClient = RestClient.builder().baseUrl(properties.baseUrl())
 				.requestFactory(new org.springframework.http.client.JdkClientHttpRequestFactory())

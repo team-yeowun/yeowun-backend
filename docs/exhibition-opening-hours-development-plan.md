@@ -119,7 +119,7 @@ erDiagram
 | infra | `exhibition/MockPlaceHoursProvider` (@Component) | 0콜, D3 고정 샘플 반환 |
 | infra | `exhibition/GoogleMapsDto` | 구글 요청/응답 record(`@JsonIgnoreProperties(ignoreUnknown)`) |
 | infra | `exhibition/PlaceHoursSnapshotJpaRepository`·`...RepositoryImpl` | 3-클래스 규약 |
-| config | `PlaceHoursConfig` | WebClient·GoogleMapsApi 빈 + @Primary provider 선택 |
+| config | `GooglePlaceConfig` | WebClient·GoogleMapsApi 빈 + @Primary provider 선택 |
 | config | `PlaceHoursProperties` | `app.exhibition.place-hours.*` 바인딩 |
 | application | `exhibition/PlaceHoursEnricher` | 오케스트레이션(truncate→그룹→호출→파생저장). CatalogEnricher와 동형 |
 | application | `ExhibitionFacade#syncPlaceHours(...)` | 장소 단위 트랜잭션 메서드(외부호출은 트랜잭션 밖, save만 안) |

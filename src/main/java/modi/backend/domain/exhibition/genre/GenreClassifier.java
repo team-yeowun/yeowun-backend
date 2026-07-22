@@ -18,9 +18,10 @@ package modi.backend.domain.exhibition.genre;
 public interface GenreClassifier {
 
 	/**
-	 * 전시 정보를 장르 마스터 중 1개로 분류한다.
+	 * 요청이 정한 지시·허용 집합에 따라 전시를 장르 1개로 분류한다.
+	 * 구현은 요청을 벤더 호출로 옮기기만 한다 — 지시·허용값을 스스로 정하지 않는다.
 	 *
-	 * @throws GenreClassificationException 유효한 분류를 만들지 못했을 때(미설정·한도 초과·오류·마스터 이탈)
+	 * @throws GenreClassificationException 유효한 분류를 만들지 못했을 때(미설정·한도 초과·오류·허용 집합 이탈)
 	 */
-	GenreResult classify(GenreClassification input);
+	GenreResult classify(GenreClassificationRequest request);
 }

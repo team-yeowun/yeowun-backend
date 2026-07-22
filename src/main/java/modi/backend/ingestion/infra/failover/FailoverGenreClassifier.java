@@ -4,8 +4,12 @@ import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Primary;
+import org.springframework.stereotype.Component;
 
-import modi.backend.domain.exhibition.genre.GenreClassification;
+import modi.backend.domain.exhibition.genre.GenreClassificationRequest;
 import modi.backend.domain.exhibition.genre.GenreClassificationException;
 import modi.backend.domain.exhibition.genre.GenreClassifier;
 import modi.backend.domain.exhibition.genre.GenreResult;
@@ -18,8 +22,12 @@ import modi.backend.domain.exhibition.genre.GenreResult;
  * 실패를 이어받는 것은 아웃박스다: 두 공급자가 모두 실패하면 {@link GenreClassificationException}을 던지고,
  * 아웃박스 메시지가 RETRYABLE로 남아 draft는 분류될 때까지 승격을 대기한다(재시작을 넘는 durable 재시도 — ADR-10).
  *
- * <p>빈이 아니라 {@code GenreConfig}가 조립하는 일반 클래스다 — 어떤 공급자를 어떤 순서로 묶을지는 구성의 결정이다.
+ * <p>{@code app.exhibition.genre.classifier=gemini}일 때만 빈으로 등록되어 주 분류기(@Primary)가 된다 —
+ * 그 외(기본)엔 {@code MockGenreClassifier}가 선택된다. 설정만 바꿔 무중단 교체할 수 있다.
  */
+@Component
+@Primary
+@ConditionalOnProperty(name = "app.exhibition.genre.classifier", havingValue = "gemini")
 public class FailoverGenreClassifier implements GenreClassifier {
 
 	private static final Logger log = LoggerFactory.getLogger(FailoverGenreClassifier.class);
@@ -27,14 +35,16 @@ public class FailoverGenreClassifier implements GenreClassifier {
 	private final GenreClassifier primary;
 	private final GenreClassifier secondary;
 
-	public FailoverGenreClassifier(GenreClassifier primary, GenreClassifier secondary) {
+	/** 어떤 공급자를 어떤 순서로 묶을지는 여기서 정한다 — 빈 이름으로 지목하고 타입은 포트로 받는다(체인은 구현을 모른다). */
+	public FailoverGenreClassifier(@Qualifier("geminiClient") GenreClassifier primary,
+			@Qualifier("openAiClient") GenreClassifier secondary) {
 		this.primary = primary;
 		this.secondary = secondary;
 	}
 
 	@Override
-	public GenreResult classify(GenreClassification input) {
-		return callWithFailover(() -> primary.classify(input), () -> secondary.classify(input));
+	public GenreResult classify(GenreClassificationRequest request) {
+		return callWithFailover(() -> primary.classify(request), () -> secondary.classify(request));
 	}
 
 	/** 1차 → 실패 시 2차 → 둘 다 실패면 분류 실패 예외(아웃박스가 durable 재시도를 잇는다). */

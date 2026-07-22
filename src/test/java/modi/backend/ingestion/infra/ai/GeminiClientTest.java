@@ -1,10 +1,11 @@
-package modi.backend.ingestion.infra.gemini;
+package modi.backend.ingestion.infra.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 
+import modi.backend.ingestion.infra.ai.GeminiClient;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,10 +14,13 @@ import org.junit.jupiter.api.Test;
 
 import io.micrometer.observation.ObservationRegistry;
 import modi.backend.domain.exhibition.genre.GenreClassification;
+import modi.backend.domain.exhibition.genre.GenreClassificationRequest;
+import modi.backend.domain.exhibition.genre.GenreInstruction;
+import modi.backend.domain.exhibition.genre.GenreKeyword;
 import modi.backend.domain.exhibition.genre.GenreClassificationException;
 import modi.backend.domain.exhibition.genre.GenreProvider;
 import modi.backend.domain.exhibition.genre.GenreResult;
-import modi.backend.ingestion.config.GenreConfig;
+import modi.backend.ingestion.config.AiModelConfig;
 import modi.backend.ingestion.properties.GeminiProperties;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -35,8 +39,12 @@ class GeminiClientTest {
 	private MockWebServer server;
 	private GeminiClient classifier;
 
-	private final GenreClassification input = new GenreClassification(
+	private final GenreClassification subject = new GenreClassification(
 			"모네에서 세잔까지 — 인상주의 특별전", "PAINTING", "인상주의 대표작 특별전", "예술의전당 한가람미술관", null, "전시");
+
+	/** 운영 서비스와 같은 방식으로 요청을 조립한다 — 지시·허용 집합은 호출부가 정해 넘긴다. */
+	private final GenreClassificationRequest request = new GenreClassificationRequest(
+			GenreInstruction.STANDARD, GenreKeyword.all(), subject.toPromptText());
 
 	@BeforeEach
 	void setUp() throws IOException {
@@ -52,11 +60,12 @@ class GeminiClientTest {
 	}
 
 	/**
-	 * 운영({@code GenreConfig.geminiClient})과 같은 조립을 그대로 부른다 — 목 서버를 겨냥하도록
+	 * 운영과 같은 조립을 그대로 부른다(연결은 AiModelConfig, 옵션은 어댑터) — 목 서버를 겨냥하도록
 	 * baseUrl만 바꿔 넘긴다. 배선이 운영과 틀어지면 이 테스트가 먼저 깨진다.
 	 */
 	private GeminiClient classifierWith(GeminiProperties properties) {
-		return new GenreConfig().geminiClient(properties, ObservationRegistry.NOOP);
+		return new GeminiClient(
+				new AiModelConfig().genreGeminiChatModel(properties, ObservationRegistry.NOOP), properties);
 	}
 
 	@Test
@@ -64,7 +73,7 @@ class GeminiClientTest {
 	void classify_success_returnsGenreAndSendsStructuredRequest() throws InterruptedException {
 		server.enqueue(candidateResponse("사진"));
 
-		GenreResult result = classifier.classify(input);
+		GenreResult result = classifier.classify(request);
 
 		assertThat(result.genreKeyword()).isEqualTo("사진");
 		RecordedRequest recorded = server.takeRequest();
@@ -80,7 +89,7 @@ class GeminiClientTest {
 		// 요청 모델은 "gemini-2.5-flash"(별칭일 수 있음)인데 실제 서빙 모델은 응답이 말한 값이다 — 계보엔 응답 쪽이 남아야 한다.
 		server.enqueue(candidateResponse("사진", "gemini-2.5-flash-002"));
 
-		GenreResult result = classifier.classify(input);
+		GenreResult result = classifier.classify(request);
 
 		assertThat(result.provider()).isEqualTo(GenreProvider.GEMINI);
 		assertThat(result.model()).isEqualTo("gemini-2.5-flash-002");
@@ -92,9 +101,9 @@ class GeminiClientTest {
 		server.enqueue(candidateResponse("K-POP 콘서트"));
 
 		// 가짜 값이 저장되는 순간 미분류 대상에서 영구 이탈하던 과거 문제 — 이제 실패는 값이 아니라 예외다.
-		assertThatThrownBy(() -> classifier.classify(input))
+		assertThatThrownBy(() -> classifier.classify(request))
 				.isInstanceOf(GenreClassificationException.class)
-				.hasMessageContaining("마스터에 없음");
+				.hasMessageContaining("허용 집합에 없음");
 	}
 
 	@Test
@@ -102,7 +111,7 @@ class GeminiClientTest {
 	void classify_rateLimited_throwsWithoutInternalRetry() {
 		server.enqueue(new MockResponse().setResponseCode(429).setBody("{\"error\":{\"code\":429}}"));
 
-		assertThatThrownBy(() -> classifier.classify(input))
+		assertThatThrownBy(() -> classifier.classify(request))
 				.isInstanceOf(GenreClassificationException.class);
 		assertThat(server.getRequestCount()).isEqualTo(1); // 단일 시도 — 재시도는 이 계층의 책임이 아니다.
 	}
@@ -113,7 +122,7 @@ class GeminiClientTest {
 		GeminiClient disabled = classifierWith(new GeminiProperties(
 				server.url("/").toString(), "", "gemini-2.5-flash", 5L));
 
-		assertThatThrownBy(() -> disabled.classify(input))
+		assertThatThrownBy(() -> disabled.classify(request))
 				.isInstanceOf(GenreClassificationException.class);
 		assertThat(server.getRequestCount()).isZero();
 	}

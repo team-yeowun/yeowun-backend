@@ -51,6 +51,11 @@ dependencies {
 	//   쓰면 anthropic-java-core가 올라가며 구버전 swagger-annotations(2.2.31)를 끌어와 springdoc과 충돌하는데,
 	//   얻는 건 "API 통일" 하나뿐이라 값이 안 된다(필요해지면 그때 exclude와 함께 추가).
 	implementation 'org.springframework.ai:spring-ai-google-genai'
+	//   2차 공급자(OpenAI). 1차와 같은 ChatClient API 위에 서므로 어댑터 모양이 동일하다.
+	implementation 'org.springframework.ai:spring-ai-openai'
+	//   openai-java의 OkHttp 클라이언트. spring-ai-openai는 core만 끌고 오고 클라이언트 조립은
+	//   16개 인자짜리 내부 헬퍼(OpenAiSetup)로 하는데, 그 대신 SDK 공식 빌더를 쓴다(읽히는 조립 + 인자 실수 방지).
+	implementation 'com.openai:openai-java-client-okhttp:4.39.1'
 	//   ChatClient(프롬프트 조립·호출·응답 추출을 한 줄로 잇는 상위 API). google-genai가 전이로 끌고 오지만
 	//   compile 클래스패스엔 안 올라와서 명시한다 — 우리가 직접 import하는 API라 명시가 맞다.
 	implementation 'org.springframework.ai:spring-ai-client-chat'

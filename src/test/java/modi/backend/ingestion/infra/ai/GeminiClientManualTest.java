@@ -1,17 +1,20 @@
-package modi.backend.ingestion.infra.gemini;
+package modi.backend.ingestion.infra.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import modi.backend.ingestion.infra.ai.GeminiClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import io.micrometer.observation.ObservationRegistry;
 import modi.backend.domain.exhibition.genre.GenreClassification;
+import modi.backend.domain.exhibition.genre.GenreClassificationRequest;
+import modi.backend.domain.exhibition.genre.GenreInstruction;
 import modi.backend.domain.exhibition.genre.GenreKeyword;
 import modi.backend.domain.exhibition.genre.GenreProvider;
 import modi.backend.domain.exhibition.genre.GenreResult;
-import modi.backend.ingestion.config.GenreConfig;
+import modi.backend.ingestion.config.AiModelConfig;
 import modi.backend.ingestion.properties.GeminiProperties;
 
 /**
@@ -30,14 +33,14 @@ import modi.backend.ingestion.properties.GeminiProperties;
  * <p>여기서 거부되면(400 등) 폴백은 {@code application/json} + 같은 enum 스키마다 — 응답이 따옴표 붙은
  * JSON 문자열로 오니 그것만 벗기면 되고, <b>스키마 수준의 enum 강제는 그대로 유지</b>된다.
  *
- * <p>조립은 {@link GenreConfig#geminiClient}를 그대로 호출한다 — 별도 배선을 만들지 않아야 운영과
+ * <p>조립은 운영과 같게 한다(연결 AiModelConfig + 어댑터가 옵션) — 별도 배선을 만들지 않아야 운영과
  * 틀어졌을 때 여기서 먼저 드러난다. 응답 포맷·예외 계약의 세부는 MockWebServer 기반 {@link GeminiClientTest}가 본다.
  * 호출 한도를 아끼려 1콜로 제한한다.
  */
 @Tag("manual")
 class GeminiClientManualTest {
 
-	private final GenreClassification input = new GenreClassification(
+	private final GenreClassification subject = new GenreClassification(
 			"모네에서 세잔까지 — 인상주의 특별전", null, "인상주의 대표작을 모은 특별전", "예술의전당 한가람미술관", null, "전시");
 
 	@Test
@@ -49,10 +52,12 @@ class GeminiClientManualTest {
 			return;
 		}
 
-		GeminiClient classifier = new GenreConfig().geminiClient(
-				new GeminiProperties(null, apiKey, "gemini-2.5-flash", 30L), ObservationRegistry.NOOP);
+		GeminiProperties properties = new GeminiProperties(null, apiKey, "gemini-2.5-flash", 30L);
+		GeminiClient classifier = new GeminiClient(
+				new AiModelConfig().genreGeminiChatModel(properties, ObservationRegistry.NOOP), properties);
 
-		GenreResult result = classifier.classify(input);
+		GenreResult result = classifier.classify(new GenreClassificationRequest(
+				GenreInstruction.STANDARD, GenreKeyword.all(), subject.toPromptText()));
 
 		System.out.println("[manual] 장르=" + result.genreKeyword() + " 실서빙모델=" + result.model());
 		assertThat(GenreKeyword.contains(result.genreKeyword())).isTrue();

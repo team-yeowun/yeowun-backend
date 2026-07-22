@@ -12,6 +12,9 @@ import org.springframework.stereotype.Component;
 import lombok.RequiredArgsConstructor;
 import modi.backend.application.exhibition.contract.ExhibitionBackfill;
 import modi.backend.domain.exhibition.genre.GenreClassification;
+import modi.backend.domain.exhibition.genre.GenreClassificationRequest;
+import modi.backend.domain.exhibition.genre.GenreInstruction;
+import modi.backend.domain.exhibition.genre.GenreKeyword;
 import modi.backend.domain.exhibition.genre.GenreClassifier;
 import modi.backend.domain.exhibition.genre.GenreResult;
 import modi.backend.ingestion.application.draft.DraftEnrichmentService;
@@ -107,7 +110,7 @@ public class GenreEnricher {
 				// draft도 전시도 분류 대상이 아니다(이미 분류됐거나 사라짐) — 할 일 없으니 성공으로 마감.
 				return OutboxProcessing.succeed(exhibitionOutboxFacade, message, now);
 			}
-			GenreResult result = genreClassifier.classify(input); // tx 밖 AI 호출
+			GenreResult result = genreClassifier.classify(genreRequest(input)); // tx 밖 AI 호출
 			exhibitionBackfill.applyGenreResults(Map.of(externalId, result), now);
 			return OutboxProcessing.succeed(exhibitionOutboxFacade, message, now);
 		} catch (OptimisticLockingFailureException e) {
@@ -124,4 +127,11 @@ public class GenreEnricher {
 			return transitioned;
 		}
 	}
+
+	/** 이 유스케이스가 분류기에게 무엇을 시킬지 — 표준 지시 + 마스터 전체 허용. 요청 조립은 서비스의 결정이다. */
+	private GenreClassificationRequest genreRequest(GenreClassification subject) {
+		return new GenreClassificationRequest(
+				GenreInstruction.STANDARD, GenreKeyword.all(), subject.toPromptText());
+	}
+
 }
