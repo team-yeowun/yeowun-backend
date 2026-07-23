@@ -14,7 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
 import modi.backend.TestcontainersConfiguration;
-import modi.backend.ingestion.application.draft.ExhibitionDraftFacade;
+import modi.backend.ingestion.application.draft.ExhibitionDraftService;
 import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlace;
@@ -34,7 +34,7 @@ import modi.backend.ingestion.domain.draft.ExhibitionDraftRepository;
 import modi.backend.ingestion.domain.outbox.OutboxMessage;
 import modi.backend.ingestion.domain.outbox.OutboxMessageRepository;
 import modi.backend.ingestion.domain.outbox.OutboxMessageStatus;
-import modi.backend.ingestion.domain.outbox.OutboxMessageType;
+import modi.backend.ingestion.domain.outbox.IngestionEventType;
 import modi.backend.infra.exhibition.hours.PlaceHoursJpaRepository;
 
 /**
@@ -50,7 +50,7 @@ class ExhibitionSyncAtomicityIntegrationTest {
 	private static final AtomicInteger SEQ = new AtomicInteger(1);
 
 	@Autowired
-	ExhibitionDraftFacade exhibitionDraftFacade;
+	ExhibitionDraftService exhibitionDraftService;
 
 	@Autowired
 	ExhibitionDraftRepository exhibitionDraftRepository;
@@ -80,12 +80,12 @@ class ExhibitionSyncAtomicityIntegrationTest {
 		int seq = SEQ.getAndIncrement();
 		String externalId = "STAGE-" + seq;
 
-		exhibitionDraftFacade.stageFromList(listData(externalId, "스테이징장소" + seq), LocalDateTime.now());
+		exhibitionDraftService.stageFromList(listData(externalId, "스테이징장소" + seq), LocalDateTime.now());
 
 		ExhibitionDraft draft = exhibitionDraftRepository.findByExternalId(externalId).orElseThrow();
 		assertThat(draft.getStatus()).isEqualTo(DraftStatus.PENDING); // draft가 남았고
 		OutboxMessage message = outboxMessageRepository
-				.findByMessageTypeAndTargetKey(OutboxMessageType.FETCH_DETAIL, externalId).orElseThrow();
+				.findByMessageTypeAndTargetKey(IngestionEventType.DRAFT_STAGED, externalId).orElseThrow();
 		assertThat(message.getStatus()).isEqualTo(OutboxMessageStatus.PENDING); // 같은 트랜잭션의 스텝 메시지도 남았다
 	}
 
@@ -102,19 +102,19 @@ class ExhibitionSyncAtomicityIntegrationTest {
 		placeHoursRepository.save(PlaceHours.first(placeId, "매일 10:00~18:00",
 				PlaceHoursStatus.SUCCEEDED, PlaceHoursVendor.GOOGLE, now.minusDays(60)));
 
-		exhibitionDraftFacade.stageFromList(listData(externalId, placeName), now);
-		exhibitionDraftFacade.applyDetail(externalId, new KoreaCultureDto.Detail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
+		exhibitionDraftService.stageFromList(listData(externalId, placeName), now);
+		exhibitionDraftService.applyDetail(externalId, new KoreaCultureDto.Detail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
 				"무료", "전시 소개", null, "02-000-0000", null, null, "서울시 종로구", null), now);
-		exhibitionDraftFacade.applyGenre(externalId,
+		exhibitionDraftService.applyGenre(externalId,
 				GenreResult.ai("사진", GenreProvider.GEMINI, "gemini-2.5-flash"), now);
 
 		// 발행 측 원자성 — 마지막 스텝(장르) 트랜잭션의 산물로 승격 신호가 남았고, 전시는 아직 없다(소비 전).
 		OutboxMessage ready = outboxMessageRepository
-				.findByMessageTypeAndTargetKey(OutboxMessageType.EXHIBITION_READY, externalId).orElseThrow();
+				.findByMessageTypeAndTargetKey(IngestionEventType.DRAFT_READY, externalId).orElseThrow();
 		assertThat(ready.getStatus()).isEqualTo(OutboxMessageStatus.PENDING);
 		assertThat(exhibitionRepository.findByExternalId(externalId)).isEmpty();
 
-		exhibitionDraftFacade.completePromotion(externalId, now); // 소비(멱등) — 등록·재검증 enqueue·draft 종료 완주
+		exhibitionDraftService.completePromotion(externalId, now); // 소비(멱등) — 등록·재검증 enqueue·draft 종료 완주
 
 		// 소비 산물 전부가 남았다 — 전시 코어(장소 연결)·draft 종료·재검증 메시지.
 		Exhibition promoted = exhibitionRepository.findByExternalId(externalId).orElseThrow();
@@ -125,7 +125,7 @@ class ExhibitionSyncAtomicityIntegrationTest {
 		assertThat(draft.getPromotedExhibitionId()).isEqualTo(promoted.getId());
 		String placeKey = exhibitionPlaceRepository.findById(placeId).orElseThrow().getPlaceKey();
 		assertThat(outboxMessageRepository
-				.findByMessageTypeAndTargetKey(OutboxMessageType.REFRESH_PLACE_HOURS, placeKey)).isPresent();
+				.findByMessageTypeAndTargetKey(IngestionEventType.PLACE_HOURS_STALE, placeKey)).isPresent();
 	}
 
 	@Test
@@ -134,10 +134,10 @@ class ExhibitionSyncAtomicityIntegrationTest {
 		int seq = SEQ.getAndIncrement();
 		String externalId = "GATE-" + seq;
 		LocalDateTime now = LocalDateTime.now();
-		exhibitionDraftFacade.stageFromList(listData(externalId, "게이트장소" + seq), now);
+		exhibitionDraftService.stageFromList(listData(externalId, "게이트장소" + seq), now);
 
 		// 상세 해소 전 장르부터 도착(순서 역전) — 게이트가 막는다.
-		exhibitionDraftFacade.applyGenre(externalId,
+		exhibitionDraftService.applyGenre(externalId,
 				GenreResult.ai("사진", GenreProvider.GEMINI, "gemini-2.5-flash"), now);
 
 		assertThat(exhibitionRepository.findByExternalId(externalId)).isEmpty(); // 전시는 아직 없다
@@ -152,16 +152,16 @@ class ExhibitionSyncAtomicityIntegrationTest {
 		int seq = SEQ.getAndIncrement();
 		String externalId = "IDEM-" + seq;
 		LocalDateTime now = LocalDateTime.now();
-		exhibitionDraftFacade.stageFromList(listData(externalId, "멱등장소" + seq), now);
-		exhibitionDraftFacade.markDetailAbsent(externalId, now); // 무상세 해소도 게이트를 채운다
+		exhibitionDraftService.stageFromList(listData(externalId, "멱등장소" + seq), now);
+		exhibitionDraftService.markDetailAbsent(externalId, now); // 무상세 해소도 게이트를 채운다
 
-		exhibitionDraftFacade.applyGenre(externalId,
+		exhibitionDraftService.applyGenre(externalId,
 				GenreResult.ai("사진", GenreProvider.GEMINI, "gemini-2.5-flash"), now);
-		exhibitionDraftFacade.applyGenre(externalId,
+		exhibitionDraftService.applyGenre(externalId,
 				GenreResult.ai("공예", GenreProvider.CLAUDE, "claude-haiku-4-5-20251001"), now); // 재전달
 
-		exhibitionDraftFacade.completePromotion(externalId, now); // 소비
-		exhibitionDraftFacade.completePromotion(externalId, now); // 소비 재전달 — no-op(멱등)
+		exhibitionDraftService.completePromotion(externalId, now); // 소비
+		exhibitionDraftService.completePromotion(externalId, now); // 소비 재전달 — no-op(멱등)
 
 		Exhibition promoted = exhibitionRepository.findByExternalId(externalId).orElseThrow();
 		ExhibitionDraft draft = exhibitionDraftRepository.findByExternalId(externalId).orElseThrow();

@@ -24,7 +24,7 @@ import modi.backend.support.error.CoreException;
  * 한눈에보는문화정보(15138937) realm2(목록 1페이지)·detail2(상세) <b>단건 호출</b> 담당.
  * <p>
  * 요청선 조립({@link RestClient})·응답 수신·예외 변환까지가 이 클래스의 일이다.
- * <b>페이지 순회는 여기 없다</b> — 콜 하나하나가 감사·조기 종료의 단위라 {@code CatalogSynchronizer}가 순회한다.
+ * <b>페이지 순회는 여기 없다</b> — 콜 하나하나가 감사·조기 종료의 단위라 {@code ExhibitionKoreaCultureService}가 순회한다.
  * 이 클래스는 <b>한 페이지·한 건</b>을 부르고 도메인 어휘로 돌려주는 데까지다(포트 구현 = DIP).
  * <p>
  * 응답(XML)은 Spring의 XML 메시지 컨버터가 응답 record로 곧바로 역직렬화하고, 벤더 실패 판정은

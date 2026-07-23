@@ -1,12 +1,7 @@
 package modi.backend.application.exhibition;
 
-import modi.backend.application.exhibition.contract.ExhibitionBackfill;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.DisplayName;
@@ -17,24 +12,19 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import modi.backend.TestcontainersConfiguration;
-import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
-import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
 import modi.backend.domain.exhibition.catalog.ExhibitionGenre;
 import modi.backend.infra.exhibition.catalog.ExhibitionGenreJpaRepository;
-import modi.backend.domain.exhibition.catalog.ExhibitionRegion;
-import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
-import modi.backend.domain.exhibition.genre.GenreClassification;
 import modi.backend.domain.exhibition.genre.GenreKeyword;
 import modi.backend.domain.exhibition.genre.GenreProvider;
-import modi.backend.domain.exhibition.genre.GenreResult;
 
 /**
  * 장르 <b>쓰기</b> 검증(@SpringBootTest + Testcontainers-MySQL).
  * <p>
  * 이관 2단계엔 "쓰기 이중화"(레거시 컬럼 + 정준층)였으나 <b>7단계에서 레거시 컬럼(exhibitions.genre_keyword)을 제거</b>해
- * 이제 정준층({@code exhibition_genre})이 <b>유일한 저장소</b>다. 그래서 두 위치를 함께 단언하던 것이 정준층 단독 단언으로 바뀌었다
- * — 검증하던 동작(항상 마스터 값 반환·provider 계보·재분류·사라진 전시 건너뜀)은 그대로다.
+ * 이제 정준층({@code exhibition_genre})이 <b>유일한 저장소</b>다. CUSTOM 등록 경로의 정준층 쓰기(값·계보)를 본다.
+ * (CATALOG 레거시 백필 케이스는 레거시 뒤채움 계약 삭제와 함께 제거 — CATALOG 쓰기는 승격 등록
+ * 계약(ExhibitionRegistrar)이 유일한 경로다.)
  * {@link ExhibitionCatalogClient}는 목으로 두어 부팅 동기화가 외부 공공데이터를 건드리지 않게 한다.
  */
 @Import(TestcontainersConfiguration.class)
@@ -45,15 +35,6 @@ class ExhibitionGenreWriteTest {
 
 	@Autowired
 	ExhibitionFacade exhibitionFacade;
-
-	@Autowired
-	ExhibitionBackfill exhibitionBackfill;
-
-	@Autowired
-	ExhibitionRepository exhibitionRepository;
-
-	@Autowired
-	modi.backend.domain.exhibition.catalog.ExhibitionPlaceRepository exhibitionPlaceRepository;
 
 	@Autowired
 	ExhibitionGenreJpaRepository exhibitionGenreRepository;
@@ -86,62 +67,9 @@ class ExhibitionGenreWriteTest {
 		assertThat(canonical.isFallback()).isFalse(); // 폴백값이 아니라 의도된 mock 산출 — 재분류 표식은 레거시 RANDOM만
 	}
 
-	@Test
-	@DisplayName("CATALOG 레거시 백필 — 정준층에 AI 계보(provider·model)와 함께 쓴다")
-	void applyGenreResults_계보기록() {
-		Exhibition seeded = seedCatalog();
-
-		exhibitionBackfill.applyGenreResults(Map.of(seeded.getExternalId(),
-				GenreResult.ai("미디어아트", GenreProvider.GEMINI, "gemini-2.5-flash-002")), LocalDateTime.now());
-
-		ExhibitionGenre canonical = canonical(seeded.getId());
-		assertThat(canonical.getGenreKeyword()).isEqualTo("미디어아트");
-		assertThat(canonical.getProvider()).isEqualTo(GenreProvider.GEMINI.name());
-		// 요청 모델(설정값)이 아니라 응답 modelVersion — 모델 업그레이드 시 구모델 산출분만 골라내는 근거다.
-		assertThat(canonical.getModel()).isEqualTo("gemini-2.5-flash-002");
-	}
-
-	@Test
-	@DisplayName("재분류 — 같은 전시를 다시 반영하면 행을 늘리지 않고 갱신한다(UK 1행 유지, RANDOM → GEMINI 복구)")
-	void applyGenreResults_재분류_행추가없이_갱신() {
-		Exhibition seeded = seedCatalog();
-		exhibitionBackfill.applyGenreResults(Map.of(seeded.getExternalId(), GenreResult.mock("회화·드로잉")),
-				LocalDateTime.now());
-
-		exhibitionBackfill.applyGenreResults(Map.of(seeded.getExternalId(),
-				GenreResult.ai("사진", GenreProvider.GEMINI, "gemini-2.5-flash")), LocalDateTime.now());
-
-		assertThat(exhibitionGenreRepository.findAllByExhibitionIdIn(List.of(seeded.getId()))).hasSize(1);
-		ExhibitionGenre canonical = canonical(seeded.getId());
-		assertThat(canonical.getGenreKeyword()).isEqualTo("사진");
-		assertThat(canonical.getProvider()).isEqualTo(GenreProvider.GEMINI.name());
-		assertThat(canonical.isFallback()).isFalse();
-	}
-
-	@Test
-	@DisplayName("조회~반영 사이 사라진 전시는 건너뛴다(정준층에도 남기지 않는다)")
-	void applyGenreResults_사라진전시_건너뜀() {
-		Exhibition seeded = seedCatalog();
-		seeded.delete();
-		exhibitionRepository.save(seeded);
-
-		exhibitionBackfill.applyGenreResults(Map.of(seeded.getExternalId(), GenreResult.mock("사진")),
-				LocalDateTime.now());
-
-		assertThat(exhibitionGenreRepository.findByExhibitionId(seeded.getId())).isEmpty();
-	}
-
 	private ExhibitionCriteria.CustomCreate customCreate(String genreKeyword) {
 		return new ExhibitionCriteria.CustomCreate(9_900_000L + SEQ.getAndIncrement(), "장르 쓰기 전시", null,
 				"한가람미술관", null, null, "SEOUL", "PAINTING", null, null, null, genreKeyword);
-	}
-
-	private Exhibition seedCatalog() {
-		Long placeId = modi.backend.domain.exhibition.catalog.ExhibitionTestFactory.placeId(
-				exhibitionPlaceRepository, "시립미술관", ExhibitionRegion.SEOUL);
-		Exhibition e = Exhibition.createCatalog("GENRE-WRITE-" + SEQ.getAndIncrement(), "장르 미분류 전시", placeId,
-				null, null, ExhibitionCategory.PAINTING, null, null, "기관");
-		return exhibitionRepository.save(e);
 	}
 
 	private ExhibitionGenre canonical(Long exhibitionId) {

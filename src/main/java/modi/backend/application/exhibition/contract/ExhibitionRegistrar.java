@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 
 /**
  * 전시 등록 계약 — 수집(ingestion)이 완성한 전시 한 건을 코어에 등록하는 유일한 통로(ADR-12).
- * EXHIBITION_READY 메시지의 소비 측에서 호출되며, at-least-once 재전달을 전제로 <b>멱등</b>이어야 한다:
+ * DRAFT_READY 이벤트의 소비 측에서 호출되며, at-least-once 재전달을 전제로 <b>멱등</b>이어야 한다:
  * 같은 원천({@code external_id})이 이미 등록돼 있으면 새로 만들지 않고 그 전시로 응답한다(UK가 최후의 가드).
  */
 public interface ExhibitionRegistrar {

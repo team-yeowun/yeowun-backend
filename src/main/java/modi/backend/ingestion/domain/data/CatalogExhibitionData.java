@@ -36,4 +36,9 @@ public record CatalogExhibitionData(
 	public boolean isPersistable() {
 		return externalId != null && !externalId.isBlank() && title != null && !title.isBlank();
 	}
+
+	/** 기간 불량(시작>종료) 행 차단 — 결측(null)은 허용한다(원천 결측 빈번, 승격 게이트가 따로 거른다). */
+	public boolean hasValidPeriod() {
+		return startDate == null || endDate == null || !startDate.isAfter(endDate);
+	}
 }

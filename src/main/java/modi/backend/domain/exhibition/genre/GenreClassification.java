@@ -2,8 +2,6 @@ package modi.backend.domain.exhibition.genre;
 
 import modi.backend.domain.exhibition.genre.GenreClassifier;
 
-import modi.backend.domain.exhibition.catalog.Exhibition;
-
 import java.util.Optional;
 
 /**
@@ -13,17 +11,6 @@ import java.util.Optional;
  */
 public record GenreClassification(String title, String categoryHint, String description,
 		String place, String artist, String realmName) {
-
-	/**
-	 * 전시 코어에서 분류 입력을 뽑아낸다(제목·카테고리만 — place/description/artist는 각각 전시장·상세·작가 조인으로
-	 * 분리돼 코어에 없다). 장소·설명까지 실은 풍부한 입력은 Facade가 조인해 조립한다({@code findGenreTargets}).
-	 */
-	public static GenreClassification from(Exhibition exhibition) {
-		return new GenreClassification(
-				exhibition.getTitle(),
-				exhibition.getCategory() == null ? null : exhibition.getCategory().name(),
-				null, null, null, null);
-	}
 
 	/**
 	 * LLM에 넘길 전시 요약 텍스트. 값이 있는 필드만 "라벨: 값" 한 줄씩 이어붙인다(빈 입력이면 제목만/공백).

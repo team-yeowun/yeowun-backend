@@ -22,7 +22,7 @@ import modi.backend.ingestion.properties.GooglePlaceProperties;
  * 운영에서만 선택되며(mock 기본), 키 미설정 시엔 애초에 {@code MockPlaceHoursProvider}가 @Primary로 선택된다.
  * <p>
  * <b>파싱도 감사도 여기 없다</b> — 구글 어휘(0=일요일 day 인덱스·hour/minute)를 도메인 값으로 옮기는 일은 응답 record
- * (진입점 {@link GooglePlaceResponse#toPlaceHours()})가, 호출 감사는 호출부({@code PlaceHoursReader})가 맡는다. 이 클래스는
+ * (진입점 {@link GooglePlaceResponse#toPlaceHours()})가, 호출 감사는 호출부({@code ExhibitionPlaceService})가 맡는다. 이 클래스는
  * <b>보내고 받는 데까지</b>이고, 리포지토리가 하나도 주입되지 않는다(culture의 {@code CultureExhibitionClient}와 같은 모양).
  */
 @Component

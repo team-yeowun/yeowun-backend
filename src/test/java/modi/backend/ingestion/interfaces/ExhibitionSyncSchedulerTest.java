@@ -1,64 +1,57 @@
 package modi.backend.ingestion.interfaces;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.inOrder;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.InOrder;
 
 import modi.backend.domain.exhibition.catalog.ExhibitionErrorCode;
+import modi.backend.ingestion.application.ExhibitionIngestionOrchestrator;
+import modi.backend.ingestion.domain.SyncTrigger;
 import modi.backend.support.error.CoreException;
-import modi.backend.ingestion.application.enricher.GenreEnricher;
-import modi.backend.ingestion.application.CatalogSynchronizer;
-import modi.backend.ingestion.application.enricher.PlaceHoursEnricher;
 
 /**
- * ExhibitionSyncScheduler 단위 검증. 매일 자정 트리거 시 동기화(목록+상세 한 패스) → 장르 분류(신규분)를
- * 순서대로 호출하고, 실패(외부 API 불가 등)해도 예외를 삼켜 스케줄러 스레드가 죽지 않아야 한다(다음 주기 재시도).
- * 상세(가격 등)는 syncCatalog가 적재 시점에 함께 채우므로 별도 상세 보강 호출이 없다.
- * 장르는 별도 주기 없이 동기화 직후에만 생성된다(신규 전시 = 미분류 행만 대상이라 멱등).
+ * ExhibitionSyncScheduler 단위 검증. 매일 자정 트리거 시 동기화(목록 수집·스테이징) → 장르 드레인(신규분)
+ * → 영업시간 보강을 순서대로 호출하고, 실패(외부 API 불가 등)해도 예외를 삼켜 스케줄러 스레드가 죽지
+ * 않아야 한다(다음 주기 재시도). 상세·AI는 이벤트 소비로 릴레이가 처리하므로 여기선 진입 트리거만 본다.
  */
 class ExhibitionSyncSchedulerTest {
 
-	private CatalogSynchronizer catalogSynchronizer;
-	private GenreEnricher genreEnricher;
-	private PlaceHoursEnricher placeHoursEnricher;
+	private ExhibitionIngestionOrchestrator ingestionOrchestrator;
 	private ExhibitionSyncScheduler scheduler;
 
 	@BeforeEach
 	void setUp() {
-		catalogSynchronizer = mock(CatalogSynchronizer.class);
-		genreEnricher = mock(GenreEnricher.class);
-		placeHoursEnricher = mock(PlaceHoursEnricher.class);
-		scheduler = new ExhibitionSyncScheduler(catalogSynchronizer, genreEnricher, placeHoursEnricher);
+		ingestionOrchestrator = mock(ExhibitionIngestionOrchestrator.class);
+		scheduler = new ExhibitionSyncScheduler(ingestionOrchestrator);
 	}
 
 	@Test
-	@DisplayName("syncDaily: 동기화(목록+상세) → 장르 분류(신규분)를 순서대로 호출한다")
-	void syncDaily_동기화후_장르_순서호출() {
-		given(catalogSynchronizer.syncCatalog()).willReturn(3);
-
+	@DisplayName("syncDaily: 동기화(SCHEDULE 트리거) → 영업시간 보강만 호출한다(후속 스텝은 릴레이가 드레인)")
+	void syncDaily_동기화후_영업시간_순서호출() {
 		scheduler.syncDaily();
 
-		InOrder order = inOrder(catalogSynchronizer, genreEnricher);
-		order.verify(catalogSynchronizer, times(1)).syncCatalog();
-		order.verify(genreEnricher, times(1)).enrichGenres();
+		// 스케줄러가 아는 건 syncCatalog 하나뿐이다 — 무엇을 발견하고 큐에 싣는지는 그 안이고,
+		// 실제 조회(상세·장르·승격·영업시간)는 이벤트를 릴레이가 드레인한다.
+		verify(ingestionOrchestrator, times(1)).syncCatalog(SyncTrigger.SCHEDULE);
+		verifyNoMoreInteractions(ingestionOrchestrator);
 	}
 
 	@Test
-	@DisplayName("syncDaily: facade가 예외를 던져도 삼켜서 다음 주기까지 살아있는다")
+	@DisplayName("syncDaily: facade가 예외를 던져도 삼켜서 다음 주기까지 살아있는다(영업시간 보강은 계속)")
 	void syncDaily_예외삼킴() {
-		given(catalogSynchronizer.syncCatalog())
-				.willThrow(new CoreException(ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "외부 전시 API 호출 실패"));
+		willThrow(new CoreException(ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "외부 전시 API 호출 실패"))
+				.given(ingestionOrchestrator).syncCatalog(SyncTrigger.SCHEDULE);
 
 		assertThatCode(() -> scheduler.syncDaily()).doesNotThrowAnyException();
 
-		verify(catalogSynchronizer, times(1)).syncCatalog();
+		verify(ingestionOrchestrator, times(1)).syncCatalog(SyncTrigger.SCHEDULE);
 	}
 }

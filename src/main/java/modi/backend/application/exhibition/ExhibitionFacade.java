@@ -54,7 +54,7 @@ import modi.backend.support.time.AppTime;
 
 /**
  * 전시 사용자 유스케이스 조율(03_전시.md) — 목록/탐색·배너·상세·개인 전시 등록/삭제. load·조율·save만 하고,
- * 상태 변경·규칙 판단은 도메인 엔티티에 위임한다. 수집·보강 파이프라인은 {@code sync.ExhibitionSyncFacade}가
+ * 상태 변경·규칙 판단은 도메인 엔티티에 위임한다. 수집·보강 파이프라인은 ingestion 슬라이스({@code ExhibitionIngestionOrchestrator})가
  * 따로 담당한다(조회 API와 배치의 결합 해소).
  *
  * <p>장소는 {@link ExhibitionPlace}(N:1, resolve-or-create), 상세는 satellite(1:1), 작가는 조인(N:M) —
@@ -204,7 +204,7 @@ public class ExhibitionFacade {
 	 * <p><b>서빙 경로는 외부 API를 부르지 않는다</b>: 예전엔 CATALOG 최초 진입 시 상세를 1회 지연 수집했으나
 	 * 제거했다(2026-07-21) — ① 트랜잭션 안에서 외부 HTTP를 쳐 응답 시간이 원천에 묶였고, ② 승격이 항상 상세를
 	 * 함께 쓰는 지금(ADR-12) {@code hasDetail()==false}인 CATALOG 전시는 draft 도입 이전 행에만 남는다.
-	 * 상세 충전은 수집 파이프라인(FETCH_DETAIL 스텝)의 몫이다.
+	 * 상세 충전은 수집 파이프라인(상세 스텝 — DRAFT_STAGED 소비)의 몫이다.
 	 */
 	@Transactional
 	public ExhibitionResult.Detail getDetail(ExhibitionCriteria.Detail criteria) {

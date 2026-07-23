@@ -15,13 +15,13 @@ public interface OutboxMessageRepository {
 	OutboxMessage save(OutboxMessage job);
 
 	/** 멱등 enqueue용 — 같은 (종류, 대상)의 기존 작업을 찾는다(UK로 최대 1건). */
-	Optional<OutboxMessage> findByMessageTypeAndTargetKey(OutboxMessageType messageType, String targetKey);
+	Optional<OutboxMessage> findByMessageTypeAndTargetKey(IngestionEventType messageType, String targetKey);
 
 	/**
 	 * 선별 — 미종료(PENDING·FAILED_RETRYABLE)이고 재시도 시각이 도래한({@code next_attempt_at <= now}) 작업을
 	 * 도래 순으로 최대 {@code limit}건 조회한다. 종류 필터가 있으면 그 종류만 본다.
 	 */
-	List<OutboxMessage> findDue(OutboxMessageType messageType, LocalDateTime now, int limit);
+	List<OutboxMessage> findDue(IngestionEventType messageType, LocalDateTime now, int limit);
 
 	/** 상태별 개수(운영 조회·테스트용 — 예: FAILED_PERMANENT 누적 감시). */
 	long countByStatus(OutboxMessageStatus status);

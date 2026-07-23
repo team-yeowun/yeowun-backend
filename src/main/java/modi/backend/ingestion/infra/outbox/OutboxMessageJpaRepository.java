@@ -12,11 +12,11 @@ import org.springframework.data.repository.query.Param;
 
 import modi.backend.ingestion.domain.outbox.OutboxMessage;
 import modi.backend.ingestion.domain.outbox.OutboxMessageStatus;
-import modi.backend.ingestion.domain.outbox.OutboxMessageType;
+import modi.backend.ingestion.domain.outbox.IngestionEventType;
 
 public interface OutboxMessageJpaRepository extends JpaRepository<OutboxMessage, Long> {
 
-	Optional<OutboxMessage> findByMessageTypeAndTargetKey(OutboxMessageType messageType, String targetKey);
+	Optional<OutboxMessage> findByMessageTypeAndTargetKey(IngestionEventType messageType, String targetKey);
 
 	/**
 	 * 선별 쿼리 — 인덱스 {@code (status, next_attempt_at)}를 타 도래 순으로 집는다.
@@ -25,7 +25,7 @@ public interface OutboxMessageJpaRepository extends JpaRepository<OutboxMessage,
 	@Query("select j from OutboxMessage j "
 			+ "where j.messageType = :messageType and j.status in :statuses and j.nextAttemptAt <= :now "
 			+ "order by j.nextAttemptAt asc")
-	List<OutboxMessage> findDue(@Param("messageType") OutboxMessageType messageType,
+	List<OutboxMessage> findDue(@Param("messageType") IngestionEventType messageType,
 			@Param("statuses") Collection<OutboxMessageStatus> statuses,
 			@Param("now") LocalDateTime now, Pageable pageable);
 

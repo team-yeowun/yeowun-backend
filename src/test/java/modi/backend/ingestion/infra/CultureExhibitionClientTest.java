@@ -1,7 +1,6 @@
 package modi.backend.ingestion.infra;
 
 import modi.backend.ingestion.infra.culture.CultureApiErrorHandler;
-import modi.backend.ingestion.domain.entity.CultureDetailSnapshot;
 import modi.backend.ingestion.infra.culture.CultureExhibitionClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -176,7 +175,7 @@ class CultureExhibitionClientTest {
 		CatalogPage result = client.fetchPage(CatalogFetchCriteria.of(ExhibitionRealm.EXHIBITION, 3, 3), 1);
 
 		// 어댑터가 미리 걸러 주면 불량 행이 낀 꽉 찬 페이지가 "덜 찬 페이지"로 보여 순회가 조기에 끊기고,
-		// 걸러진 seq가 빠져 "전량 known" 판정도 죽는다. 필터는 CatalogSynchronizer가 건다.
+		// 걸러진 seq가 빠져 "전량 known" 판정도 죽는다. 필터는 ExhibitionKoreaCultureService가 건다.
 		assertThat(result.items()).hasSize(3);
 		assertThat(result.totalCount()).isEqualTo(3);
 	}

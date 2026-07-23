@@ -11,10 +11,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
 import modi.backend.TestcontainersConfiguration;
-import modi.backend.ingestion.application.outbox.ExhibitionOutboxFacade;
+import modi.backend.ingestion.application.outbox.ExhibitionOutboxService;
 import modi.backend.ingestion.domain.outbox.OutboxMessageRepository;
 import modi.backend.ingestion.domain.outbox.OutboxMessageStatus;
-import modi.backend.ingestion.domain.outbox.OutboxMessageType;
+import modi.backend.ingestion.domain.outbox.IngestionEventType;
 
 /**
  * 릴레이 이벤트 글루 통합 검증 — enqueue 트랜잭션 커밋 직후({@code AFTER_COMMIT}) 릴레이가 비동기로 드레인해
@@ -29,7 +29,7 @@ import modi.backend.ingestion.domain.outbox.OutboxMessageType;
 class ExhibitionOutboxRelayIntegrationTest {
 
 	@Autowired
-	ExhibitionOutboxFacade exhibitionOutboxFacade;
+	ExhibitionOutboxService exhibitionOutboxService;
 
 	@Autowired
 	OutboxMessageRepository outboxMessageRepository;
@@ -39,22 +39,24 @@ class ExhibitionOutboxRelayIntegrationTest {
 	void 커밋직후_이벤트드레인() throws InterruptedException {
 		String target = "RELAY-" + System.nanoTime();
 
-		// 대상 전시가 없는 FETCH_DETAIL — 드레인되면 "전시 미적재(다음 sync가 적재 예정)"로 RETRYABLE 전이된다.
+		// 대상 draft가 없는 DRAFT_STAGED — 드레인되면 "할 일 없음"으로 SUCCEEDED 마감된다(멱등 소비).
 		// 이 전이가 곧 "이벤트 드레인이 돌았다"의 관측 가능한 증거다(외부 호출 없음).
-		exhibitionOutboxFacade.enqueue(OutboxMessageType.FETCH_DETAIL, target, LocalDateTime.now());
+		// ※ 레거시 전시 폴백(ExhibitionBackfill) 삭제 전에는 같은 입력이 "대상 미존재"로 RETRYABLE이었다 —
+		//   draft 단일 경로가 되면서 성공 마감으로 바뀌었다(나중에 draft가 생기면 재sync 안전망이 이벤트를 부활시킨다).
+		exhibitionOutboxService.enqueue(IngestionEventType.DRAFT_STAGED, target, LocalDateTime.now());
 
 		OutboxMessageStatus observed = null;
 		long deadline = System.currentTimeMillis() + 15_000;
 		while (System.currentTimeMillis() < deadline) {
 			observed = outboxMessageRepository
-					.findByMessageTypeAndTargetKey(OutboxMessageType.FETCH_DETAIL, target)
+					.findByMessageTypeAndTargetKey(IngestionEventType.DRAFT_STAGED, target)
 					.orElseThrow().getStatus();
-			if (observed == OutboxMessageStatus.FAILED_RETRYABLE) {
+			if (observed == OutboxMessageStatus.SUCCEEDED) {
 				break;
 			}
 			Thread.sleep(200);
 		}
 
-		assertThat(observed).isEqualTo(OutboxMessageStatus.FAILED_RETRYABLE);
+		assertThat(observed).isEqualTo(OutboxMessageStatus.SUCCEEDED);
 	}
 }

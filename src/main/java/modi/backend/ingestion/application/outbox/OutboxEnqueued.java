@@ -1,6 +1,6 @@
 package modi.backend.ingestion.application.outbox;
 
-import modi.backend.ingestion.domain.outbox.OutboxMessageType;
+import modi.backend.ingestion.domain.outbox.IngestionEventType;
 
 /**
  * 아웃박스에 메시지가 적재됐음을 알리는 스프링 이벤트 — <b>디스패치 글루</b>다(ADR-10 "이벤트=글루, 테이블=엔진").
@@ -11,5 +11,5 @@ import modi.backend.ingestion.domain.outbox.OutboxMessageType;
  *
  * @param messageType 적재된 메시지 종류(관측·로그용 — 릴레이는 종류와 무관하게 도래분 전체를 드레인한다)
  */
-public record OutboxEnqueued(OutboxMessageType messageType) {
+public record OutboxEnqueued(IngestionEventType messageType) {
 }

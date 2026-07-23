@@ -1,10 +1,9 @@
 package modi.backend.application.exhibition;
 
 import modi.backend.ingestion.infra.culture.KoreaCultureDto;
-import modi.backend.ingestion.application.CatalogSynchronizer;
-import modi.backend.ingestion.application.enricher.GenreEnricher;
-import modi.backend.ingestion.application.enricher.DraftPromoter;
-import modi.backend.ingestion.application.enricher.DetailEnricher;
+import modi.backend.ingestion.application.ExhibitionIngestionOrchestrator;
+import modi.backend.ingestion.application.culture.ExhibitionKoreaCultureService;
+import modi.backend.ingestion.domain.SyncTrigger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -27,12 +26,12 @@ import modi.backend.TestcontainersConfiguration;
 import modi.backend.domain.exhibition.catalog.CatalogDetailData;
 import modi.backend.ingestion.domain.data.CatalogExhibitionData;
 import modi.backend.ingestion.domain.data.CatalogPage;
-import modi.backend.ingestion.domain.entity.CultureListSnapshot;
+import modi.backend.ingestion.domain.snapshot.CultureListSnapshot;
 import modi.backend.ingestion.domain.outbox.OutboxMessage;
 import modi.backend.ingestion.domain.outbox.OutboxMessageRepository;
 import modi.backend.ingestion.domain.outbox.OutboxMessageStatus;
-import modi.backend.ingestion.domain.outbox.OutboxMessageType;
-import modi.backend.ingestion.infra.CultureListSnapshotJpaRepository;
+import modi.backend.ingestion.domain.outbox.IngestionEventType;
+import modi.backend.ingestion.infra.snapshot.CultureListSnapshotJpaRepository;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
 import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
 import modi.backend.domain.exhibition.catalog.ExhibitionErrorCode;
@@ -57,16 +56,7 @@ class CultureVendorArchiveTest {
 	private static final AtomicInteger SEQ = new AtomicInteger(1);
 
 	@Autowired
-	CatalogSynchronizer catalogSynchronizer;
-
-	@Autowired
-	DetailEnricher detailEnricher;
-
-	@Autowired
-	GenreEnricher genreEnricher;
-
-	@Autowired
-	DraftPromoter draftPromoter;
+	ExhibitionIngestionOrchestrator ingestionOrchestrator;
 
 	@Autowired
 	ExhibitionRepository exhibitionRepository;
@@ -82,7 +72,7 @@ class CultureVendorArchiveTest {
 	OutboxMessageRepository outboxMessageRepository;
 
 	@Autowired
-	modi.backend.ingestion.application.ExhibitionSyncFacade exhibitionSyncFacade;
+	ExhibitionKoreaCultureService cultureService;
 
 	@MockitoBean
 	ExhibitionCatalogClient exhibitionCatalogClient;
@@ -95,11 +85,10 @@ class CultureVendorArchiveTest {
 		given(exhibitionCatalogClient.fetchPage(any(), anyInt())).willReturn(listData(List.of(listData(externalId, "원본 적재 전시"))));
 		given(exhibitionCatalogClient.fetchDetail(externalId)).willReturn(detailData());
 
-		int staged = catalogSynchronizer.syncCatalog();
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
 		drainPipeline(); // 상세 해소 → 장르 분류 → 승격(ADR-10 — 전시는 게이트를 채워야 나타난다)
 
 		// 도메인층 — 파이프라인을 다 태우면 기존처럼 전시가 나타난다.
-		assertThat(staged).isEqualTo(1);
 		assertThat(exhibitionRepository.findByExternalId(externalId)).isPresent();
 		// 벤더층 — CatalogExhibitionData가 그대로 적재된다(별도 verbatim 어휘 없음).
 		CultureListSnapshot row = listRow(externalId);
@@ -116,11 +105,11 @@ class CultureVendorArchiveTest {
 		given(exhibitionCatalogClient.isConfigured()).willReturn(true);
 		given(exhibitionCatalogClient.fetchPage(any(), anyInt())).willReturn(listData(List.of(listData(externalId, "멱등 전시"))));
 		given(exhibitionCatalogClient.fetchDetail(externalId)).willReturn(detailData());
-		catalogSynchronizer.syncCatalog();
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
 		CultureListSnapshot first = listRow(externalId);
 		java.time.LocalDateTime firstSeen = first.getFirstSeenAt();
 
-		catalogSynchronizer.syncCatalog();
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
 
 		CultureListSnapshot row = listRow(externalId); // 조회 자체가 UK 1행을 전제한다(2행이면 여기서 깨진다)
 		assertThat(row.getId()).isEqualTo(first.getId()); // 새 행이 아니라 같은 행
@@ -136,14 +125,14 @@ class CultureVendorArchiveTest {
 		given(exhibitionCatalogClient.isConfigured()).willReturn(true);
 		given(exhibitionCatalogClient.fetchPage(any(), anyInt())).willReturn(listData(List.of(listData(externalId, "정정 전 제목"))));
 		given(exhibitionCatalogClient.fetchDetail(externalId)).willReturn(detailData());
-		catalogSynchronizer.syncCatalog();
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
 		assertThat(listRow(externalId).getTitle()).isEqualTo("정정 전 제목");
 
 		// 원천이 같은 external_id의 내용을 고쳐 보냈다.
 		given(exhibitionCatalogClient.isConfigured()).willReturn(true);
 		given(exhibitionCatalogClient.fetchPage(any(), anyInt())).willReturn(listData(List.of(listData(externalId, "정정 후 제목"))));
 
-		catalogSynchronizer.syncCatalog();
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
 
 		assertThat(listRow(externalId).getTitle()).isEqualTo("정정 후 제목"); // 필드가 정정값으로 덮인다
 	}
@@ -157,12 +146,12 @@ class CultureVendorArchiveTest {
 		given(exhibitionCatalogClient.fetchPage(any(), anyInt()))
 				.willReturn(listData(List.of(listData(known1, "아는 전시 1"), listData(known2, "아는 전시 2"))));
 		given(exhibitionCatalogClient.fetchDetail(any())).willReturn(detailData());
-		catalogSynchronizer.syncCatalog(); // 두 건이 스냅샷에 남는다
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL); // 두 건이 스냅샷에 남는다
 
 		// 스냅샷 기준이라 draft 단계(승격 전)여도 "아는 것"이다 — exhibitions 기준이면 여기서 false가 났다.
-		assertThat(exhibitionSyncFacade.allSnapshotted(List.of(known1, known2))).isTrue();
-		assertThat(exhibitionSyncFacade.allSnapshotted(List.of(known1, "NEVER-SEEN"))).isFalse();
-		assertThat(exhibitionSyncFacade.allSnapshotted(List.of())).isFalse(); // 빈 페이지로는 멈추지 않는다
+		assertThat(cultureService.allSnapshotted(List.of(known1, known2))).isTrue();
+		assertThat(cultureService.allSnapshotted(List.of(known1, "NEVER-SEEN"))).isFalse();
+		assertThat(cultureService.allSnapshotted(List.of())).isFalse(); // 빈 페이지로는 멈추지 않는다
 	}
 
 	@Test
@@ -176,9 +165,8 @@ class CultureVendorArchiveTest {
 				"역전 기간 전시", "장소", today, today.minusDays(1), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING,
 				null, null, "기관", null, null, null, "전시", "서울"))));
 
-		int inserted = catalogSynchronizer.syncCatalog();
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
 
-		assertThat(inserted).isZero();
 		assertThat(exhibitionRepository.findByExternalId(externalId)).isEmpty(); // 도메인은 스킵
 		assertThat(listRow(externalId).getTitle()).isEqualTo("역전 기간 전시"); // 원천이 뭐라고 했는지는 남는다
 	}
@@ -194,7 +182,7 @@ class CultureVendorArchiveTest {
 		given(exhibitionCatalogClient.fetchDetail(externalId)).willThrow(
 				new CoreException(ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "외부 전시 API 상세 없음"));
 
-		catalogSynchronizer.syncCatalog();
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
 		drainPipeline();
 
 		// 상세 스냅샷 적재는 어댑터(CultureCatalogReader)로 내려가 여기(목 포트)에선 관측되지 않는다
@@ -214,17 +202,16 @@ class CultureVendorArchiveTest {
 		given(exhibitionCatalogClient.fetchDetail(externalId))
 				.willThrow(new CoreException(ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "외부 전시 API 호출 실패"));
 
-		int staged = catalogSynchronizer.syncCatalog();
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
 		// 스테이징은 성공하고(목록 외 외부 호출 0 — 상세 실패가 sync를 못 막는다), FETCH_DETAIL 메시지가 함께 남는다.
-		assertThat(staged).isEqualTo(1);
 		OutboxMessage message = outboxMessageRepository
-				.findByMessageTypeAndTargetKey(OutboxMessageType.FETCH_DETAIL, externalId).orElseThrow();
+				.findByMessageTypeAndTargetKey(IngestionEventType.DRAFT_STAGED, externalId).orElseThrow();
 		assertThat(message.getStatus()).isEqualTo(OutboxMessageStatus.PENDING);
 
-		detailEnricher.enrichDetails(); // 드레인에서 상세 조회가 실패한다
+		ingestionOrchestrator.drainDetailFetch(); // 드레인에서 상세 조회가 실패한다
 
 		// 실패는 아웃박스 상태로 남고(RETRYABLE — 회복 후 재시도), 전시는 게이트를 못 채워 나타나지 않는다.
-		assertThat(outboxMessageRepository.findByMessageTypeAndTargetKey(OutboxMessageType.FETCH_DETAIL, externalId)
+		assertThat(outboxMessageRepository.findByMessageTypeAndTargetKey(IngestionEventType.DRAFT_STAGED, externalId)
 				.orElseThrow().getStatus()).isEqualTo(OutboxMessageStatus.FAILED_RETRYABLE);
 		assertThat(exhibitionRepository.findByExternalId(externalId)).isEmpty();
 		// 목록 원본은 상세 실패와 무관하게 남는다(층이 서로를 막지 않는다).
@@ -245,9 +232,9 @@ class CultureVendorArchiveTest {
 
 	/** 아웃박스 드레인으로 파이프라인 완주 — 상세 해소(장르 체인) → 분류(테스트 기본 mock — 결정적) → 승격. */
 	private void drainPipeline() {
-		detailEnricher.enrichDetails();
-		genreEnricher.enrichGenres();
-		draftPromoter.promoteReady(); // 승격 소비(ADR-12)
+		ingestionOrchestrator.drainDetailFetch();
+		ingestionOrchestrator.drainGenreClassification();
+		ingestionOrchestrator.drainPromotion(); // 승격 소비(ADR-12)
 	}
 
 

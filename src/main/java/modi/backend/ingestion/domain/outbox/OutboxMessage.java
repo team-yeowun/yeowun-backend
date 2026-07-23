@@ -29,7 +29,7 @@ import lombok.NoArgsConstructor;
  * 보장된다(재시작 생존). 벤더 테이블은 원본만, 정준 테이블은 결과만, <b>진행 상태는 이 테이블만 안다</b>.
  *
  * <p><b>멱등 enqueue</b>: UK{@code (message_type, target_key)}라 같은 대상에 중복 메시지가 생기지 않는다(예: 한 번의
- * 카탈로그 sync에서 같은 장소에 전시가 여럿 들어와도 REFRESH_PLACE_HOURS는 1건). <b>선별</b>: 인덱스
+ * 카탈로그 sync에서 같은 장소에 전시가 여럿 들어와도 PLACE_HOURS_STALE은 1건). <b>선별</b>: 인덱스
  * {@code (status, next_attempt_at)}로 폴링 쿼리({@code status IN (PENDING, RETRYABLE) AND next_attempt_at <= now})가
  * 풀스캔 없이 도래한 메시지만 집는다.
  *
@@ -54,7 +54,7 @@ public class OutboxMessage {
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "message_type", nullable = false, length = 30)
-	private OutboxMessageType messageType;
+	private IngestionEventType messageType;
 
 	/** 작업 대상 식별자 — 종류에 따라 {@code external_id}(상세·장르) 또는 {@code place_key}(영업시간)다. */
 	@Column(name = "target_key", nullable = false, length = 500)
@@ -91,7 +91,7 @@ public class OutboxMessage {
 	@Column(name = "updated_at", nullable = false)
 	private LocalDateTime updatedAt;
 
-	private OutboxMessage(OutboxMessageType messageType, String targetKey, LocalDateTime now) {
+	private OutboxMessage(IngestionEventType messageType, String targetKey, LocalDateTime now) {
 		this.messageType = messageType;
 		this.targetKey = targetKey;
 		this.status = OutboxMessageStatus.PENDING;
@@ -102,7 +102,7 @@ public class OutboxMessage {
 	/**
 	 * 작업을 큐에 넣는다(멱등 enqueue의 생산자 — 중복 방지는 UK가 맡는다). 처음부터 즉시 선별 대상(PENDING·now).
 	 */
-	public static OutboxMessage enqueue(OutboxMessageType messageType, String targetKey, LocalDateTime now) {
+	public static OutboxMessage enqueue(IngestionEventType messageType, String targetKey, LocalDateTime now) {
 		if (messageType == null) {
 			throw new IllegalArgumentException("messageType은 필수다");
 		}

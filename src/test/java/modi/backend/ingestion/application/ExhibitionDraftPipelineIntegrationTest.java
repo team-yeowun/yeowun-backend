@@ -18,10 +18,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import modi.backend.TestcontainersConfiguration;
-import modi.backend.ingestion.application.draft.ExhibitionDraftFacade;
-import modi.backend.ingestion.application.enricher.GenreEnricher;
-import modi.backend.ingestion.application.enricher.DraftPromoter;
-import modi.backend.ingestion.application.enricher.DetailEnricher;
+import modi.backend.ingestion.application.draft.ExhibitionDraftService;
+import modi.backend.ingestion.domain.SyncTrigger;
 import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
 import modi.backend.domain.exhibition.catalog.ExhibitionRegion;
@@ -39,7 +37,7 @@ import modi.backend.ingestion.domain.draft.ExhibitionDraft;
 import modi.backend.ingestion.domain.draft.ExhibitionDraftRepository;
 import modi.backend.ingestion.domain.outbox.OutboxMessageRepository;
 import modi.backend.ingestion.domain.outbox.OutboxMessageStatus;
-import modi.backend.ingestion.domain.outbox.OutboxMessageType;
+import modi.backend.ingestion.domain.outbox.IngestionEventType;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
 
 /**
@@ -54,19 +52,10 @@ class ExhibitionDraftPipelineIntegrationTest {
 	private static final AtomicInteger SEQ = new AtomicInteger(1);
 
 	@Autowired
-	CatalogSynchronizer catalogSynchronizer;
+	ExhibitionIngestionOrchestrator ingestionOrchestrator;
 
 	@Autowired
-	DetailEnricher detailEnricher;
-
-	@Autowired
-	GenreEnricher genreEnricher;
-
-	@Autowired
-	DraftPromoter draftPromoter;
-
-	@Autowired
-	ExhibitionDraftFacade exhibitionDraftFacade;
+	ExhibitionDraftService exhibitionDraftService;
 
 	@Autowired
 	ExhibitionDraftRepository exhibitionDraftRepository;
@@ -99,23 +88,22 @@ class ExhibitionDraftPipelineIntegrationTest {
 				"무료", "전시 소개", null, "02-000-0000", null, null, "서울시 종로구", null));
 
 		// 1) sync — 목록 외 외부 호출 0: draft 스테이징 + FETCH_DETAIL enqueue만.
-		int staged = catalogSynchronizer.syncCatalog();
-		assertThat(staged).isEqualTo(1);
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
 		assertThat(exhibitionRepository.findByExternalId(externalId)).isEmpty(); // 전시는 아직 없다(게이트 전)
 		assertThat(exhibitionDraftRepository.findByExternalId(externalId).orElseThrow().getStatus())
 				.isEqualTo(DraftStatus.PENDING);
 
 		// 2) 상세 드레인 — draft 상세분 해소 + 같은 트랜잭션에서 CLASSIFY_GENRE 체인.
-		detailEnricher.enrichDetails();
+		ingestionOrchestrator.drainDetailFetch();
 		ExhibitionDraft afterDetail = exhibitionDraftRepository.findByExternalId(externalId).orElseThrow();
 		assertThat(afterDetail.getStatus()).isEqualTo(DraftStatus.ENRICHING);
 		assertThat(afterDetail.getPrice()).isEqualTo("무료");
 		assertThat(outboxMessageRepository
-				.findByMessageTypeAndTargetKey(OutboxMessageType.CLASSIFY_GENRE, externalId)).isPresent();
+				.findByMessageTypeAndTargetKey(IngestionEventType.DETAIL_FETCHED, externalId)).isPresent();
 
 		// 3) 장르 드레인 — 분류(테스트 기본 mock 분류기, 결정적) + 게이트 충족 → 같은 트랜잭션에서 승격.
-		genreEnricher.enrichGenres();
-		draftPromoter.promoteReady(); // 승격 소비(ADR-12)
+		ingestionOrchestrator.drainGenreClassification();
+		ingestionOrchestrator.drainPromotion(); // 승격 소비(ADR-12)
 
 		ExhibitionDraft completed = exhibitionDraftRepository.findByExternalId(externalId).orElseThrow();
 		assertThat(completed.getStatus()).isEqualTo(DraftStatus.COMPLETED);
@@ -125,9 +113,9 @@ class ExhibitionDraftPipelineIntegrationTest {
 		assertThat(exhibitionRepository.hasDetail(promoted.getId())).isTrue(); // 상세분까지 이관된 완성체
 		assertThat(exhibitionRepository.findGenre(promoted.getId())).isPresent(); // 장르 정준행
 		// 메시지들도 전부 마감됐다.
-		assertThat(outboxMessageRepository.findByMessageTypeAndTargetKey(OutboxMessageType.FETCH_DETAIL, externalId)
+		assertThat(outboxMessageRepository.findByMessageTypeAndTargetKey(IngestionEventType.DRAFT_STAGED, externalId)
 				.orElseThrow().getStatus()).isEqualTo(OutboxMessageStatus.SUCCEEDED);
-		assertThat(outboxMessageRepository.findByMessageTypeAndTargetKey(OutboxMessageType.CLASSIFY_GENRE, externalId)
+		assertThat(outboxMessageRepository.findByMessageTypeAndTargetKey(IngestionEventType.DETAIL_FETCHED, externalId)
 				.orElseThrow().getStatus()).isEqualTo(OutboxMessageStatus.SUCCEEDED);
 	}
 
@@ -143,10 +131,10 @@ class ExhibitionDraftPipelineIntegrationTest {
 		given(catalogClient.fetchDetail(anyString())).willThrow(
 				new CoreException(ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "외부 전시 API 상세 없음"));
 
-		catalogSynchronizer.syncCatalog();
-		detailEnricher.enrichDetails();
-		genreEnricher.enrichGenres();
-		draftPromoter.promoteReady();
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
+		ingestionOrchestrator.drainDetailFetch();
+		ingestionOrchestrator.drainGenreClassification();
+		ingestionOrchestrator.drainPromotion();
 
 		// 예전엔 무상세도 스텝 해소로 승격됐다. 이제는 상세를 못 받으면 게이트를 못 채워 승격되지 않는다.
 		ExhibitionDraft draft = exhibitionDraftRepository.findByExternalId(externalId).orElseThrow();
@@ -160,12 +148,12 @@ class ExhibitionDraftPipelineIntegrationTest {
 		int seq = SEQ.getAndIncrement();
 		String externalId = "PIPE-WAIT-" + seq;
 		LocalDateTime now = LocalDateTime.now();
-		exhibitionDraftFacade.stageFromList(listData(externalId, "대기장소" + seq), now);
-		exhibitionDraftFacade.markDetailAbsent(externalId, now); // 상세 스텝 해소 → CLASSIFY_GENRE enqueue
+		exhibitionDraftService.stageFromList(listData(externalId, "대기장소" + seq), now);
+		exhibitionDraftService.markDetailAbsent(externalId, now); // 상세 스텝 해소 → CLASSIFY_GENRE enqueue
 
 		// 분류 실패를 흉내내는 대신, 메시지를 직접 실패 전이시켜 "대기" 상태의 관측 가능한 형태를 확인한다.
 		var message = outboxMessageRepository
-				.findByMessageTypeAndTargetKey(OutboxMessageType.CLASSIFY_GENRE, externalId).orElseThrow();
+				.findByMessageTypeAndTargetKey(IngestionEventType.DETAIL_FETCHED, externalId).orElseThrow();
 		message.recordFailure(modi.backend.ingestion.domain.outbox.OutboxFailureType.RETRYABLE,
 				"전 공급자 실패", new modi.backend.ingestion.domain.outbox.RetryPolicy(
 						Integer.MAX_VALUE, 60L, 3600L), now);

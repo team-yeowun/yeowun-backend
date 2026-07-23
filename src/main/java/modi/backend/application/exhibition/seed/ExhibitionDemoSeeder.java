@@ -30,8 +30,8 @@ import modi.backend.support.time.AppTime;
 
 /**
  * 로컬 데모 시드(내장 웹페이지 시연용). {@code app.exhibition.demo-seed.enabled=true}일 때만 부팅 시 1회 실행한다.
- * 실제 공공데이터 동기화는 데모 플래그와 무관하게 {@code ExhibitionCatalogBootSync}가 항상 먼저 시도한다
- * (cold start 방지). 이 시더는 그 이후에도 카탈로그가 비어 있으면(키 미설정 등) 응답 스키마의
+ * 실제 공공데이터 동기화는 부팅이 아니라 자정 스케줄러({@code ExhibitionSyncScheduler})가 돌린다
+ * (초기 적재는 시드 SQL 몫). 이 시더는 카탈로그가 비어 있으면(키 미설정 등) 응답 스키마의
  * <b>모든 필드를 채운</b> 표본 CATALOG + MOCK 전시를 적재한다(포스터·설명·운영시간·관람료·좌표까지
  * — 실제 응답처럼 보이게). 운영/테스트에서는 꺼 둔다(기본 false) — 시드 데이터가 실제 데이터와 섞이지 않게 한다.
  */

@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 import modi.backend.ingestion.domain.outbox.OutboxMessage;
 import modi.backend.ingestion.domain.outbox.OutboxMessageRepository;
 import modi.backend.ingestion.domain.outbox.OutboxMessageStatus;
-import modi.backend.ingestion.domain.outbox.OutboxMessageType;
+import modi.backend.ingestion.domain.outbox.IngestionEventType;
 
 @Repository
 @RequiredArgsConstructor
@@ -28,12 +28,12 @@ public class OutboxMessageRepositoryImpl implements OutboxMessageRepository {
 	}
 
 	@Override
-	public Optional<OutboxMessage> findByMessageTypeAndTargetKey(OutboxMessageType messageType, String targetKey) {
+	public Optional<OutboxMessage> findByMessageTypeAndTargetKey(IngestionEventType messageType, String targetKey) {
 		return jpaRepository.findByMessageTypeAndTargetKey(messageType, targetKey);
 	}
 
 	@Override
-	public List<OutboxMessage> findDue(OutboxMessageType messageType, LocalDateTime now, int limit) {
+	public List<OutboxMessage> findDue(IngestionEventType messageType, LocalDateTime now, int limit) {
 		return jpaRepository.findDue(messageType, PENDING_STATUSES, now, PageRequest.of(0, Math.max(1, limit)));
 	}
 

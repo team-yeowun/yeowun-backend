@@ -1,6 +1,7 @@
 package modi.backend.application.exhibition;
 
-import modi.backend.ingestion.application.CatalogSynchronizer;
+import modi.backend.ingestion.application.ExhibitionIngestionOrchestrator;
+import modi.backend.ingestion.domain.SyncTrigger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -44,7 +45,7 @@ class ExternalApiCallAuditTest {
 	private static final AtomicInteger SEQ = new AtomicInteger(1);
 
 	@Autowired
-	CatalogSynchronizer catalogSynchronizer;
+	ExhibitionIngestionOrchestrator ingestionOrchestrator;
 
 	@Autowired
 	JdbcTemplate jdbcTemplate;
@@ -64,7 +65,7 @@ class ExternalApiCallAuditTest {
 						modi.backend.domain.exhibition.catalog.ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "상세 없음"));
 		long before = countSyncRuns();
 
-		catalogSynchronizer.syncCatalog();
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
 
 		assertThat(countSyncRuns()).isEqualTo(before + 1);
 		var run = latestSyncRun();
@@ -83,7 +84,7 @@ class ExternalApiCallAuditTest {
 		given(exhibitionCatalogClient.fetchPage(any(), anyInt()))
 				.willReturn(new CatalogPage(List.of(listItem(nextId())), 600));
 
-		catalogSynchronizer.syncCatalog();
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
 
 		assertThat(latestSyncRun().get("total_count")).isEqualTo(600);
 		assertThat(latestSyncRun().get("collected")).isEqualTo(1);
@@ -96,7 +97,7 @@ class ExternalApiCallAuditTest {
 		given(exhibitionCatalogClient.isConfigured()).willReturn(true);
 		given(exhibitionCatalogClient.fetchPage(any(), anyInt())).willReturn(CatalogPage.none());
 
-		catalogSynchronizer.syncCatalog();
+		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
 
 		var run = latestSyncRun();
 		assertThat(run.get("total_count")).isNull();

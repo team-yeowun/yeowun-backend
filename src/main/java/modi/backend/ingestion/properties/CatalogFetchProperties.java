@@ -12,7 +12,7 @@ import modi.backend.ingestion.domain.data.CatalogFetchFilter;
  * 전시 목록 수집 <b>요청 정책</b> 설정. {@code app.ingestion.exhibition-catalog.*} 바인딩.
  * <p>
  * 접속 설정({@link PublicDataProperties} — base URL·인증키·타임아웃)과 갈라 둔 이유는 소유 계층이 다르기 때문이다.
- * 여기 값들은 원천에 <b>무엇을 얼마나 요청할지</b>라서 수집 유스케이스({@code CatalogSynchronizer})가 읽어
+ * 여기 값들은 원천에 <b>무엇을 얼마나 요청할지</b>라서 문화포털 축({@code ExhibitionKoreaCultureService})이 읽어
  * {@link CatalogFetchCriteria}로 어댑터에 내려보낸다. 어댑터가 직접 읽지 않는다.
  *
  * @param realm       수집 대상 분야(기본 전시). 벤더 분야 코드로의 번역은 어댑터가 한다.

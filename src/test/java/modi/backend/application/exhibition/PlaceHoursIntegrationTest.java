@@ -1,6 +1,6 @@
 package modi.backend.application.exhibition;
 
-import modi.backend.ingestion.application.enricher.PlaceHoursEnricher;
+import modi.backend.ingestion.application.ExhibitionIngestionOrchestrator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -35,7 +35,8 @@ import modi.backend.infra.exhibition.hours.PlaceHoursJpaRepository;
 import modi.backend.domain.exhibition.hours.PlaceHoursStatus;
 import modi.backend.domain.exhibition.hours.PlaceHoursVendor;
 import modi.backend.domain.exhibition.hours.WeeklyOpeningHours;
-import modi.backend.ingestion.infra.GooglePlaceSnapshotJpaRepository;
+import modi.backend.ingestion.application.place.ExhibitionPlaceService;
+import modi.backend.ingestion.infra.snapshot.GooglePlaceSnapshotJpaRepository;
 
 /**
  * 전시 영업시간 보강 전 경로 통합 검증(@SpringBootTest + Testcontainers-MySQL). 외부 조회기({@link PlaceHoursProvider})만 목으로 두고
@@ -51,7 +52,20 @@ class PlaceHoursIntegrationTest {
 	private static final AtomicInteger SEQ = new AtomicInteger(1);
 
 	@Autowired
-	PlaceHoursEnricher placeHoursEnricher;
+	ExhibitionIngestionOrchestrator ingestionOrchestrator;
+
+	@Autowired
+	ExhibitionPlaceService placeService;
+
+	/**
+	 * 새 구조의 영업시간 한 사이클 — <b>발견</b>(스윕이 미조회·만료 장소를 PLACE_HOURS_STALE로 발행) →
+	 * <b>실행</b>(릴레이가 드레인하며 조회·반영). syncCatalog 대신 스윕을 직접 부르는 이유는 이 테스트가
+	 * 카탈로그 경로를 목으로 두지 않아서다 — 실 공공데이터 호출을 만들지 않기 위해 영업시간 축만 태운다.
+	 */
+	private void runPlaceHoursCycle() {
+		placeService.sweepDueHours(LocalDateTime.now());
+		ingestionOrchestrator.drainPlaceHours();
+	}
 
 	@Autowired
 	ExhibitionPlaceRepository exhibitionPlaceRepository;
@@ -80,7 +94,7 @@ class PlaceHoursIntegrationTest {
 		given(placeHoursProvider.fetch(eq(place.getName()), eq(place.getAddress())))
 				.willReturn(Optional.of(data(place.getAddress(), everyDaySameTimeButMondayClosed())));
 
-		placeHoursEnricher.enrichPlaceHours();
+		runPlaceHoursCycle();
 
 		verify(placeHoursProvider, times(1)).fetch(eq(place.getName()), eq(place.getAddress())); // 장소당 1콜
 		assertThat(googlePlaceSnapshotJpaRepository.findByExhibitionPlaceId(place.getId())).isPresent();
@@ -105,7 +119,7 @@ class PlaceHoursIntegrationTest {
 		given(placeHoursProvider.fetch(eq(place.getName()), eq(place.getAddress())))
 				.willReturn(Optional.of(data(place.getAddress(), hours)));
 
-		placeHoursEnricher.enrichPlaceHours();
+		runPlaceHoursCycle();
 
 		assertThat(placeHoursRepository.findByExhibitionPlaceId(place.getId()).orElseThrow().getFormatted())
 				.isEqualTo("월 / 수 10:00 ~ 18:00\n목 / 금 13:00 ~ 20:00\n화 / 토 / 일 휴무");
@@ -122,7 +136,7 @@ class PlaceHoursIntegrationTest {
 		given(placeHoursProvider.fetch(eq(place.getName()), eq(place.getAddress())))
 				.willReturn(Optional.of(data(place.getAddress(), builder.build())));
 
-		placeHoursEnricher.enrichPlaceHours();
+		runPlaceHoursCycle();
 
 		assertThat(placeHoursRepository.findByExhibitionPlaceId(place.getId()).orElseThrow().getFormatted())
 				.isEqualTo("매일 09:00 ~ 21:00");
@@ -135,7 +149,7 @@ class PlaceHoursIntegrationTest {
 		given(placeHoursProvider.fetch(eq(place.getName()), eq(place.getAddress())))
 				.willReturn(Optional.of(data(place.getAddress(), WeeklyOpeningHours.empty())));
 
-		placeHoursEnricher.enrichPlaceHours();
+		runPlaceHoursCycle();
 
 		PlaceHours canonical = placeHoursRepository.findByExhibitionPlaceId(place.getId()).orElseThrow();
 		assertThat(canonical.getFormatted()).isNull();
@@ -150,7 +164,7 @@ class PlaceHoursIntegrationTest {
 		ExhibitionPlace place = seedPlace("없는관PH", uniqueAddr());
 		given(placeHoursProvider.fetch(eq(place.getName()), eq(place.getAddress()))).willReturn(Optional.empty());
 
-		placeHoursEnricher.enrichPlaceHours();
+		runPlaceHoursCycle();
 
 		PlaceHours canonical = placeHoursRepository.findByExhibitionPlaceId(place.getId()).orElseThrow();
 		assertThat(canonical.getFormatted()).isNull();
@@ -166,7 +180,7 @@ class PlaceHoursIntegrationTest {
 		placeHoursRepository.save(PlaceHours.first(place.getId(), "기존값", PlaceHoursStatus.SUCCEEDED,
 				PlaceHoursVendor.GOOGLE, LocalDateTime.now())); // 방금 동기화한 정준행
 
-		placeHoursEnricher.enrichPlaceHours();
+		runPlaceHoursCycle();
 
 		assertThat(placeHoursRepository.findByExhibitionPlaceId(place.getId()).orElseThrow().getFormatted())
 				.isEqualTo("기존값");
