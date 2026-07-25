@@ -32,15 +32,6 @@ public interface ExhibitionRepository {
 	/** 살아있는 전시들을 id 집합으로 일괄 조회(관심 전시 목록의 벌크 로드용). 정렬·순서 보장 없음. 빈 입력이면 빈 목록. */
 	List<Exhibition> findAllActiveByIds(Collection<Long> ids);
 
-	/** 여러 원천 식별자로 CATALOG 전시를 일괄 조회(아웃박스 대상 해소용, 살아있는 행만). 빈 입력이면 빈 목록. */
-	List<Exhibition> findAllByExternalIds(Collection<String> externalIds);
-
-	/**
-	 * 장르 초기화 백필용 — 아직 장르가 없는 CATALOG(공공데이터) 전시를 최대 {@code limit}건 조회(살아있는 행만).
-	 * "장르가 없다"의 판정 기준(어느 저장 위치를 보는가)은 구현 세부라 어댑터가 정한다.
-	 */
-	List<Exhibition> findCatalogWithoutGenre(int limit);
-
 	// ── 상세 satellite(1:1) — 연관 부재 = 미동기화(ADR-03) ─────────────────────────────
 
 	/** 상세 upsert — 없으면 생성, 있으면 갱신. {@code now}는 동기화 시각(재조회 판정 기준). */
@@ -69,9 +60,6 @@ public interface ExhibitionRepository {
 	void applyGenre(Long exhibitionId, GenreResult result, LocalDateTime now);
 
 	Optional<ExhibitionGenre> findGenre(Long exhibitionId);
-
-	/** 여러 전시의 장르를 일괄 조회(분류 여부 배치 판정용). 빈 입력이면 빈 목록. */
-	List<ExhibitionGenre> findGenres(Collection<Long> exhibitionIds);
 
 	// ── 작가 조인(N:M) — Artist 자체는 독립 애그리거트({@link ArtistRepository}) ─────────
 

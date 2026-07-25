@@ -5,7 +5,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import lombok.RequiredArgsConstructor;
@@ -14,7 +13,6 @@ import modi.backend.domain.exhibition.catalog.ExhibitionArtist;
 import modi.backend.domain.exhibition.catalog.ExhibitionDetail;
 import modi.backend.domain.exhibition.catalog.ExhibitionGenre;
 import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
-import modi.backend.domain.exhibition.catalog.ExhibitionType;
 import modi.backend.domain.exhibition.genre.GenreResult;
 
 /**
@@ -55,21 +53,6 @@ public class ExhibitionRepositoryImpl implements ExhibitionRepository {
 		return jpaRepository.findAllById(ids).stream()
 				.filter(exhibition -> exhibition.getDeletedAt() == null)
 				.toList();
-	}
-
-	@Override
-	public List<Exhibition> findAllByExternalIds(Collection<String> externalIds) {
-		if (externalIds == null || externalIds.isEmpty()) {
-			return List.of();
-		}
-		return jpaRepository.findByTypeAndExternalIdInAndDeletedAtIsNull(ExhibitionType.CATALOG, externalIds);
-	}
-
-	@Override
-	public List<Exhibition> findCatalogWithoutGenre(int limit) {
-		// "장르 없음"의 판정 위치가 정준층(exhibition_genre)으로 옮겨졌다 — 포트 메서드명(도메인 언어)은 그대로다.
-		return jpaRepository.findCatalogWithoutCanonicalGenre(
-				ExhibitionType.CATALOG, PageRequest.of(0, Math.max(1, limit)));
 	}
 
 	// ── 상세 satellite(1:1) ─────────────────────────────────────────────────────
@@ -134,14 +117,6 @@ public class ExhibitionRepositoryImpl implements ExhibitionRepository {
 	@Override
 	public Optional<ExhibitionGenre> findGenre(Long exhibitionId) {
 		return genreJpaRepository.findByExhibitionId(exhibitionId);
-	}
-
-	@Override
-	public List<ExhibitionGenre> findGenres(Collection<Long> exhibitionIds) {
-		if (exhibitionIds == null || exhibitionIds.isEmpty()) {
-			return List.of();
-		}
-		return genreJpaRepository.findAllByExhibitionIdIn(exhibitionIds);
 	}
 
 	// ── 작가 조인(N:M) ──────────────────────────────────────────────────────────

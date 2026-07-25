@@ -1,6 +1,10 @@
 spring:
   application:
     name: backend
+  # 로컬 .env 자동 로드(있을 때만 — optional) — IDE/터미널 어디서 띄워도 ADMIN_EMAILS 등 로컬 값이 잡힌다.
+  # .env는 gitignore라 배포 환경엔 없고, 실제 OS 환경변수가 항상 이 파일보다 우선한다(운영 주입 불변).
+  config:
+    import: optional:file:.env[.properties]
   # webflux 의존(WebClient) 추가했지만 웹 스택은 서블릿(MVC) 유지.
   main:
     web-application-type: servlet
@@ -105,16 +109,24 @@ app:
       client-id: ${NAVER_CLIENT_ID:x5SSFHxy06Npeieb9JlA}
       client-secret: ${NAVER_CLIENT_SECRET:}
 
-  # 공공데이터 전시 API(한눈에보는문화정보조회서비스, data.go.kr 15138937). (03_전시.md CATALOG 출처)
+  # 전시 목록 수집 "요청 정책" — 무엇을 얼마나 가져올지. 접속 설정(public-data.culture)과 갈라 둔다:
+  # 인프라는 외부와 맞닿아 대신 가져다주는 계층이지 수집 범위를 정하는 계층이 아니라, 이 값들은
+  # CatalogSynchronizer가 읽어 CatalogFetchCriteria로 어댑터에 내려보낸다.
+  ingestion:
+    exhibition-catalog:
+      realm: EXHIBITION       # 수집 분야(도메인 개념) — 원천 코드 D000으로의 번역은 어댑터가 한다
+      service-type: PERFORMANCE_EXHIBITION   # 분야별구분(필수, 원천 serviceTp)
+      sort-order: REGISTRATION_DESC          # 정렬(필수, 원천 sortStdr=8) — 최근 등록분이 먼저(신규 등록 포착이 수집 목표)
+      page-size: 100          # 1회 호출당 행 수(원천 numOfrows) — 결과가 아니라 호출 횟수를 좌우
+      max-items: 500          # 한 실행 수집 상한(폭주 방지) — 실측 원천 266건
+
+  # 공공데이터 전시 API(한눈에보는문화정보조회서비스, data.go.kr 15138937) 접속 설정. (03_전시.md CATALOG 출처)
   # service-key: data.go.kr 일반 인증키. 공공데이터 오픈API 키라 저위험 + 재발급 가능해 yaml에 직접 둔다(팀 참고용).
   #   env(CULTURE_API_KEY)로 오버라이드 가능. 미설정·무효면 외부 동기화 스킵되고 데모 시드로 동작.
   public-data:
     culture:
       base-url: ${CULTURE_API_BASE_URL:https://apis.data.go.kr/B553457/cultureinfo}
       service-key: ${CULTURE_API_KEY:55aa921462823cce4b6aa1d36b0f5c318b0100a16af6fc56c89527e7353ad154}
-      realm-code: D000        # 전시
-      num-of-rows: 100
-      max-pages: 5
       timeout-seconds: ${CULTURE_API_TIMEOUT_SECONDS:15}  # 무응답 stall 시 스케줄러 스레드·DB 커넥션 영구 점유 방지
 
   # 데모용 전시 시드. 켜면 부팅 시 표본 CATALOG/MOCK 전시를 적재한다(테이블이 비어 있을 때만).
@@ -124,17 +136,17 @@ app:
       enabled: ${EXHIBITION_DEMO_SEED:false}
     # 전시 카탈로그 정기 동기화 스케줄. sync.cron 시각에 목록 동기화 + 상세 보강을 수행한다(기본 매일 자정).
     sync:
-      cron: ${EXHIBITION_SYNC_CRON:0 0 0 * * *}
+      cron: ${EXHIBITION_SYNC_CRON:0 0 1 * * *}
     # 전시 장르 분류(ADR-11). classifier로 주 분류기를 고른다(구현들 빈 공존, 무중단 교체).
     #   mock(기본, develop·로컬·CI): 제목 해시 결정적 분류 — AI 호출·비용 0, provider=MOCK 계보.
-    #   gemini(운영 prod): 폴백 체인 = 1차 Gemini → 2차 Claude(resilience4j Retry+CircuitBreaker).
+    #   gemini(운영 prod): 폴백 체인 = 1차 Gemini → 2차 OpenAI(각 1회 시도 — 호출 내 재시도·서킷브레이커 없음).
     #     전 공급자 실패 시 폴백값 없이 예외 → 아웃박스 RETRYABLE(무기한) → draft 승격 대기.
-    #   claude.*: 2차 공급자 전용 버킷 — 감상문용 app.ai.*와 한도 분리(장르 백필이 감상문 한도를 안 태움).
+    #   openai.*: 2차 공급자 전용 버킷 — 감상문용 app.ai.*와 한도 분리(장르 백필이 감상문 한도를 안 태움).
     genre:
       classifier: ${GENRE_CLASSIFIER:mock}
-      claude:
-        api-key: ${GENRE_CLAUDE_API_KEY:}
-        model: ${GENRE_CLAUDE_MODEL:claude-haiku-4-5-20251001}
+      openai:
+        api-key: ${OPENAPI_KEY:}
+        model: ${GENRE_OPENAI_MODEL:gpt-5.4-nano}
     # 공공데이터(CATALOG) 보강 — 목록 동기화는 목록 필드만 적재하므로 장르(분류)·상세2(price 등)를 이어서 채운다.
     #   장르: 동기화(부팅 1회·매일 자정) "직후에만" 신규 적재분(미분류 행)을 배치로(배치당 AI 1콜) 분류한다.
     #        별도 주기 백필 없음 — 동기화가 신규만 추가하므로 미분류 행 = 방금 추가된 전시(멱등, 신규 없으면 no-op).
@@ -154,19 +166,20 @@ app:
       language-code: ko
       region-code: KR
       timeout-seconds: ${GOOGLE_MAPS_TIMEOUT_SECONDS:10}      # 무응답 stall 시 스레드·커넥션 장기 점유 방지
-      refresh-after-days: ${PLACE_HOURS_REFRESH_AFTER_DAYS:30} # 이보다 오래 전에 조회된 장소만 재호출
-      max-venues-per-run: ${PLACE_HOURS_MAX_VENUES_PER_RUN:100} # 실행당 장소 호출 상한(일 과금 캡)
     # 전시 아웃박스(exhibition_outbox) — at-least-once 재시도 파이프라인(상세·장르·영업시간 재검증의 단일 상태머신, ADR-10).
     #   메시지는 상태 변경과 같은 트랜잭션에서 적재되고(원자성), 상태가 DB에 남아 재시작 후에도 이어서 처리된다.
     #   릴레이 = 스케줄 폴링(durable 엔진) + 커밋 직후 이벤트 드레인(글루 — 유실돼도 폴링이 줍는다).
     #   재시도 분류: timeout/5xx/429=RETRYABLE(지수 백오프), 4xx/파싱실패=PERMANENT. 최대 시도 초과 시 승격(무한 재시도 방지).
     outbox:
-      max-attempts: ${OUTBOX_MAX_ATTEMPTS:5}                 # 재시도 가능한 실패를 몇 번까지(초과 시 FAILED_PERMANENT)
+      max-attempts: ${OUTBOX_MAX_ATTEMPTS:3}                 # 재시도 가능한 실패를 몇 번까지(초과 시 FAILED_PERMANENT)
       base-backoff-seconds: ${OUTBOX_BASE_BACKOFF_SECONDS:60} # 지수 백오프 기준 간격(첫 재시도까지)
       max-backoff-seconds: ${OUTBOX_MAX_BACKOFF_SECONDS:3600} # 백오프 상한(간격이 무한정 벌어지지 않게)
       batch-size: ${OUTBOX_BATCH_SIZE:50}                    # 한 드레인에서 집는 메시지 수 상한
-      poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:60000}     # 릴레이 폴링 주기(ms) — durable 엔진의 심박
-      hours-refresh-min-interval-days: ${OUTBOX_HOURS_REFRESH_MIN_INTERVAL_DAYS:30} # 이벤트 재검증 최소 간격(설계 §4-1 가드)
+      poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:43200000}
+      # 주간 정리(설계 §9): 보존 기간 경과 SUCCEEDED만 소량 배치 삭제(FAILED_PERMANENT 보존). 매주 일요일 03시.
+      purge-cron: ${OUTBOX_PURGE_CRON:0 0 3 * * SUN}
+      purge-retention-days: ${OUTBOX_PURGE_RETENTION_DAYS:7}
+      purge-batch-size: ${OUTBOX_PURGE_BATCH_SIZE:500}     # 릴레이 폴링 주기(ms) — durable 엔진의 심박
 
   # 리마인드(오늘의 여운) — 기록 작성 후 소환 대상이 되기까지의 경과 시간. 스케줄 발송이 아니라 조회 시점 판정(pull)이라
   #   이 값만 바꾸면 즉시 반영된다. 정식 기본 7d(운영 베타 한정 단축은 prod 프로파일 참고).
@@ -191,19 +204,13 @@ app:
     emails: ${ADMIN_EMAILS:}
     password: ${ADMIN_PASSWORD:}
 
-  # AI 감상문 생성(질문/compose). provider 교체 가능 — claude(Anthropic) | gemini(Google).
-  #   AI_PROVIDER로 어댑터를 전환한다(코드 변경 불필요). 예: AI_PROVIDER=gemini.
+  # AI 감상문 생성(질문/compose). 공급자는 Claude 하나다(Gemini 어댑터는 제거 — 안 쓰는 두 번째 경로를 유지할 값이 없었다).
   #   api-key 미설정이면 AI 엔드포인트는 503(AI_DISABLED)로 응답하고 나머지 기능은 정상 동작한다.
   ai:
-    provider: ${AI_PROVIDER:claude}
-    # 미지정 시 provider별 기본 모델(claude-sonnet-5 / gemini-2.5-flash-lite). gemini 기본을 flash-lite로 —
-    #   무료 일일 한도가 flash보다 훨씬 크고 감상문 질문/다듬기엔 품질 충분. 장르 분류(app.ai.gemini, 기본 flash)와
-    #   모델을 다르게 유지해 무료 한도 버킷을 분리한다(같은 모델로 맞추면 한도를 공유하게 되니 주의).
+    # 미지정 시 claude-sonnet-5. 더 빠르게 하려면 AI_MODEL=claude-haiku-4-5-20251001.
     model: ${AI_MODEL:}
-    # 키는 provider와 짝을 이뤄 명시한다(교차 오염 방지): 공통 AI_API_KEY > Claude ANTHROPIC_API_KEY.
-    #   gemini 사용 시엔 AI_PROVIDER=gemini + AI_API_KEY=<Gemini 키>(예: AI_API_KEY=${GEMINI_API_KEY}).
-    #   ※ GEMINI_API_KEY를 여기 자동 폴백에 넣지 않는다 — 배포 env에 GEMINI_API_KEY만 있고 provider=claude면
-    #     Claude 어댑터가 Gemini 키를 오용(AI_GENERATION_FAILED)하기 때문. 장르 분류는 별도로 app.ai.gemini에서 GEMINI_API_KEY 사용.
+    # ※ GEMINI_API_KEY를 여기 폴백에 넣지 않는다 — Claude 어댑터가 Gemini 키를 오용(AI_GENERATION_FAILED)한다.
+    #   전시 장르 분류는 완전히 별개 경로(app.exhibition.genre.*)이고 키도 따로다.
     api-key: ${AI_API_KEY:${ANTHROPIC_API_KEY:}}
     max-tokens: ${AI_MAX_TOKENS:768}               # ≤300자 감상문/요약·질문 3개에 충분하면서 폭주 생성 바운드(M-4). 상향은 AI_MAX_TOKENS.
     timeout-seconds: ${AI_TIMEOUT_SECONDS:30}     # 외부 LLM 호출 타임아웃(워커 스레드 장기 점유 방지)
@@ -221,9 +228,8 @@ app:
       base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
       api-key: ${GEMINI_API_KEY:}
       model: ${GEMINI_MODEL:gemini-2.5-flash}
-      timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:60}   # 배치(초기화)는 여러 전시를 한 응답으로 받아 오래 걸림 → 여유 있게(단일 호출·초과 시 랜덤 폴백)
-      max-retries: ${GEMINI_MAX_RETRIES:1}                    # 429 시 재시도 횟수(Retry-After 존중)
-      max-retry-delay-seconds: ${GEMINI_MAX_RETRY_DELAY_SECONDS:2}  # 재시도 백오프 상한(부팅 지연 방지)
+      timeout-seconds: ${GEMINI_TIMEOUT_SECONDS:60}   # 외부 LLM 호출 상한(워커 스레드 장기 점유 방지). 재시도 설정은 없다 —
+                                                      #   호출 내 재시도를 걷어냈고, 429 포함 실패는 아웃박스 durable 재시도가 잇는다.
 
   # 자체 JWT 설정. secret은 시크릿 → 환경변수 주입 권장(기본값은 로컬 테스트 전용).
   jwt:
@@ -248,7 +254,7 @@ app:
   local-seed:
     enabled: false
   exhibition:
-    # 운영에서만 AI 체인(1차 gemini → 2차 claude) 장르 분류를 쓴다. develop·로컬(기본 프로파일)은 mock(무비용·결정적).
+    # 운영에서만 AI 체인(1차 gemini → 2차 openai) 장르 분류를 쓴다. develop·로컬(기본 프로파일)은 mock(무비용·결정적).
     genre:
       classifier: ${GENRE_CLASSIFIER:gemini}
   # ⚠️ 베타 한정: 리마인드 소환 대기를 3초로 단축(2~3일 베타에서 즉시 검증용, 리마인드는 조회 시점 판정이라 값만 줄이면 됨).

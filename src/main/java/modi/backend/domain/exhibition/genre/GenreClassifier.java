@@ -12,15 +12,16 @@ package modi.backend.domain.exhibition.genre;
  * 호출부가 provider 표식으로 되분류하는 우회를 낳았다 — 이제 실패는 아웃박스 메시지 RETRYABLE로 남아
  * durable 재시도되고, draft는 분류될 때까지 승격을 대기한다.
  *
- * <p>호출 내 즉시 재시도·2차 공급자 전환(resilience4j)은 구현(폴백 체인)의 몫이고, 재시작을 넘는 durable
- * 재시도는 아웃박스 폴러의 몫이다 — 두 계층을 섞지 않는다(ADR-10).
+ * <p>2차 공급자 전환은 구현(폴백 체인)의 몫이고, 재시작을 넘는 durable 재시도는 아웃박스 폴러의 몫이다 —
+ * 두 계층을 섞지 않는다(ADR-10).
  */
 public interface GenreClassifier {
 
 	/**
-	 * 전시 정보를 장르 마스터 중 1개로 분류한다.
+	 * 요청이 정한 지시·허용 집합에 따라 전시를 장르 1개로 분류한다.
+	 * 구현은 요청을 벤더 호출로 옮기기만 한다 — 지시·허용값을 스스로 정하지 않는다.
 	 *
-	 * @throws GenreClassificationException 유효한 분류를 만들지 못했을 때(미설정·한도 초과·오류·마스터 이탈)
+	 * @throws GenreClassificationException 유효한 분류를 만들지 못했을 때(미설정·한도 초과·오류·허용 집합 이탈)
 	 */
-	GenreResult classify(GenreClassification input);
+	GenreResult classify(GenreClassificationRequest request);
 }

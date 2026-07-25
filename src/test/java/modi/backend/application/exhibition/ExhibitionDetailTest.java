@@ -12,6 +12,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.util.Optional;
 
@@ -57,7 +58,7 @@ class ExhibitionDetailTest {
 		recordJpaRepository = mock(RecordJpaRepository.class);
 		placeRepository = mock(ExhibitionPlaceRepository.class);
 		facade = new ExhibitionFacade(exhibitionRepository, mock(ExhibitionQueryRepository.class), placeRepository,
-				mock(ArtistRepository.class), catalogClient, bookmarkRepository, venueRepository, recordJpaRepository,
+				mock(ArtistRepository.class), bookmarkRepository, venueRepository, recordJpaRepository,
 				new modi.backend.ingestion.infra.mock.MockGenreClassifier());
 		given(exhibitionRepository.save(any(Exhibition.class))).willAnswer(invocation -> invocation.getArgument(0));
 		given(placeRepository.findById(anyLong())).willReturn(Optional.of(
@@ -75,40 +76,30 @@ class ExhibitionDetailTest {
 	}
 
 	@Test
-	@DisplayName("상세 최초조회시 상세수집 후 상세행 생성 및 조회수증가")
-	void 상세_최초조회시_상세수집_후_상세행생성_및_조회수증가() {
+	@DisplayName("상세 조회 — 상세행이 없어도 외부 API를 부르지 않는다(서빙 경로에서 지연 수집 제거)")
+	void 상세조회_외부호출_안함() {
 		Exhibition e = catalog("S1", 1L);
 		given(exhibitionRepository.findById(1L)).willReturn(Optional.of(e));
-		given(exhibitionRepository.hasDetail(1L)).willReturn(false).willReturn(true);
-		given(catalogClient.fetchDetail("S1"))
-				.willReturn(Optional.of(new CatalogDetailData("무료", null, null, null, null, null, "주소", null)));
+		given(exhibitionRepository.hasDetail(1L)).willReturn(false); // 상세행 없음 = 예전 지연 수집 조건
 
 		facade.getDetail(new ExhibitionCriteria.Detail(1L, null));
 
-		verify(catalogClient).fetchDetail("S1");
-		verify(exhibitionRepository).applyDetail(anyLong(), any(), any(), any(), any()); // 상세행 생성
+		// 트랜잭션 안에서 외부 HTTP를 치지 않는다 — 상세 충전은 수집 파이프라인(FETCH_DETAIL)의 몫이다.
+		verifyNoInteractions(catalogClient);
+		verify(exhibitionRepository, never()).applyDetail(anyLong(), any(), any(), any(), any());
 		assertThat(e.getOurViewCount()).isEqualTo(1);
-
-		// 2번째 호출: 이미 상세행 존재 → fetchDetail 추가 호출 없음
-		facade.getDetail(new ExhibitionCriteria.Detail(1L, null));
-
-		verify(catalogClient, times(1)).fetchDetail("S1");
-		assertThat(e.getOurViewCount()).isEqualTo(2);
 	}
 
 	@Test
-	@DisplayName("외부 수집 실패해도 기본 필드로 진행하고 조회수는 증가한다(상세행 미생성 → 다음 조회에서 재시도)")
-	void 상세_외부수집실패시_기본필드로_진행하고_조회수증가() {
+	@DisplayName("상세 조회 — 상세행이 없으면 기본 필드로 응답하고 조회수는 증가한다")
+	void 상세조회_상세행없어도_기본필드로_응답() {
 		Exhibition e = catalog("S2", 2L);
 		given(exhibitionRepository.findById(2L)).willReturn(Optional.of(e));
 		given(exhibitionRepository.hasDetail(2L)).willReturn(false);
-		given(catalogClient.fetchDetail("S2"))
-				.willThrow(new CoreException(ExhibitionErrorCode.EXTERNAL_API_UNAVAILABLE, "외부 전시 API 호출 실패"));
 
 		assertThatCode(() -> facade.getDetail(new ExhibitionCriteria.Detail(2L, null)))
 				.doesNotThrowAnyException();
 
-		verify(exhibitionRepository, never()).applyDetail(anyLong(), any(), any(), any(), any());
 		assertThat(e.getOurViewCount()).isEqualTo(1);
 	}
 
@@ -122,7 +113,7 @@ class ExhibitionDetailTest {
 				.satisfies(ex -> assertThat(((CoreException) ex).errorCode())
 						.isEqualTo(ExhibitionErrorCode.EXHIBITION_NOT_FOUND));
 
-		verify(catalogClient, never()).fetchDetail(any());
+		verifyNoInteractions(catalogClient);
 	}
 
 	@Test
@@ -135,6 +126,6 @@ class ExhibitionDetailTest {
 				.isInstanceOf(CoreException.class)
 				.satisfies(ex -> assertThat(((CoreException) ex).errorCode()).isEqualTo(ErrorType.FORBIDDEN));
 
-		verify(catalogClient, never()).fetchDetail(any());
+		verifyNoInteractions(catalogClient);
 	}
 }

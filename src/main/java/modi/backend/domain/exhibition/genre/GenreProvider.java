@@ -14,8 +14,11 @@ public enum GenreProvider {
 	/** Gemini가 분류. */
 	GEMINI,
 
-	/** Claude가 분류(2차 폴백 체인 포함 — ADR-11). */
+	/** Claude가 분류(예전 2차 공급자 — OpenAI로 교체됨. 기존 행 판독을 위해 값은 남긴다). */
 	CLAUDE,
+
+	/** OpenAI가 분류(2차 폴백 체인 — ADR-11). */
+	OPENAI,
 
 	/**
 	 * (레거시 — 신규 생산자 없음, ADR-11에서 제거) 분류기 미설정·한도 초과·오류로 랜덤 폴백된 값.

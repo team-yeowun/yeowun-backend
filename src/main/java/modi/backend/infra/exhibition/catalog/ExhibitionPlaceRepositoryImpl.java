@@ -5,7 +5,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import lombok.RequiredArgsConstructor;
@@ -70,11 +69,6 @@ public class ExhibitionPlaceRepositoryImpl implements ExhibitionPlaceRepository 
 				.toList();
 	}
 
-	@Override
-	public List<ExhibitionPlace> findPlacesNeedingHours(LocalDateTime staleBefore, int limit) {
-		return jpaRepository.findPlacesNeedingHours(staleBefore, PageRequest.of(0, Math.max(1, limit)));
-	}
-
 	// ── 영업시간 정준행(1:1) ─────────────────────────────────────────────────────
 
 	@Override
@@ -102,18 +96,5 @@ public class ExhibitionPlaceRepositoryImpl implements ExhibitionPlaceRepository 
 					placeHoursJpaRepository.save(row);
 				}, () -> placeHoursJpaRepository.save(
 						PlaceHours.first(exhibitionPlaceId, formatted, status, vendor, now)));
-	}
-
-	@Override
-	public void markHoursFailure(Long exhibitionPlaceId, PlaceHoursVendor vendor) {
-		if (exhibitionPlaceId == null) {
-			return;
-		}
-		placeHoursJpaRepository.findByExhibitionPlaceId(exhibitionPlaceId)
-				.ifPresentOrElse(row -> {
-					row.recordFailure(vendor);
-					placeHoursJpaRepository.save(row);
-				}, () -> placeHoursJpaRepository.save(
-						PlaceHours.first(exhibitionPlaceId, null, PlaceHoursStatus.FAILED, vendor, null)));
 	}
 }

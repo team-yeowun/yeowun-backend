@@ -1,6 +1,6 @@
 package modi.backend.ingestion.domain;
 
-import modi.backend.ingestion.domain.entity.IngestionRun;
+import modi.backend.ingestion.domain.audit.IngestionRun;
 
 /**
  * 카탈로그 동기화 실행({@link IngestionRun})을 촉발한 계기 — {@code sync_run.trigger_type}.
