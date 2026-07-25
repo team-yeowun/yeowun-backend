@@ -75,29 +75,58 @@ public class RecordAiFacade {
 
 	/** Q&A 답변을 바탕으로 감상문 본문 생성(동기). "다시 다듬기"는 이 호출을 다시 하면 된다. */
 	public RecordAiResult.Compose compose(RecordAiCriteria.Compose criteria) {
+		requireAnswers(criteria);
+		aiRateLimiter.check(criteria.userId());
+		ExhibitionResult.Detail exhibition = exhibitionFacade.getForSnapshot(criteria.exhibitionId(), criteria.userId());
+		String raw = aiChatClient.complete(composeSystemPrompt(), composeUserPrompt(exhibition, criteria.answers()));
+		String content = clamp(raw);
+		// 질문+답변+초안을 캐싱한다(뒤로가기 후 재진입 시 그대로 복원). 캐시 실패는 무시(부가 기능).
+		aiDraftStore.save(criteria.userId(), criteria.exhibitionId(), draftOf(criteria.answers(), content));
+		return new RecordAiResult.Compose(content);
+	}
+
+	/**
+	 * 감상문 본문을 스트리밍으로 생성 — 토큰이 만들어지는 대로 {@code onDelta}로 흘려보내 체감 지연을 줄인다.
+	 * 컨트롤러가 SSE로 델타를 전달한다. 반환 시점(스트림 종료)에 전체 본문을 clamp해 draft로 저장한다.
+	 * rate-limit·답변 검증은 동기 compose와 동일. 델타는 원문 그대로 흘리고 300자 제한은 저장·클라이언트에서 적용한다.
+	 */
+	public void composeStream(RecordAiCriteria.Compose criteria, java.util.function.Consumer<String> onDelta) {
+		requireAnswers(criteria);
+		aiRateLimiter.check(criteria.userId());
+		ExhibitionResult.Detail exhibition = exhibitionFacade.getForSnapshot(criteria.exhibitionId(), criteria.userId());
+		StringBuilder full = new StringBuilder();
+		aiChatClient.completeStream(composeSystemPrompt(), composeUserPrompt(exhibition, criteria.answers()), delta -> {
+			full.append(delta);
+			onDelta.accept(delta);
+		});
+		String content = clamp(full.toString());
+		aiDraftStore.save(criteria.userId(), criteria.exhibitionId(), draftOf(criteria.answers(), content));
+	}
+
+	private void requireAnswers(RecordAiCriteria.Compose criteria) {
 		if (criteria.answers() == null || criteria.answers().isEmpty()) {
 			throw new CoreException(AiErrorCode.AI_GENERATION_FAILED, "답변이 비어 있습니다.");
 		}
-		aiRateLimiter.check(criteria.userId());
-		ExhibitionResult.Detail exhibition = exhibitionFacade.getForSnapshot(criteria.exhibitionId(), criteria.userId());
-		String system = """
+	}
+
+	private String composeSystemPrompt() {
+		return """
 				너는 사용자의 답변을 따뜻하고 진솔한 1인칭 감상문으로 다듬는 작가야.
 				한국어 한 단락, 300자 이내로 쓰고, 답변에 없는 사실을 지어내지 마.
 				이모지·머리말·따옴표 없이 감상문 본문만 출력해.
 				""" + UNTRUSTED_DATA_GUARD;
+	}
+
+	private String composeUserPrompt(ExhibitionResult.Detail exhibition, List<RecordAiCriteria.QnaPair> answers) {
 		StringBuilder user = new StringBuilder(exhibitionContext(exhibition)).append("\n\n[질문과 답변]\n");
 		int i = 1;
-		for (RecordAiCriteria.QnaPair qna : criteria.answers()) {
+		for (RecordAiCriteria.QnaPair qna : answers) {
 			user.append("Q").append(i).append(". ").append(qna.question()).append('\n')
 					.append("A").append(i).append(". ").append(qna.answer()).append("\n\n");
 			i++;
 		}
 		user.append("위 답변을 바탕으로 감상문을 작성해 줘.");
-		String raw = aiChatClient.complete(system, user.toString());
-		String content = clamp(raw);
-		// 질문+답변+초안을 캐싱한다(뒤로가기 후 재진입 시 그대로 복원). 캐시 실패는 무시(부가 기능).
-		aiDraftStore.save(criteria.userId(), criteria.exhibitionId(), draftOf(criteria.answers(), content));
-		return new RecordAiResult.Compose(content);
+		return user.toString();
 	}
 
 	/** 진행 중 draft 저장(뒤로가기 전 자동저장). 캐시 전용 — AI 호출·rate-limit 없음. */

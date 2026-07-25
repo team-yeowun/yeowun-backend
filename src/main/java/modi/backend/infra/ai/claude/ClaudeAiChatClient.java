@@ -1,6 +1,7 @@
 package modi.backend.infra.ai.claude;
 
 import java.time.Duration;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -9,9 +10,14 @@ import org.springframework.stereotype.Component;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
+import com.anthropic.core.http.StreamResponse;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
+import com.anthropic.models.messages.RawContentBlockDelta;
+import com.anthropic.models.messages.RawContentBlockDeltaEvent;
+import com.anthropic.models.messages.RawMessageStreamEvent;
 import com.anthropic.models.messages.StructuredMessageCreateParams;
+import com.anthropic.models.messages.TextDelta;
 import com.anthropic.models.messages.Usage;
 
 import io.micrometer.core.instrument.MeterRegistry;
@@ -58,6 +64,26 @@ public class ClaudeAiChatClient implements AiChatClient {
 					.map(text -> text.text())
 					.collect(Collectors.joining("\n"))
 					.trim();
+		} catch (CoreException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new CoreException(AiErrorCode.AI_GENERATION_FAILED, e.getMessage());
+		}
+	}
+
+	@Override
+	public void completeStream(String systemPrompt, String userPrompt, Consumer<String> onDelta) {
+		requireEnabled();
+		// createStreaming — SSE로 content_block_delta(text) 이벤트를 순차 수신해 델타를 흘려보낸다.
+		// 스트리밍 경로는 응답이 조각으로 오므로 usage(토큰) 집계는 생략한다(모니터링은 non-stream 경로에서 수행).
+		try (StreamResponse<RawMessageStreamEvent> stream = client.messages()
+				.createStreaming(baseParams(systemPrompt, userPrompt).build())) {
+			stream.stream().forEach(event -> event.contentBlockDelta()
+					.map(RawContentBlockDeltaEvent::delta)
+					.flatMap(RawContentBlockDelta::text)
+					.map(TextDelta::text)
+					.filter(text -> !text.isEmpty())
+					.ifPresent(onDelta));
 		} catch (CoreException e) {
 			throw e;
 		} catch (Exception e) {

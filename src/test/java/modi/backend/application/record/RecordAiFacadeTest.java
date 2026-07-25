@@ -6,11 +6,14 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -128,6 +131,36 @@ class RecordAiFacadeTest {
 	@DisplayName("compose — 답변이 비면 AI_GENERATION_FAILED")
 	void compose_빈답변_실패() {
 		assertThatThrownBy(() -> facade.compose(new RecordAiCriteria.Compose(1L, 10L, List.of())))
+				.isInstanceOf(CoreException.class);
+	}
+
+	@Test
+	@DisplayName("composeStream — 델타를 순차로 흘리고, 이어붙인 전체 본문을 draft로 저장한다")
+	void composeStream_델타_및_draft캐싱() {
+		given(exhibitionFacade.getForSnapshot(any(), any())).willReturn(detail());
+		willAnswer(invocation -> {
+			Consumer<String> onDelta = invocation.getArgument(2);
+			onDelta.accept("전시장을 ");
+			onDelta.accept("천천히 걸었다.");
+			return null;
+		}).given(aiChatClient).completeStream(anyString(), anyString(), any());
+
+		List<String> received = new ArrayList<>();
+		facade.composeStream(new RecordAiCriteria.Compose(
+				1L, 10L, List.of(new RecordAiCriteria.QnaPair("q", "a"))), received::add);
+
+		assertThat(received).containsExactly("전시장을 ", "천천히 걸었다.");
+		ArgumentCaptor<AiDraft> draft = ArgumentCaptor.forClass(AiDraft.class);
+		verify(aiDraftStore).save(eq(1L), eq(10L), draft.capture());
+		assertThat(draft.getValue().content()).isEqualTo("전시장을 천천히 걸었다.");
+	}
+
+	@Test
+	@DisplayName("composeStream — 답변이 비면 스트림 시작 없이 AI_GENERATION_FAILED")
+	void composeStream_빈답변_실패() {
+		assertThatThrownBy(() -> facade.composeStream(
+				new RecordAiCriteria.Compose(1L, 10L, List.of()), delta -> {
+				}))
 				.isInstanceOf(CoreException.class);
 	}
 
