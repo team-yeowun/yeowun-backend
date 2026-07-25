@@ -141,6 +141,7 @@
       <button class="tab active" data-tab="dashboard">대시보드</button>
       <button class="tab" data-tab="users">사용자</button>
       <button class="tab" data-tab="apistats">API 통계</button>
+      <button class="tab" data-tab="ingestion">수집</button>
     </nav>
     <div class="spacer"></div>
     <div class="whoami"><span class="av" id="avatar">A</span><span id="who"></span></div>
@@ -151,6 +152,7 @@
     <div id="dashboard"></div>
     <div id="users" class="hidden"></div>
     <div id="apistats" class="hidden"></div>
+    <div id="ingestion" class="hidden"></div>
   </main>
 </div>
 
@@ -194,10 +196,10 @@ $('#logout').onclick=async()=>{try{await fetch('/api-admin/v1/logout',{method:'P
 let current='dashboard';
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));
-  ['dashboard','users','apistats'].forEach(id=>$('#'+id).classList.toggle('hidden',id!==t.dataset.tab));
+  ['dashboard','users','apistats','ingestion'].forEach(id=>$('#'+id).classList.toggle('hidden',id!==t.dataset.tab));
   current=t.dataset.tab;render(current);
 });
-function render(tab){setMsg('');tab==='dashboard'?loadDashboard():tab==='users'?loadUsers():loadApiStats();}
+function render(tab){setMsg('');tab==='dashboard'?loadDashboard():tab==='users'?loadUsers():tab==='ingestion'?loadIngestion():loadApiStats();}
 
 /* ── charts ── */
 function areaChart(data,color){
@@ -337,6 +339,64 @@ async function loadApiStats(){
 }
 
 checkSession();
+
+/* ── ingestion (수집 파이프라인) ── */
+const ing={pStatus:'',pPage:0,oStatus:'',oPage:0};
+const pillCls=s=>({PENDING:'',ENRICHING:'',COMPLETED:'s2',FAILED:'s5',SUCCEEDED:'s2',FAILED_RETRYABLE:'s4',FAILED_PERMANENT:'s5'}[s]||'');
+async function loadIngestion(){
+  const el=$('#ingestion');el.innerHTML='<div class="empty">불러오는 중…</div>';
+  try{
+    const [s,runs,prog,ob]=await Promise.all([
+      api('/api-admin/v1/ingestion/summary'),
+      api('/api-admin/v1/ingestion/runs?page=0&size=10'),
+      api(`/api-admin/v1/ingestion/progress?status=${ing.pStatus}&page=${ing.pPage}&size=20`),
+      api(`/api-admin/v1/ingestion/outbox?status=${ing.oStatus}&page=${ing.oPage}&size=20`)
+    ]);
+    const sel=(id,cur,opts)=>`<select id="${id}" class="in" style="width:auto;padding:6px 10px">`+
+      ['<option value="">전체</option>',...opts.map(o=>`<option value="${o}"${o===cur?' selected':''}>${o}</option>`)].join('')+`</select>`;
+    el.innerHTML=`
+      <div class="grid kpis">
+        ${kpi('진행중',nf(s.progressPending+s.progressEnriching),'PENDING '+nf(s.progressPending)+' · ENRICHING '+nf(s.progressEnriching))}
+        ${kpi('승격 완료',nf(s.progressCompleted))}
+        ${kpi('진행 실패',nf(s.progressFailed),'수동 재시도 대상',s.progressFailed>0)}
+        ${kpi('이벤트 대기/재시도',nf(s.outboxPending+s.outboxRetryable),'PENDING '+nf(s.outboxPending)+' · RETRYABLE '+nf(s.outboxRetryable))}
+        ${kpi('이벤트 영구 실패',nf(s.outboxFailedPermanent),'총 3회 시도 소진',s.outboxFailedPermanent>0)}
+        ${kpi('이벤트 성공 누적',nf(s.outboxSucceeded))}
+      </div>
+      <div class="card" style="margin-bottom:14px"><h3>수집 런 (최근 10회 — 01시 스케줄/수동)</h3>
+        <div class="scroll"><table class="tbl"><thead><tr><th>#</th><th>트리거</th><th>시작</th><th>종료</th><th class="r">수집</th><th class="r">신규 스테이징</th></tr></thead>
+        <tbody>${runs.items.map(r=>`<tr><td class="num">${r.id}</td><td><b>${esc(r.trigger)}</b></td><td class="muted">${fdt(r.startedAt)}</td><td class="muted">${fdt(r.finishedAt)}</td><td class="r num">${nf(r.collected)}</td><td class="r num">${nf(r.inserted)}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">런 없음</td></tr>'}</tbody></table></div></div>
+      <div class="card" style="margin-bottom:14px"><h3 style="display:flex;gap:10px;align-items:center">전시 초기화 진행 ${sel('ingPStatus',ing.pStatus,['PENDING','ENRICHING','COMPLETED','FAILED'])}<span class="muted" style="font-weight:400;font-size:12px">${nf(prog.totalElements)}건</span></h3>
+        <div class="scroll"><table class="tbl"><thead><tr><th>원천키</th><th>상태</th><th>전시장</th><th>새/기존</th><th>상세</th><th>장르</th><th>전시ID</th><th>막힌 사유</th><th>갱신</th><th></th></tr></thead>
+        <tbody>${prog.items.map(p=>`<tr><td><b>${esc(p.externalId)}</b></td><td><span class="pill ${pillCls(p.status)}">${p.status}</span></td><td class="muted">${esc(p.placeKey||'-')}</td><td class="muted">${p.placeOutcome||'-'}</td><td class="muted">${p.detailResolvedAt?'✓':'·'}</td><td class="muted">${p.genreClassifiedAt?'✓':'·'}</td><td class="num">${p.promotedExhibitionId||'-'}</td><td class="muted" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(p.lastError||'')}">${esc(p.lastError||'-')}</td><td class="muted">${fday(p.updatedAt)}</td><td>${p.status!=='COMPLETED'?`<button class="btn" style="padding:4px 10px" onclick="retryProgress('${esc(p.externalId)}')">재시도</button>`:''}</td></tr>`).join('')||'<tr><td colspan="10" class="empty">데이터 없음</td></tr>'}</tbody></table></div>
+        ${pager(prog,'ingP')}</div>
+      <div class="card"><h3 style="display:flex;gap:10px;align-items:center">이벤트 아웃박스 ${sel('ingOStatus',ing.oStatus,['PENDING','FAILED_RETRYABLE','FAILED_PERMANENT','SUCCEEDED'])}<span class="muted" style="font-weight:400;font-size:12px">${nf(ob.totalElements)}건</span></h3>
+        <div class="scroll"><table class="tbl"><thead><tr><th>#</th><th>이벤트</th><th>대상</th><th>상태</th><th class="r">시도</th><th>다음 시도</th><th>마지막 오류</th><th>갱신</th><th></th></tr></thead>
+        <tbody>${ob.items.map(m=>`<tr><td class="num">${m.id}</td><td><b>${esc(m.eventType)}</b></td><td class="muted">${esc(m.targetKey)}</td><td><span class="pill ${pillCls(m.status)}">${m.status}</span></td><td class="r num">${m.attemptCount}</td><td class="muted">${fdt(m.nextAttemptAt)}</td><td class="muted" style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(m.lastError||'')}">${esc(m.lastError||'-')}</td><td class="muted">${fday(m.updatedAt)}</td><td>${m.status==='FAILED_PERMANENT'?`<button class="btn" style="padding:4px 10px" onclick="retryOutbox(${m.id})">재시도</button>`:''}</td></tr>`).join('')||'<tr><td colspan="9" class="empty">데이터 없음</td></tr>'}</tbody></table></div>
+        ${pager(ob,'ingO')}</div>`;
+    const ps=$('#ingPStatus');if(ps)ps.onchange=()=>{ing.pStatus=ps.value;ing.pPage=0;loadIngestion();};
+    const os=$('#ingOStatus');if(os)os.onchange=()=>{ing.oStatus=os.value;ing.oPage=0;loadIngestion();};
+  }catch(e){el.innerHTML=`<div class="empty">${esc(e.message)}</div>`;}
+}
+function pager(p,key){
+  if(p.totalPages<=1)return '';
+  return `<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+    <button class="btn" ${p.page<=0?'disabled':''} onclick="ingPage('${key}',${p.page-1})">이전</button>
+    <span class="muted" style="align-self:center">${p.page+1} / ${p.totalPages}</span>
+    <button class="btn" ${p.page>=p.totalPages-1?'disabled':''} onclick="ingPage('${key}',${p.page+1})">다음</button></div>`;
+}
+function ingPage(key,page){if(key==='ingP')ing.pPage=page;else ing.oPage=page;loadIngestion();}
+async function retryProgress(externalId){
+  if(!confirm(externalId+' 재시도할까요? (실패 해제 + 미해소 스텝 이벤트 부활)'))return;
+  try{const r=await api('/api-admin/v1/ingestion/progress/'+encodeURIComponent(externalId)+'/retry',{method:'POST'});
+    setMsg('재시도 걸림: '+r.target+' → 다음 스텝 '+r.nextStep);loadIngestion();}catch(e){setMsg('재시도 실패: '+e.message);}
+}
+async function retryOutbox(id){
+  if(!confirm('아웃박스 #'+id+' 메시지를 되살릴까요?'))return;
+  try{const r=await api('/api-admin/v1/ingestion/outbox/'+id+'/retry',{method:'POST'});
+    setMsg('재시도 걸림: '+r.target+' ('+r.nextStep+')');loadIngestion();}catch(e){setMsg('재시도 실패: '+e.message);}
+}
+
 </script>
 </body>
 </html>
