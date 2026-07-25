@@ -90,9 +90,10 @@ services:
       # 전시 장르 AI 분류(Gemini). 미설정(빈값)이면 AI 분류기가 random으로 폴백 → 크래시 없음.
       #   model·base-url은 여기서 넘기지 않는다 — 빈값을 넘기면 application.yaml 기본값(gemini-2.5-flash 등)을 덮어써 버림.
       - 'GEMINI_API_KEY=${GEMINI_API_KEY:-}'
-      # record-AI 감상문 provider·키(gemini 사용 시 AI_PROVIDER=gemini, AI_API_KEY=Gemini 키).
-      #   미설정이면 claude/빈키 → AI 엔드포인트만 503, 나머지 정상.
-      - 'AI_PROVIDER=${AI_PROVIDER:-claude}'
+      # 전시 장르 폴백 체인의 2차 공급자(OpenAI). 미설정(빈값)이면 1차 실패 시 2차 전환도 실패 →
+      #   아웃박스 RETRYABLE로 남아 다음 주기 재시도(크래시 없음). model은 넘기지 않는다(빈값이 yaml 기본값을 덮음).
+      - 'OPENAPI_KEY=${OPENAPI_KEY:-}'
+      # record-AI 감상문 키. 미설정이면 AI 엔드포인트만 503, 나머지 정상.
       - 'AI_API_KEY=${AI_API_KEY:-}'
       # 관리자 콘솔 로그인(이메일 화이트리스트 + 공용 비번). 미설정(빈값)이면 admin 로그인 불가 → 나머지 기능 정상.
       - 'ADMIN_EMAILS=${ADMIN_EMAILS:-}'

@@ -19,7 +19,7 @@ class OutboxMessageTest {
 	@Test
 	@DisplayName("enqueue — PENDING·시도 0·즉시 도래(now)로 시작한다")
 	void enqueue_초기값() {
-		OutboxMessage job = OutboxMessage.enqueue(OutboxMessageType.FETCH_DETAIL, "EXT-1", NOW);
+		OutboxMessage job = OutboxMessage.enqueue(IngestionEventType.DRAFT_STAGED, "EXT-1", NOW);
 
 		assertThat(job.getStatus()).isEqualTo(OutboxMessageStatus.PENDING);
 		assertThat(job.getAttemptCount()).isZero();
@@ -31,7 +31,7 @@ class OutboxMessageTest {
 	@Test
 	@DisplayName("succeed — SUCCEEDED 종료·완료시각 기록·원인 제거")
 	void succeed_종료() {
-		OutboxMessage job = OutboxMessage.enqueue(OutboxMessageType.CLASSIFY_GENRE, "EXT-1", NOW);
+		OutboxMessage job = OutboxMessage.enqueue(IngestionEventType.DETAIL_FETCHED, "EXT-1", NOW);
 
 		job.succeed(NOW.plusMinutes(1));
 
@@ -45,7 +45,7 @@ class OutboxMessageTest {
 	@Test
 	@DisplayName("recordFailure(RETRYABLE) — 시도++·FAILED_RETRYABLE·지수 백오프로 next_attempt_at을 민다")
 	void 실패_재시도_지수백오프() {
-		OutboxMessage job = OutboxMessage.enqueue(OutboxMessageType.FETCH_DETAIL, "EXT-1", NOW);
+		OutboxMessage job = OutboxMessage.enqueue(IngestionEventType.DRAFT_STAGED, "EXT-1", NOW);
 
 		job.recordFailure(OutboxFailureType.RETRYABLE, "timeout", POLICY, NOW);
 
@@ -64,7 +64,7 @@ class OutboxMessageTest {
 	@Test
 	@DisplayName("recordFailure(RETRYABLE) — 최대 시도를 넘기면 FAILED_PERMANENT로 승격한다(무한 재시도 방지)")
 	void 실패_최대초과_영구승격() {
-		OutboxMessage job = OutboxMessage.enqueue(OutboxMessageType.FETCH_DETAIL, "EXT-1", NOW);
+		OutboxMessage job = OutboxMessage.enqueue(IngestionEventType.DRAFT_STAGED, "EXT-1", NOW);
 
 		job.recordFailure(OutboxFailureType.RETRYABLE, "e1", POLICY, NOW); // 1
 		job.recordFailure(OutboxFailureType.RETRYABLE, "e2", POLICY, NOW); // 2
@@ -82,7 +82,7 @@ class OutboxMessageTest {
 	@Test
 	@DisplayName("recordFailure(PERMANENT) — 4xx·파싱실패는 시도와 무관하게 즉시 FAILED_PERMANENT")
 	void 실패_영구_즉시() {
-		OutboxMessage job = OutboxMessage.enqueue(OutboxMessageType.FETCH_DETAIL, "EXT-1", NOW);
+		OutboxMessage job = OutboxMessage.enqueue(IngestionEventType.DRAFT_STAGED, "EXT-1", NOW);
 
 		job.recordFailure(OutboxFailureType.PERMANENT, "400 Bad Request", POLICY, NOW);
 
@@ -95,7 +95,7 @@ class OutboxMessageTest {
 	@Test
 	@DisplayName("reactivate — 종료된 작업만 되살린다(PENDING·시도 리셋). 미종료면 no-op")
 	void reactivate_종료만() {
-		OutboxMessage terminal = OutboxMessage.enqueue(OutboxMessageType.REFRESH_PLACE_HOURS, "PLACE-1", NOW);
+		OutboxMessage terminal = OutboxMessage.enqueue(IngestionEventType.PLACE_STAGED, "PLACE-1", NOW);
 		terminal.succeed(NOW);
 
 		terminal.reactivate(NOW.plusDays(40));
@@ -105,7 +105,7 @@ class OutboxMessageTest {
 		assertThat(terminal.getNextAttemptAt()).isEqualTo(NOW.plusDays(40));
 		assertThat(terminal.getCompletedAt()).isNull();
 
-		OutboxMessage pending = OutboxMessage.enqueue(OutboxMessageType.REFRESH_PLACE_HOURS, "PLACE-2", NOW);
+		OutboxMessage pending = OutboxMessage.enqueue(IngestionEventType.PLACE_STAGED, "PLACE-2", NOW);
 		pending.reactivate(NOW.plusDays(1));
 		assertThat(pending.getNextAttemptAt()).isEqualTo(NOW); // no-op: 이미 선별 대상
 	}
@@ -113,7 +113,7 @@ class OutboxMessageTest {
 	@Test
 	@DisplayName("isDue — 미종료이고 next_attempt_at이 도래했을 때만 참")
 	void isDue_판정() {
-		OutboxMessage job = OutboxMessage.enqueue(OutboxMessageType.FETCH_DETAIL, "EXT-1", NOW);
+		OutboxMessage job = OutboxMessage.enqueue(IngestionEventType.DRAFT_STAGED, "EXT-1", NOW);
 		job.recordFailure(OutboxFailureType.RETRYABLE, "e", POLICY, NOW); // next = NOW+60s
 
 		assertThat(job.isDue(NOW.plusSeconds(59))).isFalse(); // 아직 도래 전

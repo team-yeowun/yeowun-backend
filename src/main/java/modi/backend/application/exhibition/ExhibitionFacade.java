@@ -35,13 +35,14 @@ import modi.backend.domain.exhibition.catalog.ExhibitionRegionGroup;
 import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
 import modi.backend.domain.exhibition.catalog.ExhibitionSection;
 import modi.backend.domain.exhibition.genre.GenreClassification;
+import modi.backend.domain.exhibition.genre.GenreClassificationRequest;
+import modi.backend.domain.exhibition.genre.GenreInstruction;
 import modi.backend.domain.exhibition.genre.GenreClassificationException;
 import modi.backend.domain.exhibition.genre.GenreClassifier;
 import modi.backend.domain.exhibition.genre.GenreKeyword;
 import modi.backend.domain.exhibition.genre.GenreResult;
 import modi.backend.domain.exhibition.hours.PlaceHours;
 import modi.backend.domain.exhibition.catalog.CatalogDetailData;
-import modi.backend.domain.exhibition.catalog.ExhibitionDetailClient;
 import modi.backend.domain.venue.Venue;
 import modi.backend.domain.venue.VenueErrorCode;
 import modi.backend.domain.venue.VenueRepository;
@@ -53,7 +54,7 @@ import modi.backend.support.time.AppTime;
 
 /**
  * 전시 사용자 유스케이스 조율(03_전시.md) — 목록/탐색·배너·상세·개인 전시 등록/삭제. load·조율·save만 하고,
- * 상태 변경·규칙 판단은 도메인 엔티티에 위임한다. 수집·보강 파이프라인은 {@code sync.ExhibitionSyncFacade}가
+ * 상태 변경·규칙 판단은 도메인 엔티티에 위임한다. 수집·보강 파이프라인은 ingestion 슬라이스({@code ExhibitionIngestionOrchestrator})가
  * 따로 담당한다(조회 API와 배치의 결합 해소).
  *
  * <p>장소는 {@link ExhibitionPlace}(N:1, resolve-or-create), 상세는 satellite(1:1), 작가는 조인(N:M) —
@@ -79,7 +80,6 @@ public class ExhibitionFacade {
 	/** 작가(정규화 이름 UK, 독립 애그리거트) — CUSTOM 등록의 artist 문자열을 resolve-or-create해 조인으로 잇는다. */
 	private final ArtistRepository artistRepository;
 	/** 상세 지연 수집(최초 상세 진입 1회)용 — 배치 동기화가 아니라 사용자 경로의 캐시 채움이다. */
-	private final ExhibitionDetailClient catalogClient;
 	private final ExhibitionBookmarkRepository exhibitionBookmarkRepository;
 	private final VenueRepository venueRepository;
 	private final RecordJpaRepository recordJpaRepository;
@@ -199,8 +199,12 @@ public class ExhibitionFacade {
 	}
 
 	/**
-	 * 상세(5.3). 없으면 404, 타인의 CUSTOM이면 403. CATALOG 최초 진입 시 상세를 1회 지연 수집해 캐시한다(상세 satellite upsert).
-	 * place·operatingHours·artists는 요청 시 조인해 조립한다.
+	 * 상세(5.3). 없으면 404, 타인의 CUSTOM이면 403. place·operatingHours·artists는 요청 시 조인해 조립한다.
+	 *
+	 * <p><b>서빙 경로는 외부 API를 부르지 않는다</b>: 예전엔 CATALOG 최초 진입 시 상세를 1회 지연 수집했으나
+	 * 제거했다(2026-07-21) — ① 트랜잭션 안에서 외부 HTTP를 쳐 응답 시간이 원천에 묶였고, ② 승격이 항상 상세를
+	 * 함께 쓰는 지금(ADR-12) {@code hasDetail()==false}인 CATALOG 전시는 draft 도입 이전 행에만 남는다.
+	 * 상세 충전은 수집 파이프라인(상세 스텝 — DRAFT_STAGED 소비)의 몫이다.
 	 */
 	@Transactional
 	public ExhibitionResult.Detail getDetail(ExhibitionCriteria.Detail criteria) {
@@ -208,14 +212,6 @@ public class ExhibitionFacade {
 				.orElseThrow(() -> new CoreException(ExhibitionErrorCode.EXHIBITION_NOT_FOUND));
 		if (!exhibition.isAccessibleBy(criteria.requesterId())) {
 			throw new CoreException(ErrorType.FORBIDDEN, "타인의 개인 전시 접근: " + criteria.exhibitionId());
-		}
-		if (exhibition.isCatalog() && !exhibitionRepository.hasDetail(exhibition.getId())) {
-			try {
-				catalogClient.fetchDetail(exhibition.getExternalId())
-						.ifPresent(d -> applyCatalogDetail(exhibition, d, LocalDateTime.now()));
-			} catch (CoreException ex) {
-				// 외부 실패 시 base 필드만 반환 — 상세행이 없어 다음 조회에서 재시도된다.
-			}
 		}
 		exhibition.increaseView();
 		exhibitionRepository.save(exhibition);
@@ -285,8 +281,9 @@ public class ExhibitionFacade {
 			genre = GenreResult.user(criteria.genreKeyword());
 		} else {
 			try {
-				genre = genreClassifier.classify(new GenreClassification(criteria.title(),
-						category == null ? null : category.name(), null, placeName, criteria.artist(), null));
+				genre = genreClassifier.classify(genreRequest(
+						new GenreClassification(criteria.title(), category == null ? null : category.name(),
+								null, placeName, criteria.artist(), null)));
 			} catch (GenreClassificationException e) {
 				log.warn("CUSTOM 등록 장르 분류 실패 — 장르 없이 등록(기능 강등): {}", e.getMessage());
 			}
@@ -323,19 +320,6 @@ public class ExhibitionFacade {
 					exhibition.delete();
 					exhibitionRepository.save(exhibition);
 				});
-	}
-
-	/**
-	 * 상세 지연 수집의 반영 — 상세 satellite upsert(전시 애그리거트) + 전시장 보강 필드(주소/전화/홈페이지) 채움.
-	 * {@code sync.ExhibitionSyncFacade}의 동기화 경로와 같은 두-애그리거트 조율이지만, 여기서는 사용자 최초 상세
-	 * 진입 1회의 캐시 채움이라 별도로 둔다(서빙↔파이프라인 파사드 간 의존을 만들지 않는다).
-	 */
-	private void applyCatalogDetail(Exhibition exhibition, CatalogDetailData d, LocalDateTime now) {
-		exhibitionRepository.applyDetail(exhibition.getId(), d.price(), d.description(), d.imgUrl(), now);
-		exhibitionPlaceRepository.findById(exhibition.getExhibitionPlaceId()).ifPresent(place -> {
-			place.enrichDetail(d.placeAddr(), d.phone(), d.placeUrl());
-			exhibitionPlaceRepository.save(place);
-		});
 	}
 
 	private LocalDate resolveOngoingOn(LocalDate date, String keyword, List<ExhibitionRegion> regions,
@@ -459,4 +443,11 @@ public class ExhibitionFacade {
 		}
 		return Math.min(size, MAX_SIZE);
 	}
+
+	/** 이 유스케이스가 분류기에게 무엇을 시킬지 — 표준 지시 + 마스터 전체 허용. 요청 조립은 서비스의 결정이다. */
+	private GenreClassificationRequest genreRequest(GenreClassification subject) {
+		return new GenreClassificationRequest(
+				GenreInstruction.STANDARD, GenreKeyword.all(), subject.toPromptText());
+	}
+
 }

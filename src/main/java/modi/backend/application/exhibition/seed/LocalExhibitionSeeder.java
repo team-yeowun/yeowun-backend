@@ -28,9 +28,9 @@ import modi.backend.support.db.SqlScriptSplitter;
  * 로컬 전시 시드 적재기 — {@code app.local-seed.enabled=true}(로컬 default 프로파일)일 때만 빈으로 뜬다.
  *
  * <p><b>왜 필요한가</b>: {@code application.yaml}에 공공데이터 인증키 기본값이 박혀 있어, 프론트 개발자가 도커로 로컬 기동하면
- * 부팅 카탈로그 동기화가 실 data.go.kr을 호출한다(+빈 Gemini 키 random 폴백). 이 시더가 켜지면 그 외부 동기화·스케줄러는
- * skip되고({@code ExhibitionCatalogBootSync}·{@code ExhibitionSyncScheduler}), <b>classpath 시드 SQL로만</b> 초기화된다 —
- * 로컬 실 API 호출 0.
+ * 정기 동기화가 실 data.go.kr을 호출한다(+빈 Gemini 키 random 폴백). 이 시더가 켜지면 그 외부 동기화·릴레이는
+ * skip되고({@code ExhibitionSyncScheduler}·{@code ExhibitionOutboxRelay}), <b>classpath 시드 SQL로만</b> 초기화된다 —
+ * 로컬 실 API 호출 0. <b>초기 적재의 표준 경로</b>이기도 하다(부팅 카탈로그 동기화는 이 결정으로 삭제됐다).
  *
  * <p><b>동작</b>: Flyway 마이그레이션 이후(ApplicationRunner라 자동) 실행된다. {@code exhibitions}가 <b>비어 있을 때만</b>
  * 스냅샷 + 더미 보강 SQL을 순서대로 적재한다. 비어 있지 않으면 아무것도 하지 않는다 — 재부팅 시 데이터 유지(멱등).
