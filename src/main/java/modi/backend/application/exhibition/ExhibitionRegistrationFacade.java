@@ -37,10 +37,10 @@ public class ExhibitionRegistrationFacade implements ExhibitionRegistrar {
 	public Registered register(ExhibitionRegistration r, LocalDateTime now) {
 		Exhibition existing = exhibitionRepository.findByExternalId(r.externalId()).orElse(null);
 		if (existing != null) {
-			String placeKey = exhibitionPlaceRepository.findById(existing.getExhibitionPlaceId())
-					.map(ExhibitionPlace::getPlaceKey).orElse(null);
-			return new Registered(existing.getId(), placeKey);
+			return new Registered(existing.getId());
 		}
+		// resolve-or-create는 전시장 축(PLACE_STAGED)이 먼저 만들어두는 게 정상 경로지만, 축 병렬성 때문에
+		// 승격이 먼저 닿는 경합의 안전망으로 유지한다(설계 §6-2 — 멱등이라 중복 생성이 없다).
 		ExhibitionPlace place = exhibitionPlaceRepository.resolveOrCreate(r.placeName(), r.region(), r.sigungu(),
 				r.gpsX(), r.gpsY());
 		Exhibition promoted = exhibitionRepository.save(Exhibition.createCatalog(r.externalId(), r.title(),
@@ -50,7 +50,7 @@ public class ExhibitionRegistrationFacade implements ExhibitionRegistrar {
 		exhibitionRepository.applyGenre(promoted.getId(),
 				new GenreResult(r.genreKeyword(), r.genreProvider(), r.genreModel()), now);
 		log.info("전시 등록(externalId={} → exhibitionId={})", r.externalId(), promoted.getId());
-		return new Registered(promoted.getId(), place.getPlaceKey());
+		return new Registered(promoted.getId());
 	}
 
 	/** 상세분 이관 — 값이 있으면 satellite·전시장 보강, 무상세 확인이었으면 확인 완료 표식만(기존 의미 보존). */

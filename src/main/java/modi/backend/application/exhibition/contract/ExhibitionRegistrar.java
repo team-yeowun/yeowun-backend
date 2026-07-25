@@ -11,13 +11,13 @@ public interface ExhibitionRegistrar {
 
 	/**
 	 * 전시 + 부속(상세 satellite·전시장 보강·장르 정준행)을 한 트랜잭션으로 등록한다.
-	 * 호출 측 트랜잭션이 있으면 합류한다(REQUIRED) — 소비 측이 [등록 + draft 종료]를 원자로 묶을 수 있다.
+	 * 호출 측 트랜잭션이 있으면 합류한다(REQUIRED) — 소비 측이 [등록 + 진행 상태 종료]를 원자로 묶을 수 있다.
 	 *
-	 * @return 등록된(또는 이미 있던) 전시 id와 전시장 자연키(영업시간 재검증 enqueue용)
+	 * @return 등록된(또는 이미 있던) 전시 id
 	 */
 	Registered register(ExhibitionRegistration registration, LocalDateTime now);
 
-	/** 등록 결과 — 전시 id + 전시장 자연키({@code exhibition_place.place_key}). */
-	record Registered(long exhibitionId, String placeKey) {
+	/** 등록 결과 — 전시 id. (place_key 반환은 영업시간 재검증 폐기(설계 D4)로 함께 삭제됐다.) */
+	record Registered(long exhibitionId) {
 	}
 }
