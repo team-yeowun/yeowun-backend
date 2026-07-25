@@ -8,11 +8,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * provider: 주 조회기 선택({@code google} | {@code mock}) — 두 구현이 빈으로 공존하고 이 값으로 하나가 @Primary로 선택된다.
  * <b>기본 mock</b>(로컬·CI·develop 유료호출 0). 운영(main)만 {@code google} + api-key 주입.
  * api-key는 시크릿(GOOGLE_MAPS_API_KEY) 주입 — provider=google이라도 키가 비면 mock로 폴백한다({@link #useGoogle()}).
- * refresh-after-days: 이보다 오래 전에 조회된 장소만 재호출(스테디 상태 호출 최소화). max-venues-per-run: 실행당 장소 호출 상한(비용 캡).
+ * 재검증 폐기(설계 D4)로 refresh-after-days·max-venues-per-run은 삭제됐다 — 조회는 신규 전시장 초기화 1회뿐이다.
  */
 @ConfigurationProperties(prefix = "app.exhibition.place-hours")
 public record GooglePlaceProperties(String provider, String baseUrl, String apiKey, String languageCode,
-                                    String regionCode, Long timeoutSeconds, Integer refreshAfterDays, Integer maxVenuesPerRun) {
+                                    String regionCode, Long timeoutSeconds) {
 
 	public GooglePlaceProperties {
 		if (provider == null || provider.isBlank()) {
@@ -29,12 +29,6 @@ public record GooglePlaceProperties(String provider, String baseUrl, String apiK
 		}
 		if (timeoutSeconds == null || timeoutSeconds <= 0) {
 			timeoutSeconds = 10L;
-		}
-		if (refreshAfterDays == null || refreshAfterDays <= 0) {
-			refreshAfterDays = 30;
-		}
-		if (maxVenuesPerRun == null || maxVenuesPerRun <= 0) {
-			maxVenuesPerRun = 100;
 		}
 	}
 

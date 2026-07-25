@@ -30,4 +30,15 @@ public interface OutboxMessageJpaRepository extends JpaRepository<OutboxMessage,
 			@Param("now") LocalDateTime now, Pageable pageable);
 
 	long countByStatus(OutboxMessageStatus status);
+
+	/** SUCCEEDED 소량 배치 삭제 — MySQL DELETE LIMIT(파생쿼리 불가라 native). 호출자 tx 필수(@Modifying). */
+	@org.springframework.data.jpa.repository.Modifying
+	@Query(value = "delete from exhibition_outbox where status = 'SUCCEEDED' and completed_at < :cutoff limit :batchSize",
+			nativeQuery = true)
+	int purgeSucceededBefore(@Param("cutoff") LocalDateTime cutoff, @Param("batchSize") int batchSize);
+
+	// ── 관리자 대시보드 질의(슬라이스 내부 실용 — 파사드 직사용 허용) ─────────────────
+
+	org.springframework.data.domain.Page<OutboxMessage> findAllByStatus(OutboxMessageStatus status,
+			Pageable pageable);
 }

@@ -1,6 +1,10 @@
 spring:
   application:
     name: backend
+  # 로컬 .env 자동 로드(있을 때만 — optional) — IDE/터미널 어디서 띄워도 ADMIN_EMAILS 등 로컬 값이 잡힌다.
+  # .env는 gitignore라 배포 환경엔 없고, 실제 OS 환경변수가 항상 이 파일보다 우선한다(운영 주입 불변).
+  config:
+    import: optional:file:.env[.properties]
   # webflux 의존(WebClient) 추가했지만 웹 스택은 서블릿(MVC) 유지.
   main:
     web-application-type: servlet
@@ -132,7 +136,7 @@ app:
       enabled: ${EXHIBITION_DEMO_SEED:false}
     # 전시 카탈로그 정기 동기화 스케줄. sync.cron 시각에 목록 동기화 + 상세 보강을 수행한다(기본 매일 자정).
     sync:
-      cron: ${EXHIBITION_SYNC_CRON:0 0 0 * * *}
+      cron: ${EXHIBITION_SYNC_CRON:0 0 1 * * *}
     # 전시 장르 분류(ADR-11). classifier로 주 분류기를 고른다(구현들 빈 공존, 무중단 교체).
     #   mock(기본, develop·로컬·CI): 제목 해시 결정적 분류 — AI 호출·비용 0, provider=MOCK 계보.
     #   gemini(운영 prod): 폴백 체인 = 1차 Gemini → 2차 OpenAI(각 1회 시도 — 호출 내 재시도·서킷브레이커 없음).
@@ -162,19 +166,20 @@ app:
       language-code: ko
       region-code: KR
       timeout-seconds: ${GOOGLE_MAPS_TIMEOUT_SECONDS:10}      # 무응답 stall 시 스레드·커넥션 장기 점유 방지
-      refresh-after-days: ${PLACE_HOURS_REFRESH_AFTER_DAYS:30} # 이보다 오래 전에 조회된 장소만 재호출
-      max-venues-per-run: ${PLACE_HOURS_MAX_VENUES_PER_RUN:100} # 실행당 장소 호출 상한(일 과금 캡)
     # 전시 아웃박스(exhibition_outbox) — at-least-once 재시도 파이프라인(상세·장르·영업시간 재검증의 단일 상태머신, ADR-10).
     #   메시지는 상태 변경과 같은 트랜잭션에서 적재되고(원자성), 상태가 DB에 남아 재시작 후에도 이어서 처리된다.
     #   릴레이 = 스케줄 폴링(durable 엔진) + 커밋 직후 이벤트 드레인(글루 — 유실돼도 폴링이 줍는다).
     #   재시도 분류: timeout/5xx/429=RETRYABLE(지수 백오프), 4xx/파싱실패=PERMANENT. 최대 시도 초과 시 승격(무한 재시도 방지).
     outbox:
-      max-attempts: ${OUTBOX_MAX_ATTEMPTS:5}                 # 재시도 가능한 실패를 몇 번까지(초과 시 FAILED_PERMANENT)
+      max-attempts: ${OUTBOX_MAX_ATTEMPTS:3}                 # 재시도 가능한 실패를 몇 번까지(초과 시 FAILED_PERMANENT)
       base-backoff-seconds: ${OUTBOX_BASE_BACKOFF_SECONDS:60} # 지수 백오프 기준 간격(첫 재시도까지)
       max-backoff-seconds: ${OUTBOX_MAX_BACKOFF_SECONDS:3600} # 백오프 상한(간격이 무한정 벌어지지 않게)
       batch-size: ${OUTBOX_BATCH_SIZE:50}                    # 한 드레인에서 집는 메시지 수 상한
-      poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:60000}     # 릴레이 폴링 주기(ms) — durable 엔진의 심박
-      hours-refresh-min-interval-days: ${OUTBOX_HOURS_REFRESH_MIN_INTERVAL_DAYS:30} # 이벤트 재검증 최소 간격(설계 §4-1 가드)
+      poll-interval-ms: ${OUTBOX_POLL_INTERVAL_MS:43200000}
+      # 주간 정리(설계 §9): 보존 기간 경과 SUCCEEDED만 소량 배치 삭제(FAILED_PERMANENT 보존). 매주 일요일 03시.
+      purge-cron: ${OUTBOX_PURGE_CRON:0 0 3 * * SUN}
+      purge-retention-days: ${OUTBOX_PURGE_RETENTION_DAYS:7}
+      purge-batch-size: ${OUTBOX_PURGE_BATCH_SIZE:500}     # 릴레이 폴링 주기(ms) — durable 엔진의 심박
 
   # 리마인드(오늘의 여운) — 기록 작성 후 소환 대상이 되기까지의 경과 시간. 스케줄 발송이 아니라 조회 시점 판정(pull)이라
   #   이 값만 바꾸면 즉시 반영된다. 정식 기본 7d(운영 베타 한정 단축은 prod 프로파일 참고).

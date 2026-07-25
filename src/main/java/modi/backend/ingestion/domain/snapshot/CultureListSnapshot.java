@@ -79,6 +79,10 @@ public class CultureListSnapshot {
 	@Column(name = "service_name", length = 200)
 	private String serviceName;
 
+	/** 원천 상세 페이지 링크 — 원장 승격(설계 §5-1)으로 추가: 어셈블이 목록분에서 복원해야 하는 필드. */
+	@Column(name = "detail_url", length = 1000)
+	private String detailUrl;
+
 	@Column(name = "first_seen_at")
 	private LocalDateTime firstSeenAt;
 
@@ -121,7 +125,8 @@ public class CultureListSnapshot {
 				|| !Objects.equals(this.thumbnail, data.posterUrl())
 				|| !Objects.equals(this.gpsX, text(data.gpsX()))
 				|| !Objects.equals(this.gpsY, text(data.gpsY()))
-				|| !Objects.equals(this.serviceName, data.serviceName());
+				|| !Objects.equals(this.serviceName, data.serviceName())
+				|| !Objects.equals(this.detailUrl, data.detailUrl());
 	}
 
 	private void copyFields(CatalogExhibitionData data) {
@@ -136,6 +141,43 @@ public class CultureListSnapshot {
 		this.gpsX = text(data.gpsX());
 		this.gpsY = text(data.gpsY());
 		this.serviceName = data.serviceName();
+		this.detailUrl = data.detailUrl();
+	}
+
+	/**
+	 * 원장 → 수집 데이터 복원(어셈블·전시장 축 시드의 목록분 소스, 설계 §6-1). 저장이 문자열 치환이었으므로
+	 * 복원은 그 역이다 — 파싱 불가 값은 null(원천 불량은 여기서도 불량, ADR-13 "정제는 도메인 몫").
+	 */
+	public modi.backend.ingestion.domain.data.CatalogExhibitionData toCatalogData() {
+		return new modi.backend.ingestion.domain.data.CatalogExhibitionData(
+				externalId, title, place,
+				parseDate(startDate), parseDate(endDate),
+				modi.backend.domain.exhibition.catalog.ExhibitionRegion.fromAreaText(area),
+				modi.backend.domain.exhibition.catalog.ExhibitionCategory.fromRealmName(realmName),
+				thumbnail, detailUrl, serviceName,
+				parseDouble(gpsX), parseDouble(gpsY), sigungu, realmName, area);
+	}
+
+	private static java.time.LocalDate parseDate(String value) {
+		if (value == null || value.isBlank()) {
+			return null;
+		}
+		try {
+			return java.time.LocalDate.parse(value);
+		} catch (java.time.format.DateTimeParseException e) {
+			return null;
+		}
+	}
+
+	private static Double parseDouble(String value) {
+		if (value == null || value.isBlank()) {
+			return null;
+		}
+		try {
+			return Double.parseDouble(value);
+		} catch (NumberFormatException e) {
+			return null;
+		}
 	}
 
 	/** 정제 타입을 컬럼(VARCHAR)에 담을 문자열로 — 결측은 null 그대로 둔다("" 로 만들면 결측과 빈 값이 섞인다). */

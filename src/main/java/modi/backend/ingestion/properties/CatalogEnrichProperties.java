@@ -22,7 +22,7 @@ public record CatalogEnrichProperties(Integer genreBatchSize, Integer genreMaxBa
 		}
 		if (genreMaxBatchesPerRun == null || genreMaxBatchesPerRun <= 0) {
 			// 회당 배치 수를 작게 — 한 번에 14배치를 몰아치면 무료 RPM(분당 한도)을 넘겨 429 폭풍이 나고
-			// 하루 예산까지 빨리 소진돼 다른 AI(감상문)까지 굶는다. 소량씩 주기(interval-ms)에 나눠 드레인한다.
+			// 하루 예산까지 빨리 소진돼 다른 AI(감상문)까지 굶는다. 소량씩 주기(interval-ms)에 나눠 소비한다.
 			genreMaxBatchesPerRun = 3;
 		}
 	}

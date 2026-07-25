@@ -41,4 +41,9 @@ public class OutboxMessageRepositoryImpl implements OutboxMessageRepository {
 	public long countByStatus(OutboxMessageStatus status) {
 		return jpaRepository.countByStatus(status);
 	}
+
+	@Override
+	public int purgeSucceededBefore(LocalDateTime cutoff, int limit) {
+		return jpaRepository.purgeSucceededBefore(cutoff, Math.max(1, limit));
+	}
 }

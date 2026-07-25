@@ -22,8 +22,8 @@ import lombok.NoArgsConstructor;
  *
  * <p><b>아웃박스의 본질은 원자성이다</b>: 메시지는 그것을 필요하게 만든 상태 변경과 <b>같은 트랜잭션</b>에서
  * 기록된다 — 전시(또는 draft)는 저장됐는데 후속 작업 기록이 유실되는 창이 없다. 스프링 이벤트는 커밋 직후
- * 드레인을 앞당기는 글루일 뿐이고(비durable — 크래시 유실·재시도 없음), durability·재시도는 이 테이블과
- * 릴레이 폴러가 진다("이벤트=글루, 테이블=엔진").
+ * 소비를 앞당기는 적재 알림일 뿐이고(비durable — 크래시 유실·재시도 없음), durability·재시도는 이 테이블과
+ * 릴레이 폴러가 진다("이벤트=적재 알림, 테이블=엔진").
  *
  * <p><b>at-least-once는 코드가 아니라 테이블이다</b>: "조금 늦어도 최소 1회 무조건"은 진행 상태가 DB에 남아야만
  * 보장된다(재시작 생존). 벤더 테이블은 원본만, 정준 테이블은 결과만, <b>진행 상태는 이 테이블만 안다</b>.
@@ -33,7 +33,7 @@ import lombok.NoArgsConstructor;
  * {@code (status, next_attempt_at)}로 폴링 쿼리({@code status IN (PENDING, RETRYABLE) AND next_attempt_at <= now})가
  * 풀스캔 없이 도래한 메시지만 집는다.
  *
- * <p><b>낙관락({@link Version})</b>: 릴레이(스케줄)와 이벤트 드레인이 같은 메시지를 동시에 집으면, 종료 전이 저장에서
+ * <p><b>낙관락({@link Version})</b>: 릴레이(스케줄)와 이벤트 소비가 같은 메시지를 동시에 집으면, 종료 전이 저장에서
  * 한쪽만 이기고 다른 쪽은 {@code OptimisticLockException}으로 밀린다 = 다른 워커가 선점 = 정상 skip.
  *
  * <p>재생성될 수 있는 파이프라인 테이블이라 {@code BaseEntity}(soft delete·감사)를 상속하지 않고

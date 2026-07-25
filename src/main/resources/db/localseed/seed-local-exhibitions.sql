@@ -24,7 +24,8 @@ DELETE FROM culture_list_snapshot;
 DELETE FROM exhibitions;
 DELETE FROM exhibition_place;
 -- 파이프라인 테이블도 비운다 — 재시드 후 옛 in-flight 행(draft·메시지·감사)이 잔존해 시드 off 전환 시 오동작하지 않게.
-DELETE FROM exhibition_draft;
+DELETE FROM exhibition_progress;
+DELETE FROM genre_snapshot;
 DELETE FROM exhibition_outbox;
 DELETE FROM ingestion_run;
 DELETE FROM external_api_call_log;

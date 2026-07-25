@@ -25,4 +25,11 @@ public interface OutboxMessageRepository {
 
 	/** 상태별 개수(운영 조회·테스트용 — 예: FAILED_PERMANENT 누적 감시). */
 	long countByStatus(OutboxMessageStatus status);
+
+	/**
+	 * SUCCEEDED 정리 — 종료 시각이 {@code cutoff} 이전인 성공 행을 최대 {@code limit}건 삭제하고 삭제 수를
+	 * 돌려준다. 소량 배치 전제(100만 건 실험 — 대량 일괄 삭제는 삭제 마크·통계 왜곡으로 일시 악화를 부른다).
+	 * FAILED_PERMANENT는 지우지 않는다(관리자 감사·수동 재시도 대상).
+	 */
+	int purgeSucceededBefore(java.time.LocalDateTime cutoff, int limit);
 }
