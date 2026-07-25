@@ -4,9 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,30 +15,21 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import modi.backend.application.audit.ExternalApiCallLogRecorder;
+import modi.backend.domain.audit.ApiCallSource;
+import modi.backend.domain.audit.ExternalApi;
+import modi.backend.domain.audit.ExternalApiCallLog;
+import modi.backend.domain.audit.ExternalApiOutcome;
 import modi.backend.domain.exhibition.genre.GenreClassification;
-import modi.backend.domain.exhibition.genre.GenreClassificationException;
 import modi.backend.domain.exhibition.genre.GenreClassifier;
 import modi.backend.domain.exhibition.genre.GenreProvider;
 import modi.backend.domain.exhibition.genre.GenreResult;
-import modi.backend.ingestion.application.audit.ExternalApiCallLogRecorder;
-import modi.backend.ingestion.domain.audit.ExternalApi;
-import modi.backend.ingestion.domain.audit.ExternalApiCallLog;
-import modi.backend.ingestion.domain.audit.ExternalApiOutcome;
 import modi.backend.ingestion.properties.CatalogEnrichProperties;
 import modi.backend.ingestion.properties.GeminiProperties;
 
 /**
- * AI 장르 분류 서비스의 <b>AI 콜 로그(신설) 매핑 계약</b> 검증(순수 단위) — 재설계 전엔 AI 호출 감사가
- * 통째로 누락돼 있었다(행위 변경 D2). 설정값({@code app.exhibition.genre.classifier}) 기반 매핑을 못박는다:
- * <ul>
- *   <li>{@code gemini} → api=GEMINI + 요청 모델. <b>대표값 한계(구현 주석 명시)</b>: 실제 폴백 체인은
- *       1차 Gemini → 2차 OpenAI라, 2차로 전환돼 성공한 호출도 GEMINI 한 행으로 남는다 — 이 테스트는
- *       현 구현 계약(대표값 방식)을 기준으로 한다.</li>
- *   <li>{@code claude} → api=CLAUDE(전환 대비 자리), model 없음.</li>
- *   <li>{@code mock} → <b>기록 생략</b>(외부 호출이 없으니 유령 감사 행을 남기지 않는다).</li>
- *   <li>실패도 한 행(FAILED) — 시도 = 한도 소모라 실패도 사실로 남긴다. 예외는 그대로 전파(장르는 호출부가
- *       RETRYABLE로 잇는다).</li>
- * </ul>
+ * 장르 축 서비스 단위 — 개별 호출·콜 감사(성공=실제 공급자, 실패=설정 대표값, mock=생략)를 못박는다.
+ * 폴백 체인(Gemini→OpenAI)은 분류기 내부라 여기선 "성공 결과의 공급자가 감사에 그대로 남는가"만 본다.
  */
 class ExhibitionAiGenreServiceTest {
 
@@ -45,79 +37,58 @@ class ExhibitionAiGenreServiceTest {
 	private ExternalApiCallLogRecorder recorder;
 	private ExhibitionAiGenreService service;
 
-	private final GenreClassification subject = new GenreClassification("전시", null, null, null, null, null);
-
 	@BeforeEach
 	void setUp() {
 		classifier = mock(GenreClassifier.class);
 		recorder = mock(ExternalApiCallLogRecorder.class);
 		service = new ExhibitionAiGenreService(classifier, recorder,
-				new GeminiProperties(null, null, "gemini-2.5-flash", null), new CatalogEnrichProperties(2, 2));
+				new GeminiProperties(null, null, "gemini-2.5-flash", null),
+				new CatalogEnrichProperties(20, 3));
+		ReflectionTestUtils.setField(service, "classifier", "gemini");
 	}
 
-	/** {@code @Value} 필드라 컨텍스트 없는 단위에선 직접 주입한다(생성자 인자가 아님 — 기존 Relay 패턴과 동일). */
-	private void classifierSetting(String value) {
-		ReflectionTestUtils.setField(service, "classifier", value);
+	private static GenreClassification subject() {
+		return new GenreClassification("제목", null, null, "장소", null, null);
 	}
 
-	private ExternalApiCallLog recordedLog() {
+	@Test
+	@DisplayName("성공 감사 — 결과의 실제 공급자로 남는다(폴백으로 OpenAI가 응답했으면 OPENAI 행, source=INGESTION)")
+	void success_logged_with_actual_provider() {
+		given(classifier.classify(any())).willReturn(new GenreResult("회화", GenreProvider.OPENAI, "gpt-x"));
+
+		service.classify("EXT-1", subject());
+
 		ArgumentCaptor<ExternalApiCallLog> captor = ArgumentCaptor.forClass(ExternalApiCallLog.class);
-		verify(recorder).record(captor.capture());
-		return captor.getValue();
+		then(recorder).should().record(captor.capture());
+		assertThat(captor.getValue().getApi()).isEqualTo(ExternalApi.OPENAI);
+		assertThat(captor.getValue().getSource()).isEqualTo(ApiCallSource.INGESTION);
+		assertThat(captor.getValue().getOutcome()).isEqualTo(ExternalApiOutcome.SUCCESS);
+		assertThat(captor.getValue().getRequestKey()).isEqualTo("EXT-1");
 	}
 
 	@Test
-	@DisplayName("gemini 설정 — 분류 성공이 api=GEMINI·요청 모델·requestKey=external_id·SUCCESS 한 행으로 남는다")
-	void classify_gemini_성공로그() {
-		classifierSetting("gemini");
-		given(classifier.classify(any())).willReturn(GenreResult.ai("사진", GenreProvider.GEMINI, "gemini-2.5-flash"));
+	@DisplayName("실패 감사 — 예외는 그대로 전파하고(수명주기는 아웃박스 몫) 설정 대표값(GEMINI)으로 FAILED 행을 남긴다")
+	void failure_logged_and_propagated() {
+		willThrow(new RuntimeException("체인 전부 실패")).given(classifier).classify(any());
 
-		GenreResult result = service.classify("EXT-1", subject);
+		assertThatThrownBy(() -> service.classify("EXT-1", subject())).isInstanceOf(RuntimeException.class);
 
-		assertThat(result.genreKeyword()).isEqualTo("사진");
-		ExternalApiCallLog log = recordedLog();
-		assertThat(log.getApi()).isEqualTo(ExternalApi.GEMINI);
-		assertThat(log.getModel()).isEqualTo("gemini-2.5-flash"); // 요청 모델(설정값) — 실서빙 모델은 정준층 몫
-		assertThat(log.getRequestKey()).isEqualTo("EXT-1");
-		assertThat(log.getOutcome()).isEqualTo(ExternalApiOutcome.SUCCESS);
+		ArgumentCaptor<ExternalApiCallLog> captor = ArgumentCaptor.forClass(ExternalApiCallLog.class);
+		then(recorder).should().record(captor.capture());
+		assertThat(captor.getValue().getApi()).isEqualTo(ExternalApi.GEMINI);
+		assertThat(captor.getValue().getOutcome()).isEqualTo(ExternalApiOutcome.FAILED);
 	}
 
 	@Test
-	@DisplayName("gemini 설정 — 분류 실패도 FAILED 한 행으로 남기고 예외는 그대로 전파한다(시도 = 한도 소모)")
-	void classify_gemini_실패로그_전파() {
-		classifierSetting("gemini");
-		given(classifier.classify(any())).willThrow(new GenreClassificationException("전 공급자 실패"));
+	@DisplayName("mock 분류기 — 외부 호출이 없으니 감사도 남기지 않는다(유령 감사 금지)")
+	void mock_not_logged() {
+		ReflectionTestUtils.setField(service, "classifier", "mock");
+		given(classifier.classify(any())).willReturn(GenreResult.mock("회화"));
 
-		assertThatThrownBy(() -> service.classify("EXT-1", subject))
-				.isInstanceOf(GenreClassificationException.class);
+		service.classify("EXT-1", subject());
+		willThrow(new RuntimeException("mock 실패")).given(classifier).classify(any());
+		assertThatThrownBy(() -> service.classify("EXT-2", subject())).isInstanceOf(RuntimeException.class);
 
-		ExternalApiCallLog log = recordedLog();
-		assertThat(log.getApi()).isEqualTo(ExternalApi.GEMINI);
-		assertThat(log.getOutcome()).isEqualTo(ExternalApiOutcome.FAILED);
-	}
-
-	@Test
-	@DisplayName("claude 설정 — api=CLAUDE(전환 대비 자리)·model 없음으로 남는다")
-	void classify_claude_매핑() {
-		classifierSetting("claude");
-		given(classifier.classify(any())).willReturn(GenreResult.ai("공예", GenreProvider.CLAUDE, "claude-haiku"));
-
-		service.classify("EXT-2", subject);
-
-		ExternalApiCallLog log = recordedLog();
-		assertThat(log.getApi()).isEqualTo(ExternalApi.CLAUDE);
-		assertThat(log.getModel()).isNull();
-		assertThat(log.getRequestKey()).isEqualTo("EXT-2");
-	}
-
-	@Test
-	@DisplayName("mock 설정(기본) — 외부 호출이 없으니 감사 행을 남기지 않는다(유령 감사 행 차단)")
-	void classify_mock_기록생략() {
-		classifierSetting("mock");
-		given(classifier.classify(any())).willReturn(GenreResult.ai("사진", GenreProvider.MOCK, null));
-
-		service.classify("EXT-3", subject);
-
-		verify(recorder, never()).record(any());
+		then(recorder).should(never()).record(any());
 	}
 }

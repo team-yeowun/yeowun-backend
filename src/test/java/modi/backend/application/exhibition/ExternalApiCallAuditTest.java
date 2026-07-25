@@ -30,7 +30,7 @@ import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
 import modi.backend.domain.exhibition.catalog.ExhibitionRegion;
 
 /**
- * 외부 호출 감사({@code external_api_call_log})와 동기화 실행 기록({@code ingestion_run}) 검증(이관 5단계).
+ * 외부 호출 감사({@code external_api_call_log})와 동기화 실행 기록({@code ingestion_run} — 슬림 스키마) 검증.
  * <p>
  * 이 단계도 <b>읽기를 바꾸지 않으므로</b> 설계상 기존 테스트 전부에 보이지 않는다 — 적재가 통째로 no-op가 돼도
  * 응답도 exhibitions도 그대로다. "실제로 남았는가"를 보는 테스트가 없으면 이 단계는 검증되지 않은 채로 남는다.
@@ -54,7 +54,7 @@ class ExternalApiCallAuditTest {
 	ExhibitionCatalogClient exhibitionCatalogClient;
 
 	@Test
-	@DisplayName("동기화 실행 — 원천이 말한 총 건수·집계가 ingestion_run에 남는다(로그로만 흘려보내던 값)")
+	@DisplayName("동기화 실행 — 슬림 집계(collected·inserted·trigger·시각)가 ingestion_run에 남는다(설계 §5-5)")
 	void syncCatalog_실행기록_적재() {
 		String externalId = nextId();
 		given(exhibitionCatalogClient.isConfigured()).willReturn(true);
@@ -69,7 +69,7 @@ class ExternalApiCallAuditTest {
 
 		assertThat(countSyncRuns()).isEqualTo(before + 1);
 		var run = latestSyncRun();
-		assertThat(run.get("total_count")).isEqualTo(280); // 원천이 말한 총 건수 — 현행은 파싱만 하고 버렸다
+		assertThat(run.get("trigger_type")).isEqualTo("MANUAL");
 		assertThat(run.get("collected")).isEqualTo(1);
 		assertThat(run.get("inserted")).isEqualTo(1);
 		assertThat(run.get("started_at")).isNotNull();
@@ -77,31 +77,16 @@ class ExternalApiCallAuditTest {
 	}
 
 	@Test
-	@DisplayName("원천이 말한 총 건수는 수집 건수와 무관하게 그대로 기록된다(원천 규모 추이용)")
-	void syncCatalog_총건수_기록() {
-		// 원천이 "총 600건"이라는데 상한에 걸려 일부만 수집된 상황 — 절단 여부는 더 기록하지 않지만 총 건수는 남는다.
-		given(exhibitionCatalogClient.isConfigured()).willReturn(true);
-		given(exhibitionCatalogClient.fetchPage(any(), anyInt()))
-				.willReturn(new CatalogPage(List.of(listItem(nextId())), 600));
-
-		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
-
-		assertThat(latestSyncRun().get("total_count")).isEqualTo(600);
-		assertThat(latestSyncRun().get("collected")).isEqualTo(1);
-	}
-
-	@Test
-	@DisplayName("인증키 미설정(호출 0) — total_count는 null로 남는다(0이 아니라 '모른다')")
-	void syncCatalog_호출없음_totalCount_null() {
-		// 0으로 적으면 "원천에 전시가 0건"이라는 거짓이 된다. 우리는 물어보지도 않았다.
+	@DisplayName("호출 결과 0건 — collected 0으로 남는다(빈 실행도 실행 기록은 남는다)")
+	void syncCatalog_호출없음_collected_0() {
 		given(exhibitionCatalogClient.isConfigured()).willReturn(true);
 		given(exhibitionCatalogClient.fetchPage(any(), anyInt())).willReturn(CatalogPage.none());
 
 		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
 
 		var run = latestSyncRun();
-		assertThat(run.get("total_count")).isNull();
 		assertThat(run.get("collected")).isEqualTo(0);
+		assertThat(run.get("inserted")).isEqualTo(0);
 	}
 
 	// ── 헬퍼 ────────────────────────────────────────────────────────────────────

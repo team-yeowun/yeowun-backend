@@ -95,7 +95,7 @@ class OutboxMessageTest {
 	@Test
 	@DisplayName("reactivate — 종료된 작업만 되살린다(PENDING·시도 리셋). 미종료면 no-op")
 	void reactivate_종료만() {
-		OutboxMessage terminal = OutboxMessage.enqueue(IngestionEventType.PLACE_HOURS_STALE, "PLACE-1", NOW);
+		OutboxMessage terminal = OutboxMessage.enqueue(IngestionEventType.PLACE_STAGED, "PLACE-1", NOW);
 		terminal.succeed(NOW);
 
 		terminal.reactivate(NOW.plusDays(40));
@@ -105,7 +105,7 @@ class OutboxMessageTest {
 		assertThat(terminal.getNextAttemptAt()).isEqualTo(NOW.plusDays(40));
 		assertThat(terminal.getCompletedAt()).isNull();
 
-		OutboxMessage pending = OutboxMessage.enqueue(IngestionEventType.PLACE_HOURS_STALE, "PLACE-2", NOW);
+		OutboxMessage pending = OutboxMessage.enqueue(IngestionEventType.PLACE_STAGED, "PLACE-2", NOW);
 		pending.reactivate(NOW.plusDays(1));
 		assertThat(pending.getNextAttemptAt()).isEqualTo(NOW); // no-op: 이미 선별 대상
 	}

@@ -208,7 +208,7 @@ class CultureVendorArchiveTest {
 				.findByMessageTypeAndTargetKey(IngestionEventType.DRAFT_STAGED, externalId).orElseThrow();
 		assertThat(message.getStatus()).isEqualTo(OutboxMessageStatus.PENDING);
 
-		ingestionOrchestrator.drainDetailFetch(); // 드레인에서 상세 조회가 실패한다
+		ingestionOrchestrator.consumeDetailFetch(); // 소비에서 상세 조회가 실패한다
 
 		// 실패는 아웃박스 상태로 남고(RETRYABLE — 회복 후 재시도), 전시는 게이트를 못 채워 나타나지 않는다.
 		assertThat(outboxMessageRepository.findByMessageTypeAndTargetKey(IngestionEventType.DRAFT_STAGED, externalId)
@@ -230,11 +230,11 @@ class CultureVendorArchiveTest {
 		return "VENDOR-" + SEQ.getAndIncrement();
 	}
 
-	/** 아웃박스 드레인으로 파이프라인 완주 — 상세 해소(장르 체인) → 분류(테스트 기본 mock — 결정적) → 승격. */
+	/** 아웃박스 소비으로 파이프라인 완주 — 상세 해소(장르 체인) → 분류(테스트 기본 mock — 결정적) → 승격. */
 	private void drainPipeline() {
-		ingestionOrchestrator.drainDetailFetch();
-		ingestionOrchestrator.drainGenreClassification();
-		ingestionOrchestrator.drainPromotion(); // 승격 소비(ADR-12)
+		ingestionOrchestrator.consumeDetailFetch();
+		ingestionOrchestrator.consumeGenreClassification();
+		ingestionOrchestrator.consumePromotion(); // 승격 소비(ADR-12)
 	}
 
 

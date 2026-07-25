@@ -18,7 +18,7 @@ import modi.backend.ingestion.domain.SyncTrigger;
 import modi.backend.support.error.CoreException;
 
 /**
- * ExhibitionSyncScheduler 단위 검증. 매일 자정 트리거 시 동기화(목록 수집·스테이징) → 장르 드레인(신규분)
+ * ExhibitionSyncScheduler 단위 검증. 매일 자정 트리거 시 동기화(목록 수집·스테이징) → 장르 소비(신규분)
  * → 영업시간 보강을 순서대로 호출하고, 실패(외부 API 불가 등)해도 예외를 삼켜 스케줄러 스레드가 죽지
  * 않아야 한다(다음 주기 재시도). 상세·AI는 이벤트 소비로 릴레이가 처리하므로 여기선 진입 트리거만 본다.
  */
@@ -34,12 +34,12 @@ class ExhibitionSyncSchedulerTest {
 	}
 
 	@Test
-	@DisplayName("syncDaily: 동기화(SCHEDULE 트리거) → 영업시간 보강만 호출한다(후속 스텝은 릴레이가 드레인)")
+	@DisplayName("syncDaily: 동기화(SCHEDULE 트리거) → 영업시간 보강만 호출한다(후속 스텝은 릴레이가 소비)")
 	void syncDaily_동기화후_영업시간_순서호출() {
 		scheduler.syncDaily();
 
 		// 스케줄러가 아는 건 syncCatalog 하나뿐이다 — 무엇을 발견하고 큐에 싣는지는 그 안이고,
-		// 실제 조회(상세·장르·승격·영업시간)는 이벤트를 릴레이가 드레인한다.
+		// 실제 조회(상세·장르·승격·영업시간)는 이벤트를 릴레이가 소비한다.
 		verify(ingestionOrchestrator, times(1)).syncCatalog(SyncTrigger.SCHEDULE);
 		verifyNoMoreInteractions(ingestionOrchestrator);
 	}

@@ -178,9 +178,9 @@ class RecordV1ControllerTest {
 		given(catalogClient.fetchDetail(anyString())).willReturn(new KoreaCultureDto.Detail2Response.Item("SEQ", null, null, null, null, null, null, null, null, null,
 				null, null, null, null, null, null, null, null));
 		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
-		ingestionOrchestrator.drainDetailFetch(); // 스테이징 → 상세 해소(ADR-10 — 전시는 승격 후에만 나타난다)
-		ingestionOrchestrator.drainGenreClassification();
-		ingestionOrchestrator.drainPromotion(); // 승격 소비(ADR-12) // 장르 분류(테스트 기본 mock) + 승격
+		ingestionOrchestrator.consumeDetailFetch(); // 스테이징 → 상세 해소(ADR-10 — 전시는 승격 후에만 나타난다)
+		ingestionOrchestrator.consumeGenreClassification();
+		ingestionOrchestrator.consumePromotion(); // 승격 소비(ADR-12) // 장르 분류(테스트 기본 mock) + 승격
 		Long catalogExhibitionId = exhibitionRepository.findByExternalId(externalId).orElseThrow().getId();
 
 		// 2) 기록 작성 — RecordService.create가 이 시점의 전시 제목을 스냅샷으로 박제한다
@@ -218,9 +218,9 @@ class RecordV1ControllerTest {
 						today.plusDays(25), ExhibitionRegion.SEOUL, ExhibitionCategory.PAINTING,
 						"https://poster/mutated.jpg", null, "기관", null, null, null, "전시", "서울"))));
 		ingestionOrchestrator.syncCatalog(SyncTrigger.MANUAL);
-		ingestionOrchestrator.drainDetailFetch(); // 스테이징 → 상세 해소(ADR-10 — 전시는 승격 후에만 나타난다)
-		ingestionOrchestrator.drainGenreClassification();
-		ingestionOrchestrator.drainPromotion(); // 승격 소비(ADR-12) // 장르 분류(테스트 기본 mock) + 승격
+		ingestionOrchestrator.consumeDetailFetch(); // 스테이징 → 상세 해소(ADR-10 — 전시는 승격 후에만 나타난다)
+		ingestionOrchestrator.consumeGenreClassification();
+		ingestionOrchestrator.consumePromotion(); // 승격 소비(ADR-12) // 장르 분류(테스트 기본 mock) + 승격
 
 		// 기존 전시 행이 원천 갱신본으로 덮이지 않았음을 확인한다(신규만 추가 — 재적재 갱신 없음).
 		Exhibition afterResync = exhibitionRepository.findByExternalId(externalId).orElseThrow();
