@@ -40,6 +40,19 @@ public interface ExhibitionRepository {
 	 */
 	List<Exhibition> findActiveByIdsAndEndDateBetween(Collection<Long> ids, LocalDate from, LocalDate to);
 
+	/** 주어진 id들 중 살아있는 전시 수(관심 전시 목록 totalCount — 삭제된 전시를 제외한 정확한 값). */
+	long countActiveByIds(Collection<Long> ids);
+
+	/**
+	 * 주어진 id들을 <b>종료일 오름차순(nulls last)·id 오름차순</b>으로 한 페이지 조회한다(관심 전시 "종료 임박순").
+	 * 정렬 키가 전시 컬럼이라 북마크 쪽에서 자를 수 없다 — 정렬·경계·LIMIT을 DB에 맡겨 <b>반환 행만</b> 올린다.
+	 *
+	 * @param cursorEndDate 커서 행의 종료일. {@code cursorId}가 있고 이 값이 null이면 nulls last 블록 안이다.
+	 * @param cursorId      커서 행 id. null이면 첫 페이지.
+	 */
+	List<Exhibition> findActiveByIdsOrderByEndDate(Collection<Long> ids, LocalDate cursorEndDate, Long cursorId,
+			int limit);
+
 	// ── 상세 satellite(1:1) — 연관 부재 = 미동기화(ADR-03) ─────────────────────────────
 
 	/** 상세 upsert — 없으면 생성, 있으면 갱신. {@code now}는 동기화 시각(재조회 판정 기준). */

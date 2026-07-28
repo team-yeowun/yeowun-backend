@@ -1,9 +1,11 @@
 package modi.backend.infra.bookmark;
 
+import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -28,6 +30,22 @@ public interface ExhibitionBookmarkJpaRepository extends JpaRepository<Exhibitio
 	@Query("select b.exhibitionId from ExhibitionBookmark b "
 			+ "where b.userId = :userId and b.deletedAt is null order by b.createdAt desc, b.id desc")
 	List<Long> findActiveExhibitionIdsOrderByRegisteredDesc(@Param("userId") Long userId);
+
+	/**
+	 * 등록 최신순 <b>한 페이지</b>의 전시 id(첫 페이지). 정렬 키(created_at, id)가 이 테이블 자기 컬럼이라
+	 * 전량을 읽지 않고 DB에서 잘라 온다.
+	 */
+	@Query("select b.exhibitionId from ExhibitionBookmark b "
+			+ "where b.userId = :userId and b.deletedAt is null order by b.createdAt desc, b.id desc")
+	List<Long> findActiveExhibitionIdsFirstPage(@Param("userId") Long userId, Pageable pageable);
+
+	/** 등록 최신순 다음 페이지 — 커서 행 {@code (createdAt, id)}보다 뒤(더 오래된 등록)만. */
+	@Query("select b.exhibitionId from ExhibitionBookmark b "
+			+ "where b.userId = :userId and b.deletedAt is null "
+			+ "and (b.createdAt < :createdAt or (b.createdAt = :createdAt and b.id < :bookmarkId)) "
+			+ "order by b.createdAt desc, b.id desc")
+	List<Long> findActiveExhibitionIdsAfter(@Param("userId") Long userId,
+			@Param("createdAt") ZonedDateTime createdAt, @Param("bookmarkId") Long bookmarkId, Pageable pageable);
 
 	/** 유저ID들의 활성 북마크 수(관리자 목록 벌크). Object[]{userId, count}. */
 	@Query("select b.userId, count(b) from ExhibitionBookmark b "

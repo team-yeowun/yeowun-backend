@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import lombok.RequiredArgsConstructor;
@@ -91,6 +93,31 @@ public class ExhibitionRepositoryImpl implements ExhibitionRepository {
 			return List.of();
 		}
 		return jpaRepository.findByIdInAndDeletedAtIsNullAndEndDateBetween(ids, from, to);
+	}
+
+	@Override
+	public long countActiveByIds(Collection<Long> ids) {
+		if (ids == null || ids.isEmpty()) {
+			return 0;
+		}
+		return jpaRepository.countByIdInAndDeletedAtIsNull(ids);
+	}
+
+	@Override
+	public List<Exhibition> findActiveByIdsOrderByEndDate(Collection<Long> ids, LocalDate cursorEndDate,
+			Long cursorId, int limit) {
+		if (ids == null || ids.isEmpty()) {
+			return List.of();
+		}
+		Pageable page = PageRequest.of(0, Math.max(1, limit));
+		if (cursorId == null) {
+			return jpaRepository.findActiveByIdsOrderByEndDate(ids, page);
+		}
+		if (cursorEndDate == null) {
+			// 커서가 nulls last 블록 안이다 — 종료일 미상 중 id가 더 큰 행만 남는다.
+			return jpaRepository.findActiveByIdsWithoutEndDateAfter(ids, cursorId, page);
+		}
+		return jpaRepository.findActiveByIdsOrderByEndDateAfter(ids, cursorEndDate, cursorId, page);
 	}
 
 	@Override

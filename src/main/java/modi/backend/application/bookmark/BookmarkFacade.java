@@ -1,8 +1,6 @@
 package modi.backend.application.bookmark;
 
 import java.time.LocalDate;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -15,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import modi.backend.application.exhibition.ExhibitionResult;
 import modi.backend.domain.bookmark.ExhibitionBookmarkRepository;
 import modi.backend.domain.exhibition.catalog.Exhibition;
-import modi.backend.domain.exhibition.catalog.ExhibitionDetail;
 import modi.backend.domain.exhibition.catalog.ExhibitionErrorCode;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlace;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlaceRepository;
@@ -65,72 +62,79 @@ public class BookmarkFacade {
 		LocalDate today = LocalDate.now(AppTime.KST);
 		String sort = canonicalSort(criteria.sort());
 		int size = clampSize(criteria.size());
-
-		List<Long> orderedIds = exhibitionBookmarkRepository
-				.findActiveExhibitionIdsByUserIdOrderByRegisteredDesc(criteria.userId());
-		Map<Long, Exhibition> byId = new LinkedHashMap<>();
-		for (Exhibition e : exhibitionRepository.findAllActiveByIds(orderedIds)) {
-			byId.put(e.getId(), e);
-		}
-		List<Exhibition> ordered = orderPerSort(sort, orderedIds, byId);
-
 		Cursor cursor = Cursor.decode(criteria.cursor(), sort).orElse(null);
-		int start = cursor == null ? 0 : nextIndexAfter(ordered, cursor.lastId());
-		int end = Math.min(start + size, ordered.size());
-		List<Exhibition> page = start >= ordered.size() ? List.of() : ordered.subList(start, end);
-		boolean hasNext = end < ordered.size();
+		Long cursorId = cursor == null ? null : cursor.lastId();
 
+		List<Exhibition> rows = "ending".equals(sort)
+				? endingPage(criteria.userId(), cursor, cursorId, size + 1)
+				: registeredPage(criteria.userId(), cursorId, size + 1);
+		boolean hasNext = rows.size() > size;
+		List<Exhibition> page = hasNext ? rows.subList(0, size) : rows;
+
+		List<ExhibitionResult.ListItem> content = toListItems(page, today);
+		String nextCursor = hasNext ? encodeCursor(sort, page.get(page.size() - 1)) : null;
+		long totalCount = exhibitionRepository.countActiveByIds(activeExhibitionIds(criteria.userId()));
+		return new BookmarkResult.ListPage(content, nextCursor, hasNext, totalCount);
+	}
+
+	/**
+	 * 등록 최신순 한 페이지 — 정렬 키(북마크 createdAt·id)가 북마크 테이블 자기 컬럼이라 <b>거기서 잘라 온다</b>.
+	 * 전시는 그 페이지분만 읽는다(예전엔 북마크 전량의 전시를 읽어 앱에서 잘랐다).
+	 */
+	private List<Exhibition> registeredPage(Long userId, Long cursorId, int limitPlusOne) {
+		List<Long> pageIds = exhibitionBookmarkRepository.findActiveExhibitionIdsPage(userId, cursorId, limitPlusOne);
+		if (pageIds.isEmpty()) {
+			return List.of();
+		}
+		Map<Long, Exhibition> byId = exhibitionRepository.findAllActiveByIds(pageIds).stream()
+				.collect(Collectors.toMap(Exhibition::getId, e -> e, (a, b) -> a));
+		// 등록순은 북마크 쪽 순서가 진실이다 — 조회 순서에 기대지 않고 id 순서대로 복원한다.
+		// 그새 삭제된 전시는 byId에 없어 자연히 빠진다(그만큼 페이지가 짧아질 뿐 커서는 유효하다).
+		return pageIds.stream().map(byId::get).filter(java.util.Objects::nonNull).toList();
+	}
+
+	/**
+	 * 종료 임박순 한 페이지 — 정렬 키(end_date)가 전시 컬럼이라 북마크 쪽에서 못 자른다.
+	 * 대신 정렬·커서 경계·LIMIT을 DB에 맡겨 <b>반환 행만</b> 앱으로 올린다(IN 대상은 크지만 결과는 한 페이지).
+	 */
+	private List<Exhibition> endingPage(Long userId, Cursor cursor, Long cursorId, int limitPlusOne) {
+		List<Long> allIds = activeExhibitionIds(userId);
+		if (allIds.isEmpty()) {
+			return List.of();
+		}
+		LocalDate cursorEndDate = cursor == null || cursor.key() == null ? null : LocalDate.parse(cursor.key());
+		return exhibitionRepository.findActiveByIdsOrderByEndDate(allIds, cursorEndDate, cursorId, limitPlusOne);
+	}
+
+	private List<Long> activeExhibitionIds(Long userId) {
+		return exhibitionBookmarkRepository.findActiveExhibitionIdsByUserIdOrderByRegisteredDesc(userId);
+	}
+
+	/** 페이지 전시들을 장소·가격 배치 조회로 조립한다(N+1 방지). 관심 목록이므로 bookmarked는 항상 true. */
+	private List<ExhibitionResult.ListItem> toListItems(List<Exhibition> page, LocalDate today) {
+		if (page.isEmpty()) {
+			return List.of();
+		}
 		Map<Long, ExhibitionPlace> placesById = exhibitionPlaceRepository.findAllByIds(
 				page.stream().map(Exhibition::getExhibitionPlaceId).collect(Collectors.toSet())).stream()
 				.collect(Collectors.toMap(ExhibitionPlace::getId, p -> p, (a, b) -> a));
-		Map<Long, ExhibitionDetail> detailsByExhibitionId = exhibitionRepository.findDetails(
-				page.stream().map(Exhibition::getId).toList()).stream()
-				.collect(Collectors.toMap(ExhibitionDetail::getExhibitionId, d -> d, (a, b) -> a));
-		List<ExhibitionResult.ListItem> content = page.stream()
-				.map(e -> {
-					ExhibitionDetail detail = detailsByExhibitionId.get(e.getId());
-					boolean free = detail != null && detail.isFree();
-					return ExhibitionResult.ListItem.from(e, placesById.get(e.getExhibitionPlaceId()), today, free,
-							true);
-				})
+		Map<Long, String> pricesById = exhibitionRepository
+				.findPricesByExhibitionIds(page.stream().map(Exhibition::getId).toList());
+		return page.stream()
+				.map(e -> ExhibitionResult.ListItem.from(e, placesById.get(e.getExhibitionPlaceId()), today,
+						Exhibition.isFree(pricesById.get(e.getId())), true))
 				.toList();
-		String nextCursor = null;
-		if (hasNext) {
-			Exhibition last = page.get(page.size() - 1);
-			String key = "ending".equals(sort)
-					? (last.getEndDate() == null ? null : last.getEndDate().toString())
-					: null;
-			nextCursor = Cursor.of(sort, key, last.getId()).encode();
-		}
-		return new BookmarkResult.ListPage(content, nextCursor, hasNext, ordered.size());
+	}
+
+	private static String encodeCursor(String sort, Exhibition last) {
+		String key = "ending".equals(sort) && last.getEndDate() != null ? last.getEndDate().toString() : null;
+		return Cursor.of(sort, key, last.getId()).encode();
 	}
 
 	private void ensureExhibitionExists(Long exhibitionId) {
 		if (exhibitionRepository.findById(exhibitionId).isEmpty()) {
 			throw new CoreException(ExhibitionErrorCode.EXHIBITION_NOT_FOUND);
 		}
-	}
-
-	/** latest는 등록 최신순(orderedIds 순서 보존), ending은 종료일 asc(null 뒤로)·id asc. 삭제된 전시 id는 자동 제외. */
-	private static List<Exhibition> orderPerSort(String sort, List<Long> orderedIds, Map<Long, Exhibition> byId) {
-		if ("ending".equals(sort)) {
-			return byId.values().stream()
-					.sorted(Comparator
-							.comparing(Exhibition::getEndDate, Comparator.nullsLast(Comparator.naturalOrder()))
-							.thenComparing(Exhibition::getId))
-					.toList();
-		}
-		return orderedIds.stream().map(byId::get).filter(e -> e != null).toList();
-	}
-
-	/** 정렬된 리스트에서 lastId 항목 다음 인덱스. 못 찾으면(데이터 변동) 0(처음부터). */
-	private static int nextIndexAfter(List<Exhibition> ordered, Long lastId) {
-		for (int i = 0; i < ordered.size(); i++) {
-			if (ordered.get(i).getId().equals(lastId)) {
-				return i + 1;
-			}
-		}
-		return 0;
 	}
 
 	/** sort 코드 → 정규화(latest 기본). 미정의 값은 latest로 취급(커서 정렬 판별자도 이 값으로 통일). */

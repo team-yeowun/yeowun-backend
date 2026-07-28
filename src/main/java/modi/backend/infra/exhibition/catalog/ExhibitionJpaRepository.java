@@ -5,6 +5,8 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import modi.backend.domain.exhibition.catalog.Exhibition;
@@ -48,4 +50,28 @@ public interface ExhibitionJpaRepository
 
 	/** 여러 전시를 ID로 조회(사용자 상세의 북마크/전시활동 제목 표시용, 살아있는 행만). */
 	List<Exhibition> findByIdInAndDeletedAtIsNull(java.util.Collection<Long> ids);
+
+	/** 주어진 id들 중 살아있는 전시 수(관심 전시 목록의 totalCount — 삭제된 전시를 뺀 정확한 값). */
+	long countByIdInAndDeletedAtIsNull(java.util.Collection<Long> ids);
+
+	/**
+	 * 주어진 id들을 종료일 오름차순(nulls last)·id 오름차순으로 한 페이지 조회한다(관심 전시 "종료 임박순").
+	 * 정렬 키가 전시 컬럼이라 북마크 테이블만으로는 못 자른다 — 정렬·LIMIT을 DB에 맡겨 반환 행만 앱으로 올린다.
+	 */
+	@Query("select e from Exhibition e where e.id in :ids and e.deletedAt is null "
+			+ "order by case when e.endDate is null then 1 else 0 end, e.endDate asc, e.id asc")
+	List<Exhibition> findActiveByIdsOrderByEndDate(@Param("ids") java.util.Collection<Long> ids, Pageable pageable);
+
+	/** 위와 같은 정렬의 다음 페이지 — 커서 행({@code endDate}, {@code lastId})보다 뒤만. */
+	@Query("select e from Exhibition e where e.id in :ids and e.deletedAt is null "
+			+ "and (e.endDate > :endDate or e.endDate is null or (e.endDate = :endDate and e.id > :lastId)) "
+			+ "order by case when e.endDate is null then 1 else 0 end, e.endDate asc, e.id asc")
+	List<Exhibition> findActiveByIdsOrderByEndDateAfter(@Param("ids") java.util.Collection<Long> ids,
+			@Param("endDate") java.time.LocalDate endDate, @Param("lastId") Long lastId, Pageable pageable);
+
+	/** 커서가 이미 nulls last 블록(종료일 미상)에 있을 때의 다음 페이지. */
+	@Query("select e from Exhibition e where e.id in :ids and e.deletedAt is null "
+			+ "and e.endDate is null and e.id > :lastId order by e.id asc")
+	List<Exhibition> findActiveByIdsWithoutEndDateAfter(@Param("ids") java.util.Collection<Long> ids,
+			@Param("lastId") Long lastId, Pageable pageable);
 }
