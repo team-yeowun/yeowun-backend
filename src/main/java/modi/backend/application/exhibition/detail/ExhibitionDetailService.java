@@ -53,6 +53,7 @@ public class ExhibitionDetailService {
 		}
 		exhibition.increaseView();
 		exhibitionRepository.save(exhibition);
+
 		Long requesterId = criteria.requesterId();
 		boolean bookmarked = requesterId != null
 				&& exhibitionBookmarkRepository.existsActive(requesterId, exhibition.getId());
@@ -74,11 +75,16 @@ public class ExhibitionDetailService {
 
 	/** 상세 응답 조립 — 장소·상세·영업시간·작가·장르를 두 애그리거트 루트에서 읽어 하나로 모은다. */
 	private ExhibitionResult.Detail assembleDetail(Exhibition exhibition, boolean bookmarked, boolean recorded) {
-		ExhibitionPlace place = exhibitionPlaceRepository.findById(exhibition.getExhibitionPlaceId()).orElse(null);
-		ExhibitionDetail detail = exhibitionRepository.findDetail(exhibition.getId()).orElse(null);
-		PlaceHours placeHours = place == null ? null
-				: exhibitionPlaceRepository.findHours(place.getId()).orElse(null);
+		// 조각이 없을 때 센티넬을 넘긴다 — 결측 판단은 도메인이 하고, 조립부는 값을 그냥 읽는다.
+		ExhibitionPlace place = exhibitionPlaceRepository.findById(exhibition.getExhibitionPlaceId())
+				.orElseGet(ExhibitionPlace::unknown);
+		ExhibitionDetail detail = exhibitionRepository.findDetail(exhibition.getId())
+				.orElseGet(ExhibitionDetail::empty);
+		PlaceHours placeHours = exhibitionPlaceRepository.findHours(exhibition.getExhibitionPlaceId())
+				.orElseGet(PlaceHours::empty);
+
 		List<String> artistNames = exhibitionRepository.findArtistNames(exhibition.getId());
+
 		return ExhibitionResult.Detail.from(exhibition, place, detail, placeHours, artistNames,
 				genreOf(exhibition.getId()), bookmarked, recorded);
 	}

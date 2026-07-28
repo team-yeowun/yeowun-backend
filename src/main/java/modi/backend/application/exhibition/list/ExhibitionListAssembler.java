@@ -36,15 +36,18 @@ public class ExhibitionListAssembler {
 		if (page.isEmpty()) {
 			return List.of();
 		}
+		// 조각마다 배치 조회 — 쿼리 수가 페이지 크기에 비례하지 않게 한다.
 		Map<Long, ExhibitionPlace> placesById = placesById(page);
 		Map<Long, String> pricesById = exhibitionRepository
 				.findPricesByExhibitionIds(page.stream().map(Exhibition::getId).toList());
 		Set<Long> bookmarked = bookmarkedIds(requesterId, page);
-		return page.stream().map(e -> ExhibitionResult.ListItem.from(e, placesById.get(e.getExhibitionPlaceId()),
-				today, Exhibition.isFree(pricesById.get(e.getId())), bookmarked.contains(e.getId()))).toList();
+
+		return page.stream().map(e -> ExhibitionResult.ListItem.from(e,
+				placesById.getOrDefault(e.getExhibitionPlaceId(), ExhibitionPlace.unknown()), today,
+				Exhibition.isFree(pricesById.get(e.getId())), bookmarked.contains(e.getId()))).toList();
 	}
 
-    /** 전시들의 전시장을 배치 조회한다(거리순 정렬도 좌표가 필요해 이 결과를 쓴다). */
+	/** 전시들의 전시장을 배치 조회한다(거리순 정렬도 좌표가 필요해 이 결과를 쓴다). */
 	public Map<Long, ExhibitionPlace> placesById(List<Exhibition> exhibitions) {
 		Set<Long> placeIds = exhibitions.stream().map(Exhibition::getExhibitionPlaceId).collect(Collectors.toSet());
 		return exhibitionPlaceRepository.findAllByIds(placeIds).stream()

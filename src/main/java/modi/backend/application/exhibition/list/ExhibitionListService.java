@@ -60,12 +60,14 @@ public class ExhibitionListService {
 		ExhibitionQuery query = queryFactory.create(criteria, sort, today,
 				cursor == null ? null : cursor.key(), cursor == null ? null : cursor.lastId());
 
+		// size+1을 읽어 다음 페이지 존재를 판정한다(여분 1건은 응답에서 잘라낸다).
 		List<Exhibition> rows = exhibitionQueryRepository.searchSlice(query, size + 1);
 		boolean hasNext = rows.size() > size;
 		List<Exhibition> page = hasNext ? rows.subList(0, size) : rows;
 
 		List<ExhibitionResult.ListItem> content = listAssembler.assemble(page, today, criteria.requesterId());
 		String nextCursor = hasNext ? encodeCursor(sort, page.get(page.size() - 1)) : null;
+
 		return new ExhibitionResult.ListPage(content, nextCursor, hasNext, exhibitionQueryRepository.count(query));
 	}
 
@@ -80,6 +82,8 @@ public class ExhibitionListService {
 		}
 		double lat = criteria.lat();
 		double lng = criteria.lng();
+
+		// 좌표가 전시장에 있어 DB가 정렬하지 못한다 — 후보를 읽어 앱에서 세운다.
 		List<Exhibition> candidates = exhibitionQueryRepository.searchAll(query);
 		Map<Long, ExhibitionPlace> placesById = listAssembler.placesById(candidates);
 		List<Exhibition> ordered = candidates.stream().sorted(distanceComparator(placesById, lat, lng)).toList();

@@ -34,7 +34,7 @@ public class ExhibitionBannerService {
 		List<Exhibition> rows = exhibitionQueryRepository.findOngoingCatalogTopByViews(LocalDate.now(AppTime.KST),
 				BANNER_LIMIT);
 		Map<Long, ExhibitionPlace> placesById = listAssembler.placesById(rows);
-		return rows.stream().map(e -> ExhibitionResult.Banner.from(e, placesById.get(e.getExhibitionPlaceId())))
-				.toList();
+		return rows.stream().map(e -> ExhibitionResult.Banner.from(e,
+				placesById.getOrDefault(e.getExhibitionPlaceId(), ExhibitionPlace.unknown()))).toList();
 	}
 }

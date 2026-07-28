@@ -16,8 +16,10 @@ import modi.backend.domain.exhibition.hours.PlaceHours;
 /**
  * 전시 유스케이스 출력 모음. (Facade는 Result까지만)
  * 장소(name/region/주소/gps)는 {@link ExhibitionPlace}(N:1), 상세(price/description/img)는 {@link ExhibitionDetail}(1:1),
- * 영업시간은 {@link PlaceHours}, 작가는 조인에서 조립해 Facade가 넘긴다 — 응답 필드명·타입은 이관 전과 동일하다(API 계약 불변).
- * 결측 필드는 원천 특성상 null로 내린다.
+ * 영업시간은 {@link PlaceHours}, 작가는 조인에서 조립해 서비스가 넘긴다 — 응답 필드명·타입은 이관 전과 동일하다(API 계약 불변).
+ *
+ * <p><b>결측은 호출부가 아니라 도메인이 흡수한다</b>: 조각이 없으면 서비스가 {@code unknown()}·{@code empty()}
+ * 센티넬을 넘기므로 여기서는 값을 그냥 읽는다. 결측 필드가 null로 내려가는 응답 계약은 그대로다.
  */
 public final class ExhibitionResult {
 
@@ -47,10 +49,16 @@ public final class ExhibitionResult {
 
 		public static ListItem from(Exhibition exhibition, ExhibitionPlace place, LocalDate today, boolean free,
 				boolean bookmarked) {
-			return new ListItem(exhibition.getId(), exhibition.getType().name(), exhibition.getTitle(),
+			return new ListItem(
+					// 코어(exhibitions)
+					exhibition.getId(), exhibition.getType().name(), exhibition.getTitle(),
 					exhibition.getPosterUrl(), exhibition.getStartDate(), exhibition.getEndDate(),
-					place == null ? null : place.getName(), place == null ? null : name(place.getRegion()),
-					name(exhibition.getCategory()), null, exhibition.dDay(today), free, bookmarked);
+
+					// 전시장 · 코어 분류
+					place.getName(), name(place.getRegion()), name(exhibition.getCategory()),
+
+					// 파생값(목록은 CATALOG만이라 artistSummary는 원천 미보유 → null)
+					null, exhibition.dDay(today), free, bookmarked);
 		}
 	}
 
@@ -68,24 +76,37 @@ public final class ExhibitionResult {
 		public static Detail from(Exhibition exhibition, ExhibitionPlace place, ExhibitionDetail detail,
 				PlaceHours placeHours, List<String> artistNames, ExhibitionGenre genre, boolean bookmarked,
 				boolean recorded) {
-			List<String> artists = artistNames == null ? List.of() : List.copyOf(artistNames);
+			List<String> artists = List.copyOf(artistNames);
 			String artistSummary = artists.isEmpty() ? null : String.join(", ", artists);
-			// 장르 키워드(분류기가 부여)가 있으면 keywords로 노출. 미분류면 빈 배열.
-			List<String> keywords = genre == null || genre.getGenreKeyword() == null
-					|| genre.getGenreKeyword().isBlank()
-					? List.of() : List.of(genre.getGenreKeyword());
-			String price = detail == null ? null : detail.getPrice();
-			return new Detail(exhibition.getId(), exhibition.getType().name(), exhibition.getTitle(),
+			String price = detail.getPrice();
+
+			// 필드가 29개라 어느 조각에서 왔는지가 잘 안 보인다 — 출처별로 줄을 끊어 둔다.
+			return new Detail(
+					// 코어(exhibitions)
+					exhibition.getId(), exhibition.getType().name(), exhibition.getTitle(),
 					exhibition.getPosterUrl(), exhibition.getStartDate(), exhibition.getEndDate(),
-					place == null ? null : place.getName(), place == null ? null : name(place.getRegion()),
+
+					// 전시장(exhibition_place) + 코어 분류
+					place.getName(), name(place.getRegion()),
 					name(exhibition.getCategory()), name(exhibition.getFormat()),
-					detail == null ? null : detail.getDescription(),
-					placeHours == null ? null : placeHours.getFormatted(), price,
-					artists, keywords, exhibition.getServiceName(), exhibition.getDetailUrl(),
-					place == null ? null : place.getGpsX(), place == null ? null : place.getGpsY(),
-					place == null ? null : place.getAddress(), detail == null ? null : detail.getImgUrl(),
-					place == null ? null : place.getPhone(), exhibition.getOurViewCount(),
-					place == null ? null : place.getSigungu(), place == null ? null : place.getPlaceUrl(),
+
+					// 상세(exhibition_detail) · 영업시간(place_hours)
+					detail.getDescription(), placeHours.getFormatted(), price,
+
+					// 작가 조인 · 장르 정준층
+					artists, ExhibitionGenre.keywordsOf(genre),
+
+					// 코어 원문 링크
+					exhibition.getServiceName(), exhibition.getDetailUrl(),
+
+					// 전시장 위치 · 상세 이미지 · 전시장 연락처 · 코어 조회수 · 전시장 주소보조
+					place.getGpsX(), place.getGpsY(), place.getAddress(),
+					detail.getImgUrl(),
+					place.getPhone(),
+					exhibition.getOurViewCount(),
+					place.getSigungu(), place.getPlaceUrl(),
+
+					// 파생값 · 요청자 기준 개인화
 					artistSummary, Exhibition.isFree(price), bookmarked, recorded);
 		}
 	}
@@ -96,7 +117,7 @@ public final class ExhibitionResult {
 
 		public static Banner from(Exhibition exhibition, ExhibitionPlace place) {
 			return new Banner(exhibition.getId(), exhibition.getTitle(), exhibition.getPosterUrl(),
-					exhibition.getStartDate(), exhibition.getEndDate(), place == null ? null : place.getName());
+					exhibition.getStartDate(), exhibition.getEndDate(), place.getName());
 		}
 	}
 
