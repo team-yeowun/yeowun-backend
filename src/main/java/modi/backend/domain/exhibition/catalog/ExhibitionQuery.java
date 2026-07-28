@@ -9,6 +9,8 @@ import java.util.List;
  *
  * @param keyword     전시명·전시장명 부분 일치(null이면 미적용)
  * @param ongoingOn   해당 날짜에 진행 중(startDate ≤ ongoingOn ≤ endDate)인 전시만(null이면 미적용)
+ * @param notEndedOn  해당 날짜에 아직 끝나지 않은(endDate ≥ notEndedOn) 전시만(null이면 미적용).
+ *                    시작일은 보지 않으므로 <b>아직 열지 않은 전시는 포함</b>한다 — 검색 전용 조건이다.
  * @param regions     지역 다중 필터(빈 리스트면 미적용, IN 조건)
  * @param categories  카테고리 다중 필터(빈 리스트면 미적용, IN 조건)
  * @param section     섹션 필터(null이면 미적용). ending-soon/opening-this-month는 {@code sectionFrom~sectionTo} 창을 함께 쓴다.
@@ -22,6 +24,7 @@ import java.util.List;
 public record ExhibitionQuery(
 		String keyword,
 		LocalDate ongoingOn,
+		LocalDate notEndedOn,
 		List<ExhibitionRegion> regions,
 		List<ExhibitionCategory> categories,
 		ExhibitionSection section,
@@ -34,6 +37,7 @@ public record ExhibitionQuery(
 
 	/** 필터 없는 전체 조회(부팅 시더 프로브 등 내부용). */
 	public static ExhibitionQuery unfiltered() {
-		return new ExhibitionQuery(null, null, List.of(), List.of(), null, null, null, "latest", null, null, null);
+		return new ExhibitionQuery(null, null, null, List.of(), List.of(), null, null, null, "latest", null, null,
+				null);
 	}
 }

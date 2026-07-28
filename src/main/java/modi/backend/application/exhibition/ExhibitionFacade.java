@@ -103,18 +103,19 @@ public class ExhibitionFacade {
 		ExhibitionSection section = ExhibitionSection.from(criteria.section());
 		String sort = canonicalSort(criteria.sort());
 		int size = clampSize(criteria.size());
-		LocalDate ongoingOn = resolveOngoingOn(criteria.date(), keyword, regions, categories, section, today);
+		LocalDate ongoingOn = resolveOngoingOn(criteria.date(), keyword, section, today);
+		LocalDate notEndedOn = resolveNotEndedOn(ongoingOn, keyword, today);
 
 		if ("distance".equals(sort)) {
 			return searchByDistance(criteria, today, size,
-					buildQuery(keyword, ongoingOn, regions, categories, section, today, criteria.period(),
-							"distance", null, null, criteria.requesterId()));
+					buildQuery(keyword, ongoingOn, notEndedOn, regions, categories, section, today,
+							criteria.period(), "distance", null, null, criteria.requesterId()));
 		}
 
 		Cursor cursor = Cursor.decode(criteria.cursor(), sort).orElse(null);
 		String cursorKey = cursor == null ? null : cursor.key();
 		Long cursorId = cursor == null ? null : cursor.lastId();
-		ExhibitionQuery query = buildQuery(keyword, ongoingOn, regions, categories, section, today,
+		ExhibitionQuery query = buildQuery(keyword, ongoingOn, notEndedOn, regions, categories, section, today,
 				criteria.period(), sort, cursorKey, cursorId, criteria.requesterId());
 
 		List<Exhibition> rows = exhibitionQueryRepository.searchSlice(query, size + 1);
@@ -322,24 +323,47 @@ public class ExhibitionFacade {
 				});
 	}
 
-	private LocalDate resolveOngoingOn(LocalDate date, String keyword, List<ExhibitionRegion> regions,
-			List<ExhibitionCategory> categories, ExhibitionSection section, LocalDate today) {
+	/**
+	 * 이 조회에 "진행 중" 기간 조건을 걸지 결정한다(null이면 기간 무관).
+	 *
+	 * <p>기준은 <b>사용자가 무엇을 기대하는가</b>다 — 목록을 좁히는 필터(지역·카테고리)는 기본 목록과 같은 기간을
+	 * 유지하고, 스스로 기간 의미를 갖는 섹션과 "아는 것을 찾는" 검색만 예외로 둔다.
+	 */
+	private LocalDate resolveOngoingOn(LocalDate date, String keyword, ExhibitionSection section, LocalDate today) {
 		if (date != null) {
 			return date;
 		}
-		// "지금 볼 수 있는 전시"를 뜻하는 섹션(곧 끝남·무료)은 진행 중 조건을 함께 건다 —
-		// 그렇지 않으면 아직 시작도 안 한 전시가 "5일 후 종료"로, 이미 끝난 전시가 "무료로 볼 수 있는"으로 노출된다.
-		if (section != null && section.requiresOngoing()) {
-			return today;
+		if (section != null) {
+			// 섹션은 스스로 기간의 의미를 갖는다 — "지금 볼 수 있는"(곧 끝남·무료)이면 진행 중,
+			// "이번 달 새로 열리는"이면 아직 열리지 않은 전시를 보여주는 것이 목적이라 기간 조건을 걸지 않는다.
+			return section.requiresOngoing() ? today : null;
 		}
-		boolean noOtherFilter = (keyword == null || keyword.isBlank()) && regions.isEmpty()
-				&& categories.isEmpty() && section == null;
-		return noOtherFilter ? today : null;
+		if (keyword != null && !keyword.isBlank()) {
+			// 검색은 "목록 좁히기"가 아니라 "아는 것 찾기"라 진행 중으로 묶지 않는다 —
+			// 다음 달 개막 전시도 이름으로 찾을 수 있어야 한다. 대신 끝난 전시는 내보내지 않는다(notEndedOn).
+			return null;
+		}
+		// 지역·카테고리는 목록을 좁히는 필터일 뿐이라 기본(필터 없음)과 같은 기간 조건을 유지한다 —
+		// 필터를 걸었다고 다른 목록(미래·종료 전시)으로 바뀌면 안 된다.
+		return today;
 	}
 
-	private ExhibitionQuery buildQuery(String keyword, LocalDate ongoingOn, List<ExhibitionRegion> regions,
-			List<ExhibitionCategory> categories, ExhibitionSection section, LocalDate today, String period,
-			String sort, String cursorKey, Long cursorId, Long requesterId) {
+	/**
+	 * 검색에만 거는 "아직 끝나지 않음" 조건. 진행 중 조건({@code ongoingOn})이 이미 걸렸다면 불필요하다.
+	 *
+	 * <p>검색은 아직 열지 않은 전시를 이름으로 찾을 수 있어야 하지만, <b>이미 끝난 전시까지 보여줄 이유는 없다</b>.
+	 * 그래서 시작일은 열어 두고 종료일만 막는다.
+	 */
+	private LocalDate resolveNotEndedOn(LocalDate ongoingOn, String keyword, LocalDate today) {
+		if (ongoingOn != null || keyword == null || keyword.isBlank()) {
+			return null;
+		}
+		return today;
+	}
+
+	private ExhibitionQuery buildQuery(String keyword, LocalDate ongoingOn, LocalDate notEndedOn,
+			List<ExhibitionRegion> regions, List<ExhibitionCategory> categories, ExhibitionSection section,
+			LocalDate today, String period, String sort, String cursorKey, Long cursorId, Long requesterId) {
 		LocalDate from = null;
 		LocalDate to = null;
 		if (section == ExhibitionSection.ENDING_SOON) {
@@ -354,7 +378,7 @@ public class ExhibitionFacade {
 				to = today.with(TemporalAdjusters.lastDayOfMonth());
 			}
 		}
-		return new ExhibitionQuery(keyword, ongoingOn, regions, categories, section, from, to, sort,
+		return new ExhibitionQuery(keyword, ongoingOn, notEndedOn, regions, categories, section, from, to, sort,
 				cursorKey, cursorId, requesterId);
 	}
 
