@@ -1,5 +1,6 @@
-package modi.backend.application.exhibition;
+package modi.backend.application.exhibition.list;
 
+import modi.backend.application.exhibition.ExhibitionCriteria;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;

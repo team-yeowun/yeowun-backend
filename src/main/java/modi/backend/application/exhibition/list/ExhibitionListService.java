@@ -1,5 +1,7 @@
-package modi.backend.application.exhibition;
+package modi.backend.application.exhibition.list;
 
+import modi.backend.application.exhibition.ExhibitionCriteria;
+import modi.backend.application.exhibition.ExhibitionResult;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;

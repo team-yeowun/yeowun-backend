@@ -1,5 +1,7 @@
-package modi.backend.application.exhibition;
+package modi.backend.application.exhibition.custom;
 
+import modi.backend.application.exhibition.ExhibitionCriteria;
+import modi.backend.application.exhibition.ExhibitionResult;
 import java.time.LocalDateTime;
 
 import org.slf4j.Logger;

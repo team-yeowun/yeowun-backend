@@ -1,5 +1,6 @@
-package modi.backend.application.exhibition;
+package modi.backend.application.exhibition.list;
 
+import modi.backend.application.exhibition.ExhibitionResult;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;

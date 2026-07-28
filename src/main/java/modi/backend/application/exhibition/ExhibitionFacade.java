@@ -4,6 +4,10 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
+import modi.backend.application.exhibition.custom.ExhibitionCustomService;
+import modi.backend.application.exhibition.detail.ExhibitionDetailService;
+import modi.backend.application.exhibition.list.ExhibitionBannerService;
+import modi.backend.application.exhibition.list.ExhibitionListService;
 import lombok.RequiredArgsConstructor;
 
 /**

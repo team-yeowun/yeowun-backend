@@ -1,5 +1,7 @@
-package modi.backend.application.exhibition;
+package modi.backend.application.exhibition.detail;
 
+import modi.backend.application.exhibition.ExhibitionCriteria;
+import modi.backend.application.exhibition.ExhibitionResult;
 import java.util.List;
 
 import org.springframework.stereotype.Service;

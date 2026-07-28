@@ -1,6 +1,7 @@
-package modi.backend.application.exhibition;
+package modi.backend.application.exhibition.detail;
 
 
+import modi.backend.application.exhibition.ExhibitionCriteria;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
