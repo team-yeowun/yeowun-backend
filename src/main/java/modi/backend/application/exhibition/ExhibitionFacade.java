@@ -327,6 +327,11 @@ public class ExhibitionFacade {
 		if (date != null) {
 			return date;
 		}
+		// "지금 볼 수 있는 전시"를 뜻하는 섹션(곧 끝남·무료)은 진행 중 조건을 함께 건다 —
+		// 그렇지 않으면 아직 시작도 안 한 전시가 "5일 후 종료"로, 이미 끝난 전시가 "무료로 볼 수 있는"으로 노출된다.
+		if (section != null && section.requiresOngoing()) {
+			return today;
+		}
 		boolean noOtherFilter = (keyword == null || keyword.isBlank()) && regions.isEmpty()
 				&& categories.isEmpty() && section == null;
 		return noOtherFilter ? today : null;

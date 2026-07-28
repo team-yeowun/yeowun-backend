@@ -18,6 +18,17 @@ public enum ExhibitionSection {
 	OPENING_THIS_MONTH,
 	FREE;
 
+	/**
+	 * 이 섹션이 <b>"지금 볼 수 있는 전시"</b>를 뜻하는가 — 진행 중(오늘) 조건을 함께 걸어야 하는지.
+	 *
+	 * <p>{@link #ENDING_SOON}("곧 끝나기 전에 봐야 할")과 {@link #FREE}("무료로 볼 수 있는")는 <b>지금 관람 가능</b>이 전제다.
+	 * 아직 시작하지 않았거나 이미 끝난 전시가 섞이면 섹션의 약속이 깨진다.
+	 * {@link #OPENING_THIS_MONTH}("이번 달 새로 열리는")만은 <b>앞으로 열릴 전시를 보여주는 것이 목적</b>이라 제외한다.
+	 */
+	public boolean requiresOngoing() {
+		return this == ENDING_SOON || this == FREE;
+	}
+
 	/** 클라이언트가 보낸 섹션 코드(ending-soon 등) → enum. 미정의 코드는 {@link ErrorType#INVALID_INPUT}. */
 	public static ExhibitionSection from(String code) {
 		if (code == null || code.isBlank()) {
