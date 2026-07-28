@@ -77,6 +77,14 @@ final class ExhibitionSpecifications {
 					cb.greaterThanOrEqualTo(root.get("endDate"), query.ongoingOn())));
 		}
 
+		// notEndedOn: 아직 끝나지 않은 전시만(시작일은 보지 않는다 — 아직 열지 않은 전시는 포함).
+		// 검색 전용 조건이다: 이름으로 찾을 땐 다음 달 개막 전시도 찾되, 이미 끝난 전시는 내보내지 않는다.
+		if (query.notEndedOn() != null) {
+			predicates.add(cb.or(
+					cb.isNull(root.get("endDate")),
+					cb.greaterThanOrEqualTo(root.get("endDate"), query.notEndedOn())));
+		}
+
 		// region: 전시가 아니라 전시장의 속성으로 이동 → exhibition_place 서브쿼리로 필터한다.
 		if (query.regions() != null && !query.regions().isEmpty()) {
 			Subquery<Long> regionSub = cq.subquery(Long.class);
@@ -130,15 +138,15 @@ final class ExhibitionSpecifications {
 		}
 		String key = query.cursorKey();
 		return switch (query.sort()) {
-			case "ending" -> endingBoundary(root, cb, key, id);
-			case "popular" -> {
+			case ENDING -> endingBoundary(root, cb, key, id);
+			case POPULAR -> {
 				long viewCount = Long.parseLong(key);
 				yield cb.or(
 						cb.lessThan(root.<Long>get("ourViewCount"), viewCount),
 						cb.and(cb.equal(root.get("ourViewCount"), viewCount),
 								cb.lessThan(root.<Long>get("id"), id)));
 			}
-			// latest(기본): startDate desc nulls last, id desc
+			// latest(기본): startDate desc nulls last, id desc. distance는 DB 정렬이 아니라 커서 경계도 없다.
 			default -> latestBoundary(root, cb, key, id);
 		};
 	}

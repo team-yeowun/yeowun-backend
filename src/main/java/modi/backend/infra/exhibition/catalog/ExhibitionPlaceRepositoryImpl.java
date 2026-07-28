@@ -36,7 +36,7 @@ public class ExhibitionPlaceRepositoryImpl implements ExhibitionPlaceRepository 
 
 	@Override
 	public Optional<ExhibitionPlace> findById(Long id) {
-		return jpaRepository.findById(id).filter(p -> p.getDeletedAt() == null);
+		return jpaRepository.findByIdAndDeletedAtIsNull(id);
 	}
 
 	@Override
@@ -64,9 +64,7 @@ public class ExhibitionPlaceRepositoryImpl implements ExhibitionPlaceRepository 
 		if (ids == null || ids.isEmpty()) {
 			return List.of();
 		}
-		return jpaRepository.findAllById(ids).stream()
-				.filter(p -> p.getDeletedAt() == null)
-				.toList();
+		return jpaRepository.findByIdInAndDeletedAtIsNull(ids);
 	}
 
 	// ── 영업시간 정준행(1:1) ─────────────────────────────────────────────────────

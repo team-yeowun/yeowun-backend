@@ -1,10 +1,15 @@
 package modi.backend.infra.exhibition.catalog;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import lombok.RequiredArgsConstructor;
@@ -37,7 +42,7 @@ public class ExhibitionRepositoryImpl implements ExhibitionRepository {
 
 	@Override
 	public Optional<Exhibition> findById(Long id) {
-		return jpaRepository.findById(id).filter(exhibition -> exhibition.getDeletedAt() == null);
+		return jpaRepository.findByIdAndDeletedAtIsNull(id);
 	}
 
 	@Override
@@ -50,9 +55,7 @@ public class ExhibitionRepositoryImpl implements ExhibitionRepository {
 		if (ids == null || ids.isEmpty()) {
 			return List.of();
 		}
-		return jpaRepository.findAllById(ids).stream()
-				.filter(exhibition -> exhibition.getDeletedAt() == null)
-				.toList();
+		return jpaRepository.findByIdInAndDeletedAtIsNull(ids);
 	}
 
 	// ── 상세 satellite(1:1) ─────────────────────────────────────────────────────
@@ -82,6 +85,51 @@ public class ExhibitionRepositoryImpl implements ExhibitionRepository {
 	@Override
 	public Optional<ExhibitionDetail> findDetail(Long exhibitionId) {
 		return detailJpaRepository.findByExhibitionId(exhibitionId);
+	}
+
+	@Override
+	public List<Exhibition> findActiveByIdsAndEndDateBetween(Collection<Long> ids, LocalDate from, LocalDate to) {
+		if (ids == null || ids.isEmpty()) {
+			return List.of();
+		}
+		return jpaRepository.findByIdInAndDeletedAtIsNullAndEndDateBetween(ids, from, to);
+	}
+
+	@Override
+	public long countActiveByIds(Collection<Long> ids) {
+		if (ids == null || ids.isEmpty()) {
+			return 0;
+		}
+		return jpaRepository.countByIdInAndDeletedAtIsNull(ids);
+	}
+
+	@Override
+	public List<Exhibition> findActiveByIdsOrderByEndDate(Collection<Long> ids, LocalDate cursorEndDate,
+			Long cursorId, int limit) {
+		if (ids == null || ids.isEmpty()) {
+			return List.of();
+		}
+		Pageable page = PageRequest.of(0, Math.max(1, limit));
+		if (cursorId == null) {
+			return jpaRepository.findActiveByIdsOrderByEndDate(ids, page);
+		}
+		if (cursorEndDate == null) {
+			// 커서가 nulls last 블록 안이다 — 종료일 미상 중 id가 더 큰 행만 남는다.
+			return jpaRepository.findActiveByIdsWithoutEndDateAfter(ids, cursorId, page);
+		}
+		return jpaRepository.findActiveByIdsOrderByEndDateAfter(ids, cursorEndDate, cursorId, page);
+	}
+
+	@Override
+	public Map<Long, String> findPricesByExhibitionIds(Collection<Long> exhibitionIds) {
+		if (exhibitionIds == null || exhibitionIds.isEmpty()) {
+			return Map.of();
+		}
+		Map<Long, String> prices = new HashMap<>();
+		for (Object[] row : detailJpaRepository.findPrices(exhibitionIds)) {
+			prices.put((Long) row[0], (String) row[1]);
+		}
+		return prices;
 	}
 
 	@Override

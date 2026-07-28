@@ -90,4 +90,15 @@ public class ExhibitionGenre {
 	public boolean isFallback() {
 		return GenreProvider.RANDOM.name().equals(this.provider);
 	}
+	/**
+	 * 응답에 실을 장르 키워드 목록. 미분류(행 없음·값 없음·공백)면 빈 목록이다 —
+	 * "장르가 무엇인가"의 판단은 도메인이 하고, 호출부는 결과만 받는다.
+	 */
+	public static java.util.List<String> keywordsOf(ExhibitionGenre genre) {
+		if (genre == null || genre.genreKeyword == null || genre.genreKeyword.isBlank()) {
+			return java.util.List.of();
+		}
+		return java.util.List.of(genre.genreKeyword);
+	}
+
 }
