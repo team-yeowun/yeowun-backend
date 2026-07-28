@@ -25,10 +25,20 @@ public class ExhibitionQueryRepositoryImpl implements ExhibitionQueryRepository 
 
 	private final ExhibitionJpaRepository jpaRepository;
 
+	/**
+	 * 키셋 한 페이지 — <b>count 없이</b> 목록만 가져온다.
+	 *
+	 * <p>예전엔 {@code findAll(spec, Pageable)}을 쓰고 {@code getContent()}만 꺼냈는데, 그 메서드는 {@code Page}를
+	 * 만들며 <b>총 건수 count를 함께 실행</b>한다(우리는 그 값을 버린다). Spring Data가 "첫 페이지이고 결과가
+	 * 페이지 크기보다 적으면" 생략해 주기 때문에 데이터가 적을 땐 보이지 않다가, <b>페이지가 꽉 차는 순간</b>
+	 * — 즉 다음 페이지가 있는 실사용에서 — 매 요청 count가 두 번 나갔다(하나는 여기, 하나는 totalCount용).
+	 *
+	 * <p>슬라이스에는 총 건수가 필요 없으므로 fluent query로 정렬·상한만 걸어 목록을 받는다.
+	 */
 	@Override
 	public List<Exhibition> searchSlice(ExhibitionQuery query, int limitPlusOne) {
-		return jpaRepository.findAll(ExhibitionSpecifications.slice(query),
-				PageRequest.of(0, limitPlusOne, sortFor(query.sort()))).getContent();
+		return jpaRepository.findBy(ExhibitionSpecifications.slice(query),
+				fluent -> fluent.sortBy(sortFor(query.sort())).limit(Math.max(1, limitPlusOne)).all());
 	}
 
 	@Override
