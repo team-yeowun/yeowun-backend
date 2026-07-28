@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.domain.exhibition.catalog.ExhibitionQuery;
 import modi.backend.domain.exhibition.catalog.ExhibitionQueryRepository;
+import modi.backend.domain.exhibition.catalog.ExhibitionSort;
 import modi.backend.domain.exhibition.catalog.ExhibitionType;
 
 /**
@@ -47,12 +48,14 @@ public class ExhibitionQueryRepositoryImpl implements ExhibitionQueryRepository 
 						ExhibitionType.CATALOG, onDate, onDate, PageRequest.of(0, Math.max(1, limit)));
 	}
 
-	/** sort 코드 → (정렬컬럼 nulls last, id) 결정적 정렬. 키셋 경계 조건과 순서가 일치해야 한다. */
-	private static Sort sortFor(String sort) {
-		return switch (sort == null ? "latest" : sort) {
-			case "ending" -> Sort.by(Sort.Order.asc("endDate"), Sort.Order.asc("id"));
-			case "popular" -> Sort.by(Sort.Order.desc("ourViewCount"), Sort.Order.desc("id"));
-			default -> Sort.by(Sort.Order.desc("startDate"), Sort.Order.desc("id"));
-		};
+	/**
+	 * 정렬 축 → (정렬컬럼, id) 결정적 정렬. 컬럼·방향은 {@link ExhibitionSort}가 들고 있어
+	 * 키셋 경계(Specification)와 <b>같은 출처</b>를 본다 — 둘이 어긋나면 행이 누락·중복된다.
+	 */
+	private static Sort sortFor(ExhibitionSort sort) {
+		ExhibitionSort resolved = sort == null || !sort.sortedByDatabase() ? ExhibitionSort.LATEST : sort;
+		return resolved.ascending()
+				? Sort.by(Sort.Order.asc(resolved.property()), Sort.Order.asc("id"))
+				: Sort.by(Sort.Order.desc(resolved.property()), Sort.Order.desc("id"));
 	}
 }

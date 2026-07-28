@@ -10,7 +10,10 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -50,6 +53,10 @@ public class ExhibitionDetail {
 	@Column(name = "synced_at", nullable = false)
 	private LocalDateTime syncedAt;
 
+	/** 조회 전용 센티넬 표식 — 영속 컬럼이 아니다. */
+	@Transient
+	private boolean sentinel;
+
 	private ExhibitionDetail(Long exhibitionId, String price, String description, String imgUrl,
 			LocalDateTime syncedAt) {
 		this.exhibitionId = exhibitionId;
@@ -57,6 +64,17 @@ public class ExhibitionDetail {
 		this.description = description;
 		this.imgUrl = imgUrl;
 		this.syncedAt = syncedAt;
+	}
+
+	/**
+	 * <b>빈 상세</b>(조회 전용). 상세는 수집이 나중에 채우므로 <b>정말로 없을 수 있다</b>(ADR-03 — 부재는 연관의 부재).
+	 * 그 결측을 여기서 한 번 흡수해, 호출부가 값마다 null을 확인하지 않게 한다.
+	 * <b>저장할 수 없다</b> — 영속화 시점에 막는다.
+	 */
+	public static ExhibitionDetail empty() {
+		ExhibitionDetail detail = new ExhibitionDetail();
+		detail.sentinel = true;
+		return detail;
 	}
 
 	/** 상세 값을 받아 행을 만든다(동기화 완료). */
@@ -103,4 +121,13 @@ public class ExhibitionDetail {
 	public boolean isFree() {
 		return Exhibition.isFree(this.price);
 	}
+	/** 빈 상세는 조회용이라 저장하면 유령 행이 된다 — 영속화 시점에 막는다. */
+	@PrePersist
+	@PreUpdate
+	private void guardSentinel() {
+		if (sentinel) {
+			throw new IllegalStateException("빈 상세는 저장할 수 없습니다(조회 전용).");
+		}
+	}
+
 }

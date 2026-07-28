@@ -11,7 +11,10 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -76,6 +79,10 @@ public class PlaceHours {
 	@Column(name = "next_attempt_at")
 	private LocalDateTime nextAttemptAt;
 
+	/** 조회 전용 센티넬 표식 — 영속 컬럼이 아니다. */
+	@Transient
+	private boolean sentinel;
+
 	private PlaceHours(Long exhibitionPlaceId, String formatted, PlaceHoursStatus status, PlaceHoursVendor provider,
 			LocalDateTime syncedAt) {
 		this.exhibitionPlaceId = exhibitionPlaceId;
@@ -84,6 +91,16 @@ public class PlaceHours {
 		this.provider = provider;
 		this.attemptCount = 1;
 		this.syncedAt = syncedAt;
+	}
+
+	/**
+	 * <b>빈 영업시간</b>(조회 전용). 영업시간은 신규 전시장 1회 조회로 채워지므로 아직 없을 수 있다.
+	 * 결측을 여기서 흡수해 호출부가 null을 확인하지 않게 한다. <b>저장할 수 없다</b>.
+	 */
+	public static PlaceHours empty() {
+		PlaceHours hours = new PlaceHours();
+		hours.sentinel = true;
+		return hours;
 	}
 
 	/** 조회 결과로 장소 행을 처음 만든다. */
@@ -123,4 +140,13 @@ public class PlaceHours {
 	public boolean isMock() {
 		return this.provider == PlaceHoursVendor.MOCK;
 	}
+	/** 빈 영업시간은 조회용이라 저장하면 유령 행이 된다 — 영속화 시점에 막는다. */
+	@PrePersist
+	@PreUpdate
+	private void guardSentinel() {
+		if (sentinel) {
+			throw new IllegalStateException("빈 영업시간은 저장할 수 없습니다(조회 전용).");
+		}
+	}
+
 }

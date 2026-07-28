@@ -108,16 +108,11 @@ public class NotificationFacade {
 			return;
 		}
 		LocalDate today = LocalDate.now(AppTime.KST);
-		// 배치 조회 — soft-delete된 전시는 여기서 걸러진다.
-		for (Exhibition exhibition : exhibitionRepository.findAllActiveByIds(bookmarkedIds)) {
-			LocalDate endDate = exhibition.getEndDate();
-			if (endDate == null) {
-				continue; // 종료일 미상 전시는 판정 불가 → 스킵
-			}
-			long daysLeft = ChronoUnit.DAYS.between(today, endDate);
-			if (daysLeft < 0 || daysLeft > EXHIBITION_ENDING_WINDOW_DAYS) {
-				continue;
-			}
+		// 종료임박(오늘~+N일) 선별을 WHERE로 내린다 — 예전엔 북마크 전량을 읽어 앱에서 D-day를 쟀다.
+		// 종료일이 null인 전시는 BETWEEN에 걸리지 않아 자연히 빠진다(판정 불가 = 알림 없음, 기존 동작 동일).
+		for (Exhibition exhibition : exhibitionRepository.findActiveByIdsAndEndDateBetween(
+				bookmarkedIds, today, today.plusDays(EXHIBITION_ENDING_WINDOW_DAYS))) {
+			long daysLeft = ChronoUnit.DAYS.between(today, exhibition.getEndDate());
 			if (notificationRepository.existsByUserIdAndTypeAndTargetId(
 					userId, NotificationType.EXHIBITION, exhibition.getId())) {
 				continue;

@@ -8,6 +8,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -62,6 +63,10 @@ public class ExhibitionPlace extends BaseEntity {
 	@Column(name = "place_url", length = 2048)
 	private String placeUrl;
 
+	/** 조회 전용 센티넬 표식 — 영속 컬럼이 아니다. */
+	@Transient
+	private boolean sentinel;
+
 	private ExhibitionPlace(String name, ExhibitionRegion region, String sigungu, Double gpsX, Double gpsY) {
 		this.placeKey = PlaceKey.of(name);
 		this.name = normalizedName(name);
@@ -69,6 +74,19 @@ public class ExhibitionPlace extends BaseEntity {
 		this.sigungu = sigungu;
 		this.gpsX = gpsX;
 		this.gpsY = gpsY;
+	}
+
+	/**
+	 * <b>장소 미상 센티넬</b>(조회 전용). 전시장은 {@code exhibition_place_id NOT NULL}이라 실제로는 늘 존재하지만,
+	 * 조회가 행을 못 찾는 경계(데이터 파손 등)에서 호출부가 <b>필드마다 null을 확인하지 않도록</b> 빈 전시장을 준다.
+	 *
+	 * <p>이름 없는 전시장을 {@link PlaceKey#UNKNOWN}으로 수렴시키는 기존 규칙의 객체판이다.
+	 * <b>저장할 수 없다</b> — {@link #guard()}가 영속화 시점에 막는다.
+	 */
+	public static ExhibitionPlace unknown() {
+		ExhibitionPlace place = new ExhibitionPlace();
+		place.sentinel = true;
+		return place;
 	}
 
 	/** 목록 소스로 전시장을 신설한다(resolve-or-create의 create). 자연키는 정규화 이름이라 같은 이름은 하나로 수렴한다. */
@@ -113,4 +131,12 @@ public class ExhibitionPlace extends BaseEntity {
 		String key = PlaceKey.of(name);
 		return key;
 	}
+	/** 센티넬은 조회용이라 저장하면 유령 행이 된다 — 영속화 시점에 막는다. */
+	@Override
+	protected void guard() {
+		if (sentinel) {
+			throw new IllegalStateException("장소 미상 센티넬은 저장할 수 없습니다(조회 전용).");
+		}
+	}
+
 }
