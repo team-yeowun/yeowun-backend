@@ -33,11 +33,13 @@
 | 계층 | 한다 | ❌ |
 |---|---|---|
 | Interface | HTTP 입출력, Request↔Criteria·Result↔Response 변환, 인증 진입 | 비즈니스 로직 · Entity 직접 반환 · 도메인 규칙 판단 |
-| Application(Facade) | 유스케이스 조율, 여러 도메인 Repo 조합 호출, 트랜잭션 경계, DTO 변환 | Entity 상태 직접 변경 · 도메인 규칙 판단 · Request/Response 취급 · 순환참조 |
+| Application(Facade/Service) | 유스케이스 조율, 여러 도메인 Repo 조합 호출, 트랜잭션 경계, DTO 변환 | Entity 상태 직접 변경 · 도메인 규칙 판단 · Request/Response 취급 · 순환참조 |
 | Domain | Entity=상태+단일 애그리거트 규칙+행위 / DomainService=여러 애그리거트 규칙 | 다른 도메인 Repo 직접 호출 · 인프라·HTTP 의존(getStatus만 예외) |
 | Infrastructure | Repo 구현, JPA/QueryDSL 영속화 | 비즈니스 로직 |
 
-- Facade에 Repo 5개+ 주입 = 비대 신호 → 분리 / DomainService 위임.
+- Facade에 Repo 5개+ 주입 = 비대 신호 → **책임별 `XxxService`로 분리하고 Facade는 그것들을 DI해 조율**한다.
+- **IMPORTANT: interfaces는 Facade만 호출한다.** Service는 Facade 뒤에 숨는다(컨트롤러가 Service 직주입 ❌).
+- Service 하나 = 응집된 유스케이스 묶음(예: 조회 / 개인 등록·삭제). Service→Service 호출 ❌ — 조합은 Facade가 한다.
 - 여러 애그리거트 걸친 규칙 = `domain/{d}/XxxDomainService`에 둔다. Facade는 호출만, 규칙 판단 ❌.
 
 ## 도메인 간 참조
@@ -110,7 +112,7 @@ ApiResponse.failValidation(code, message, fieldErrors)
 | Domain (Entity/VO/DomainService) | 순수 단위 (컨텍스트 X) |
 | Controller | @WebMvcTest |
 | Repository | @DataJpaTest |
-| Facade 유스케이스 | @SpringBootTest |
+| Facade·Service 유스케이스 | @SpringBootTest |
 
 given-when-then. 네이밍 `메서드_조건_기대` 또는 한글 @DisplayName. 단위로 충분한데 @SpringBootTest ❌.
 외부 I/O(OAuth HTTP 등)가 끼는 Facade는 의존 모킹한 Mockito 단위로 대체 가능(실연동은 통합 플로우 테스트로).
@@ -120,8 +122,9 @@ given-when-then. 네이밍 `메서드_조건_기대` 또는 한글 @DisplayName.
 |---|---|---|
 | 요청/응답 DTO | interfaces | `{Domain}Dto`(외곽) 안에 중첩 record `XxxRequest`/`XxxResponse` |
 | 유스케이스 입력/출력 | application | `{Domain}Criteria`/`{Domain}Result`(외곽) 안에 중첩 record(용도명) |
-| 유스케이스 조율 | application | `XxxFacade` |
-| 도메인 간 규칙 | domain | `XxxService` |
+| 유스케이스 진입점(조율) | application | `XxxFacade` |
+| 유스케이스 책임 단위 | application | `XxxService` |
+| 여러 애그리거트 규칙 | domain | `XxxDomainService` |
 | 도메인 모델(=DAO) / 값 객체 | domain | `Xxx`(Entity) / `Xxx`(record) |
 | 포트 / Spring Data / 어댑터 | domain·infra | `XxxRepository` / `XxxJpaRepository` / `XxxRepositoryImpl` |
 | 컨트롤러 / Swagger 스펙 | interfaces | `XxxV1Controller`·`AdminXxxV1Controller` / `XxxV1ApiSpec` |
