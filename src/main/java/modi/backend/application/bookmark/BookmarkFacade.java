@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
 import modi.backend.application.exhibition.ExhibitionResult;
+import modi.backend.domain.bookmark.BookmarkSort;
 import modi.backend.domain.bookmark.ExhibitionBookmarkRepository;
 import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.domain.exhibition.catalog.ExhibitionErrorCode;
@@ -60,12 +61,12 @@ public class BookmarkFacade {
 	@Transactional(readOnly = true)
 	public BookmarkResult.ListPage list(BookmarkCriteria.List criteria) {
 		LocalDate today = LocalDate.now(AppTime.KST);
-		String sort = canonicalSort(criteria.sort());
+		BookmarkSort sort = BookmarkSort.from(criteria.sort());
 		int size = clampSize(criteria.size());
-		Cursor cursor = Cursor.decode(criteria.cursor(), sort).orElse(null);
+		Cursor cursor = Cursor.decode(criteria.cursor(), sort.code()).orElse(null);
 		Long cursorId = cursor == null ? null : cursor.lastId();
 
-		List<Exhibition> rows = "ending".equals(sort)
+		List<Exhibition> rows = sort.sortedByExhibitionColumn()
 				? endingPage(criteria.userId(), cursor, cursorId, size + 1)
 				: registeredPage(criteria.userId(), cursorId, size + 1);
 		boolean hasNext = rows.size() > size;
@@ -126,23 +127,18 @@ public class BookmarkFacade {
 				.toList();
 	}
 
-	private static String encodeCursor(String sort, Exhibition last) {
-		String key = "ending".equals(sort) && last.getEndDate() != null ? last.getEndDate().toString() : null;
-		return Cursor.of(sort, key, last.getId()).encode();
+	/** 종료임박순만 정렬 값(종료일)을 커서에 싣는다. 등록순은 북마크 쪽 순서라 id만으로 충분하다. */
+	private static String encodeCursor(BookmarkSort sort, Exhibition last) {
+		String key = sort.sortedByExhibitionColumn() && last.getEndDate() != null
+				? last.getEndDate().toString()
+				: null;
+		return Cursor.of(sort.code(), key, last.getId()).encode();
 	}
 
 	private void ensureExhibitionExists(Long exhibitionId) {
 		if (exhibitionRepository.findById(exhibitionId).isEmpty()) {
 			throw new CoreException(ExhibitionErrorCode.EXHIBITION_NOT_FOUND);
 		}
-	}
-
-	/** sort 코드 → 정규화(latest 기본). 미정의 값은 latest로 취급(커서 정렬 판별자도 이 값으로 통일). */
-	private static String canonicalSort(String sort) {
-		if (sort == null) {
-			return "latest";
-		}
-		return "ending".equalsIgnoreCase(sort.trim()) ? "ending" : "latest";
 	}
 
 	private static int clampSize(Integer size) {

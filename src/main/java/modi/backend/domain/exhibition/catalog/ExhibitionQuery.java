@@ -16,7 +16,7 @@ import java.util.List;
  * @param section     섹션 필터(null이면 미적용). ending-soon/opening-this-month는 {@code sectionFrom~sectionTo} 창을 함께 쓴다.
  * @param sectionFrom 섹션 날짜창 시작(section이 날짜기반일 때만, 아니면 null)
  * @param sectionTo   섹션 날짜창 끝(section이 날짜기반일 때만, 아니면 null)
- * @param sort        정렬 판별자(latest|ending|popular|distance). 키셋 정렬/커서 경계 판단에 사용.
+ * @param sort        정렬 축. 키셋 ORDER BY와 커서 경계가 이 하나를 함께 본다.
  * @param cursorKey   커서 정렬값(문자열 표현, 날짜/조회수 등). null이면 정렬 컬럼값이 null인 경계이거나 커서 없음.
  * @param cursorId    커서 마지막 id(최종 타이브레이커). null이면 커서 없음(첫 페이지).
  * @param requesterId 요청자 id — CUSTOM 노출 판단용. null이면 CATALOG만 노출한다.
@@ -30,14 +30,14 @@ public record ExhibitionQuery(
 		ExhibitionSection section,
 		LocalDate sectionFrom,
 		LocalDate sectionTo,
-		String sort,
+		ExhibitionSort sort,
 		String cursorKey,
 		Long cursorId,
 		Long requesterId) {
 
 	/** 필터 없는 전체 조회(부팅 시더 프로브 등 내부용). */
 	public static ExhibitionQuery unfiltered() {
-		return new ExhibitionQuery(null, null, null, List.of(), List.of(), null, null, null, "latest", null, null,
-				null);
+		return new ExhibitionQuery(null, null, null, List.of(), List.of(), null, null, null, ExhibitionSort.LATEST,
+				null, null, null);
 	}
 }

@@ -138,15 +138,15 @@ final class ExhibitionSpecifications {
 		}
 		String key = query.cursorKey();
 		return switch (query.sort()) {
-			case "ending" -> endingBoundary(root, cb, key, id);
-			case "popular" -> {
+			case ENDING -> endingBoundary(root, cb, key, id);
+			case POPULAR -> {
 				long viewCount = Long.parseLong(key);
 				yield cb.or(
 						cb.lessThan(root.<Long>get("ourViewCount"), viewCount),
 						cb.and(cb.equal(root.get("ourViewCount"), viewCount),
 								cb.lessThan(root.<Long>get("id"), id)));
 			}
-			// latest(기본): startDate desc nulls last, id desc
+			// latest(기본): startDate desc nulls last, id desc. distance는 DB 정렬이 아니라 커서 경계도 없다.
 			default -> latestBoundary(root, cb, key, id);
 		};
 	}

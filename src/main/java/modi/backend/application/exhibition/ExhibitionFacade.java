@@ -34,6 +34,7 @@ import modi.backend.domain.exhibition.catalog.ExhibitionRegion;
 import modi.backend.domain.exhibition.catalog.ExhibitionRegionGroup;
 import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
 import modi.backend.domain.exhibition.catalog.ExhibitionSection;
+import modi.backend.domain.exhibition.catalog.ExhibitionSort;
 import modi.backend.domain.exhibition.genre.GenreClassification;
 import modi.backend.domain.exhibition.genre.GenreClassificationRequest;
 import modi.backend.domain.exhibition.genre.GenreInstruction;
@@ -77,7 +78,7 @@ public class ExhibitionFacade {
 	private final ExhibitionQueryRepository exhibitionQueryRepository;
 	/** 전시장 애그리거트 루트(N:1 공유) — resolve-or-create와 영업시간 정준행(1:1)의 단일 진입점(ADR-05·06·07). */
 	private final ExhibitionPlaceRepository exhibitionPlaceRepository;
-	/** 작가(정규화 이름 UK, 독립 애그리거트) — CUSTOM 등록의 artist 문자열을 resolve-or-create해 조인으로 잇는다. */
+	/** 작가(정규화 이름 UK, 독립 애그리거트) — CUST OM 등록의 artist 문자열을 resolve-or-create해 조인으로 잇는다. */
 	private final ArtistRepository artistRepository;
 	/** 상세 지연 수집(최초 상세 진입 1회)용 — 배치 동기화가 아니라 사용자 경로의 캐시 채움이다. */
 	private final ExhibitionBookmarkRepository exhibitionBookmarkRepository;
@@ -101,18 +102,18 @@ public class ExhibitionFacade {
 		List<ExhibitionRegion> regions = parseRegions(criteria.region());
 		List<ExhibitionCategory> categories = parseCategories(criteria.category());
 		ExhibitionSection section = ExhibitionSection.from(criteria.section());
-		String sort = canonicalSort(criteria.sort());
+		ExhibitionSort sort = ExhibitionSort.from(criteria.sort());
 		int size = clampSize(criteria.size());
 		LocalDate ongoingOn = resolveOngoingOn(criteria.date(), keyword, section, today);
 		LocalDate notEndedOn = resolveNotEndedOn(ongoingOn, keyword, today);
 
-		if ("distance".equals(sort)) {
+		if (sort == ExhibitionSort.DISTANCE) {
 			return searchByDistance(criteria, today, size,
 					buildQuery(keyword, ongoingOn, notEndedOn, regions, categories, section, today,
-							criteria.period(), "distance", null, null, criteria.requesterId()));
+							criteria.period(), sort, null, null, criteria.requesterId()));
 		}
 
-		Cursor cursor = Cursor.decode(criteria.cursor(), sort).orElse(null);
+		Cursor cursor = Cursor.decode(criteria.cursor(), sort.code()).orElse(null);
 		String cursorKey = cursor == null ? null : cursor.key();
 		Long cursorId = cursor == null ? null : cursor.lastId();
 		ExhibitionQuery query = buildQuery(keyword, ongoingOn, notEndedOn, regions, categories, section, today,
@@ -178,7 +179,7 @@ public class ExhibitionFacade {
 				.sorted(distanceComparator(placesById, lat, lng))
 				.toList();
 
-		Cursor cursor = Cursor.decode(criteria.cursor(), "distance").orElse(null);
+		Cursor cursor = Cursor.decode(criteria.cursor(), ExhibitionSort.DISTANCE.code()).orElse(null);
 		int start = cursor == null ? 0 : nextIndexAfter(ordered, cursor.lastId());
 		int end = Math.min(start + size, ordered.size());
 		List<Exhibition> page = start >= ordered.size() ? List.of() : ordered.subList(start, end);
@@ -188,7 +189,7 @@ public class ExhibitionFacade {
 		String nextCursor = null;
 		if (hasNext) {
 			Exhibition last = page.get(page.size() - 1);
-			nextCursor = Cursor.of("distance",
+			nextCursor = Cursor.of(ExhibitionSort.DISTANCE.code(),
 					String.valueOf(distanceSq(placesById.get(last.getExhibitionPlaceId()), lat, lng)), last.getId())
 					.encode();
 		}
@@ -359,7 +360,7 @@ public class ExhibitionFacade {
 
 	private ExhibitionQuery buildQuery(String keyword, LocalDate ongoingOn, LocalDate notEndedOn,
 			List<ExhibitionRegion> regions, List<ExhibitionCategory> categories, ExhibitionSection section,
-			LocalDate today, String period, String sort, String cursorKey, Long cursorId, Long requesterId) {
+			LocalDate today, String period, ExhibitionSort sort, String cursorKey, Long cursorId, Long requesterId) {
 		LocalDate from = null;
 		LocalDate to = null;
 		if (section == ExhibitionSection.ENDING_SOON) {
@@ -386,13 +387,8 @@ public class ExhibitionFacade {
 		return exhibitionBookmarkRepository.findBookmarkedExhibitionIds(requesterId, ids);
 	}
 
-	private static String encodeCursor(String sort, Exhibition last) {
-		String key = switch (sort) {
-			case "ending" -> last.getEndDate() == null ? null : last.getEndDate().toString();
-			case "popular" -> String.valueOf(last.getOurViewCount());
-			default -> last.getStartDate() == null ? null : last.getStartDate().toString();
-		};
-		return Cursor.of(sort, key, last.getId()).encode();
+	private static String encodeCursor(ExhibitionSort sort, Exhibition last) {
+		return Cursor.of(sort.code(), sort.cursorKeyOf(last), last.getId()).encode();
 	}
 
 	private static Comparator<Exhibition> distanceComparator(Map<Long, ExhibitionPlace> placesById, double lat,
@@ -448,18 +444,6 @@ public class ExhibitionFacade {
 		}
 		return Arrays.stream(raw.split(",")).map(String::trim).filter(s -> !s.isEmpty())
 				.map(ExhibitionCategory::from).toList();
-	}
-
-	private static String canonicalSort(String sort) {
-		if (sort == null) {
-			return "latest";
-		}
-		return switch (sort.trim().toLowerCase()) {
-			case "ending" -> "ending";
-			case "popular" -> "popular";
-			case "distance" -> "distance";
-			default -> "latest";
-		};
 	}
 
 	private static int clampSize(Integer size) {
