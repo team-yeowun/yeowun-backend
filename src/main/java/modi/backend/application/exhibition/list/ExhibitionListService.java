@@ -58,7 +58,7 @@ public class ExhibitionListService {
 
 		Cursor cursor = Cursor.decode(criteria.cursor(), sort.code()).orElse(null);
 		ExhibitionQuery query = queryFactory.create(criteria, sort, today,
-				cursor == null ? null : cursor.key(), cursor == null ? null : cursor.lastId());
+				Cursor.keyOf(cursor), Cursor.lastIdOf(cursor));
 
 		// size+1을 읽어 다음 페이지 존재를 판정한다(여분 1건은 응답에서 잘라낸다).
 		List<Exhibition> rows = exhibitionQueryRepository.searchSlice(query, size + 1);
@@ -88,21 +88,21 @@ public class ExhibitionListService {
 		Map<Long, ExhibitionPlace> placesById = listAssembler.placesById(candidates);
 		List<Exhibition> ordered = candidates.stream().sorted(distanceComparator(placesById, lat, lng)).toList();
 
+		// 앱이 세운 목록이라 커서 슬라이스도 앱에서 한다 — 그 절차는 Cursor가 안다.
 		Cursor cursor = Cursor.decode(criteria.cursor(), ExhibitionSort.DISTANCE.code()).orElse(null);
-		int start = cursor == null ? 0 : nextIndexAfter(ordered, cursor.lastId());
-		int end = Math.min(start + size, ordered.size());
-		List<Exhibition> page = start >= ordered.size() ? List.of() : ordered.subList(start, end);
-		boolean hasNext = end < ordered.size();
+		Cursor.Page<Exhibition> sliced = Cursor.slice(cursor, ordered, size, Exhibition::getId);
 
-		List<ExhibitionResult.ListItem> content = listAssembler.assemble(page, today, criteria.requesterId());
-		String nextCursor = null;
-		if (hasNext) {
-			Exhibition last = page.get(page.size() - 1);
-			nextCursor = Cursor.of(ExhibitionSort.DISTANCE.code(),
-					String.valueOf(distanceSq(placesById.get(last.getExhibitionPlaceId()), lat, lng)), last.getId())
-					.encode();
-		}
-		return new ExhibitionResult.ListPage(content, nextCursor, hasNext, ordered.size());
+		List<ExhibitionResult.ListItem> content = listAssembler.assemble(sliced.content(), today,
+				criteria.requesterId());
+
+		// 거리순 커서 값은 좌표에서 계산한 거리라 정렬 축이 아니라 이 경로만 안다.
+		String nextCursor = sliced.hasNext()
+				? Cursor.of(ExhibitionSort.DISTANCE.code(),
+						String.valueOf(distanceSq(placesById.get(sliced.lastItem().getExhibitionPlaceId()), lat, lng)),
+						sliced.lastItem().getId()).encode()
+				: null;
+
+		return new ExhibitionResult.ListPage(content, nextCursor, sliced.hasNext(), ordered.size());
 	}
 
 	private static String encodeCursor(ExhibitionSort sort, Exhibition last) {
@@ -123,15 +123,6 @@ public class ExhibitionListService {
 		double dx = place.getGpsX() - lng;
 		double dy = place.getGpsY() - lat;
 		return dx * dx + dy * dy;
-	}
-
-	private static int nextIndexAfter(List<Exhibition> ordered, Long lastId) {
-		for (int i = 0; i < ordered.size(); i++) {
-			if (ordered.get(i).getId().equals(lastId)) {
-				return i + 1;
-			}
-		}
-		return 0;
 	}
 
 	private static int clampSize(Integer size) {

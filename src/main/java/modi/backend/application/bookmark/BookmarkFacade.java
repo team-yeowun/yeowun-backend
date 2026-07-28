@@ -64,7 +64,7 @@ public class BookmarkFacade {
 		BookmarkSort sort = BookmarkSort.from(criteria.sort());
 		int size = clampSize(criteria.size());
 		Cursor cursor = Cursor.decode(criteria.cursor(), sort.code()).orElse(null);
-		Long cursorId = cursor == null ? null : cursor.lastId();
+		Long cursorId = Cursor.lastIdOf(cursor);
 
 		List<Exhibition> rows = sort.sortedByExhibitionColumn()
 				? endingPage(criteria.userId(), cursor, cursorId, size + 1)
@@ -103,7 +103,8 @@ public class BookmarkFacade {
 		if (allIds.isEmpty()) {
 			return List.of();
 		}
-		LocalDate cursorEndDate = cursor == null || cursor.key() == null ? null : LocalDate.parse(cursor.key());
+		String cursorKey = Cursor.keyOf(cursor);
+		LocalDate cursorEndDate = cursorKey == null ? null : LocalDate.parse(cursorKey);
 		return exhibitionRepository.findActiveByIdsOrderByEndDate(allIds, cursorEndDate, cursorId, limitPlusOne);
 	}
 
