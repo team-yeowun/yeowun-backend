@@ -125,7 +125,7 @@ class NotificationFacadeTest {
 		given(remindFacade.candidate(1L)).willReturn(null);
 		given(exhibitionBookmarkRepository.findActiveExhibitionIdsByUserIdOrderByRegisteredDesc(1L))
 				.willReturn(List.of(100L));
-		given(exhibitionRepository.findAllActiveByIds(List.of(100L)))
+		given(exhibitionRepository.findActiveByIdsAndEndDateBetween(List.of(100L), today, today.plusDays(3)))
 				.willReturn(List.of(exhibition(100L, "행복한 인생", today.plusDays(3))));
 		given(notificationRepository.existsByUserIdAndTypeAndTargetId(1L, NotificationType.EXHIBITION, 100L))
 				.willReturn(false);
@@ -147,7 +147,7 @@ class NotificationFacadeTest {
 		given(remindFacade.candidate(1L)).willReturn(null);
 		given(exhibitionBookmarkRepository.findActiveExhibitionIdsByUserIdOrderByRegisteredDesc(1L))
 				.willReturn(List.of(100L));
-		given(exhibitionRepository.findAllActiveByIds(List.of(100L)))
+		given(exhibitionRepository.findActiveByIdsAndEndDateBetween(List.of(100L), today, today.plusDays(3)))
 				.willReturn(List.of(exhibition(100L, "행복한 인생", today)));
 		given(notificationRepository.existsByUserIdAndTypeAndTargetId(1L, NotificationType.EXHIBITION, 100L))
 				.willReturn(false);
@@ -158,19 +158,18 @@ class NotificationFacadeTest {
 	}
 
 	@Test
-	@DisplayName("refresh — 종료까지 4일 이상 남거나, 이미 지났거나, 종료일이 없으면 만들지 않는다")
-	void refresh_exhibition_창밖_미생성() {
+	@DisplayName("refresh — 종료임박 선별을 조회 조건(오늘~+3일)으로 넘긴다")
+	void refresh_exhibition_창을_조회조건으로_넘긴다() {
 		LocalDate today = LocalDate.now(AppTime.KST);
 		given(remindFacade.candidate(1L)).willReturn(null);
 		given(exhibitionBookmarkRepository.findActiveExhibitionIdsByUserIdOrderByRegisteredDesc(1L))
 				.willReturn(List.of(100L, 101L, 102L));
-		given(exhibitionRepository.findAllActiveByIds(List.of(100L, 101L, 102L))).willReturn(List.of(
-				exhibition(100L, "4일 남음", today.plusDays(4)),
-				exhibition(101L, "이미 종료", today.minusDays(1)),
-				exhibition(102L, "종료일 미상", null)));
 
 		facade.refresh(1L);
 
+		// 4일 남음·이미 종료·종료일 미상을 앱에서 거르지 않는다 — 창을 WHERE로 넘겨 대상만 읽는다.
+		verify(exhibitionRepository).findActiveByIdsAndEndDateBetween(
+				List.of(100L, 101L, 102L), today, today.plusDays(3));
 		verify(notificationRepository, never()).save(any());
 	}
 
@@ -181,7 +180,7 @@ class NotificationFacadeTest {
 		given(remindFacade.candidate(1L)).willReturn(null);
 		given(exhibitionBookmarkRepository.findActiveExhibitionIdsByUserIdOrderByRegisteredDesc(1L))
 				.willReturn(List.of(100L));
-		given(exhibitionRepository.findAllActiveByIds(List.of(100L)))
+		given(exhibitionRepository.findActiveByIdsAndEndDateBetween(List.of(100L), today, today.plusDays(3)))
 				.willReturn(List.of(exhibition(100L, "행복한 인생", today.plusDays(1))));
 		given(notificationRepository.existsByUserIdAndTypeAndTargetId(1L, NotificationType.EXHIBITION, 100L))
 				.willReturn(true);

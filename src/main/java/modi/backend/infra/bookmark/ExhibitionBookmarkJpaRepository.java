@@ -15,6 +15,9 @@ public interface ExhibitionBookmarkJpaRepository extends JpaRepository<Exhibitio
 	/** (user, exhibition) 한 쌍은 유니크 — 상태(활성/해제) 무관하게 단건 조회(멱등 토글용). */
 	Optional<ExhibitionBookmark> findByUserIdAndExhibitionId(Long userId, Long exhibitionId);
 
+	/** 활성 북마크 존재 여부 — 전 컬럼을 읽어 앱에서 판정하지 않는다. */
+	boolean existsByUserIdAndExhibitionIdAndDeletedAtIsNull(Long userId, Long exhibitionId);
+
 	long countByUserIdAndDeletedAtIsNull(Long userId);
 
 	@Query("select b.exhibitionId from ExhibitionBookmark b "

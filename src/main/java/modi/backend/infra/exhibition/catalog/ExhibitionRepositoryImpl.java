@@ -1,8 +1,11 @@
 package modi.backend.infra.exhibition.catalog;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
@@ -37,7 +40,7 @@ public class ExhibitionRepositoryImpl implements ExhibitionRepository {
 
 	@Override
 	public Optional<Exhibition> findById(Long id) {
-		return jpaRepository.findById(id).filter(exhibition -> exhibition.getDeletedAt() == null);
+		return jpaRepository.findByIdAndDeletedAtIsNull(id);
 	}
 
 	@Override
@@ -50,9 +53,7 @@ public class ExhibitionRepositoryImpl implements ExhibitionRepository {
 		if (ids == null || ids.isEmpty()) {
 			return List.of();
 		}
-		return jpaRepository.findAllById(ids).stream()
-				.filter(exhibition -> exhibition.getDeletedAt() == null)
-				.toList();
+		return jpaRepository.findByIdInAndDeletedAtIsNull(ids);
 	}
 
 	// ── 상세 satellite(1:1) ─────────────────────────────────────────────────────
@@ -82,6 +83,26 @@ public class ExhibitionRepositoryImpl implements ExhibitionRepository {
 	@Override
 	public Optional<ExhibitionDetail> findDetail(Long exhibitionId) {
 		return detailJpaRepository.findByExhibitionId(exhibitionId);
+	}
+
+	@Override
+	public List<Exhibition> findActiveByIdsAndEndDateBetween(Collection<Long> ids, LocalDate from, LocalDate to) {
+		if (ids == null || ids.isEmpty()) {
+			return List.of();
+		}
+		return jpaRepository.findByIdInAndDeletedAtIsNullAndEndDateBetween(ids, from, to);
+	}
+
+	@Override
+	public Map<Long, String> findPricesByExhibitionIds(Collection<Long> exhibitionIds) {
+		if (exhibitionIds == null || exhibitionIds.isEmpty()) {
+			return Map.of();
+		}
+		Map<Long, String> prices = new HashMap<>();
+		for (Object[] row : detailJpaRepository.findPrices(exhibitionIds)) {
+			prices.put((Long) row[0], (String) row[1]);
+		}
+		return prices;
 	}
 
 	@Override

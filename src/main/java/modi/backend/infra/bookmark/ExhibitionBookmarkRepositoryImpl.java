@@ -22,9 +22,7 @@ public class ExhibitionBookmarkRepositoryImpl implements ExhibitionBookmarkRepos
 
 	@Override
 	public boolean existsActive(Long userId, Long exhibitionId) {
-		return jpaRepository.findByUserIdAndExhibitionId(userId, exhibitionId)
-				.filter(ExhibitionBookmark::isActive)
-				.isPresent();
+		return jpaRepository.existsByUserIdAndExhibitionIdAndDeletedAtIsNull(userId, exhibitionId);
 	}
 
 	@Override

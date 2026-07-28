@@ -20,6 +20,16 @@ public interface ExhibitionJpaRepository
 	/** soft delete된 행은 제외하고 원천 식별자로 조회(동기화 upsert용). */
 	Optional<Exhibition> findByExternalIdAndDeletedAtIsNull(String externalId);
 
+	/** 단건 조회(살아있는 행만). 필터를 앱이 아니라 WHERE에 둬 인덱스에 태운다. */
+	Optional<Exhibition> findByIdAndDeletedAtIsNull(Long id);
+
+	/**
+	 * 주어진 id들 중 종료일이 {@code [from, to]} 구간인 살아있는 전시(북마크 종료임박 알림 선별용).
+	 * 예전엔 북마크 전량을 읽어 앱에서 D-day를 판정했다 — 선별을 WHERE로 내려 읽는 행 수를 대상만큼으로 줄인다.
+	 */
+	List<Exhibition> findByIdInAndDeletedAtIsNullAndEndDateBetween(java.util.Collection<Long> ids,
+			java.time.LocalDate from, java.time.LocalDate to);
+
 	/**
 	 * 홈 배너용 — 진행 중(startDate ≤ onDate ≤ endDate)인 CATALOG를 조회수 내림차순으로 페이지 크기만큼 조회(살아있는 행만).
 	 * 진행 중 조건은 두 날짜 파라미터에 동일한 오늘 값을 넘겨 표현한다.

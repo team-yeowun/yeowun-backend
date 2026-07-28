@@ -134,16 +134,12 @@ public class ExhibitionFacade {
 			return List.of();
 		}
 		Map<Long, ExhibitionPlace> placesById = placesByIdFor(page);
-		Map<Long, ExhibitionDetail> detailsByExhibitionId = exhibitionRepository
-				.findDetails(page.stream().map(Exhibition::getId).toList()).stream()
-				.collect(Collectors.toMap(ExhibitionDetail::getExhibitionId, d -> d, (a, b) -> a));
+		// 목록이 상세에서 쓰는 값은 가격 하나뿐이라 가격만 읽는다(description을 실어오지 않는다).
+		Map<Long, String> pricesById = exhibitionRepository
+				.findPricesByExhibitionIds(page.stream().map(Exhibition::getId).toList());
 		Set<Long> bookmarked = bookmarkedIds(requesterId, page);
-		return page.stream().map(e -> {
-			ExhibitionDetail detail = detailsByExhibitionId.get(e.getId());
-			boolean free = detail != null && detail.isFree();
-			return ExhibitionResult.ListItem.from(e, placesById.get(e.getExhibitionPlaceId()), today, free,
-					bookmarked.contains(e.getId()));
-		}).toList();
+		return page.stream().map(e -> ExhibitionResult.ListItem.from(e, placesById.get(e.getExhibitionPlaceId()),
+				today, Exhibition.isFree(pricesById.get(e.getId())), bookmarked.contains(e.getId()))).toList();
 	}
 
 	private Map<Long, ExhibitionPlace> placesByIdFor(List<Exhibition> exhibitions) {

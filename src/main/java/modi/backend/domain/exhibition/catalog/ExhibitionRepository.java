@@ -1,8 +1,10 @@
 package modi.backend.domain.exhibition.catalog;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import modi.backend.domain.exhibition.genre.GenreResult;
@@ -32,6 +34,12 @@ public interface ExhibitionRepository {
 	/** 살아있는 전시들을 id 집합으로 일괄 조회(관심 전시 목록의 벌크 로드용). 정렬·순서 보장 없음. 빈 입력이면 빈 목록. */
 	List<Exhibition> findAllActiveByIds(Collection<Long> ids);
 
+	/**
+	 * 주어진 id들 중 종료일이 {@code [from, to]} 구간인 살아있는 전시(종료임박 알림 선별용). 빈 입력이면 빈 목록.
+	 * 선별을 WHERE로 내려 "전량 읽고 앱에서 버리기"를 없앤다.
+	 */
+	List<Exhibition> findActiveByIdsAndEndDateBetween(Collection<Long> ids, LocalDate from, LocalDate to);
+
 	// ── 상세 satellite(1:1) — 연관 부재 = 미동기화(ADR-03) ─────────────────────────────
 
 	/** 상세 upsert — 없으면 생성, 있으면 갱신. {@code now}는 동기화 시각(재조회 판정 기준). */
@@ -47,6 +55,12 @@ public interface ExhibitionRepository {
 
 	/** 여러 전시의 상세를 일괄 조회(목록 조립 N+1 방지). 빈 입력이면 빈 목록. */
 	List<ExhibitionDetail> findDetails(Collection<Long> exhibitionIds);
+
+	/**
+	 * 여러 전시의 <b>가격만</b> 조회한다(목록의 free 배지용). 빈 입력이면 빈 맵.
+	 * 상세 엔티티를 통째로 읽으면 쓰지도 않는 {@code description}(평균 1KB+)까지 따라온다.
+	 */
+	Map<Long, String> findPricesByExhibitionIds(Collection<Long> exhibitionIds);
 
 	/** 설명이 있는 상세 전체(관리자 장르 재분류 입력용). */
 	List<ExhibitionDetail> findDetailsWithDescription();
