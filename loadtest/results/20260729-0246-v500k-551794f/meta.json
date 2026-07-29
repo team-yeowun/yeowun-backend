@@ -1,0 +1,13 @@
+{ "label": "v500k", "volume": 500174,
+  "git": { "sha": "551794f", "branch": "feat/search-history" },
+  "mysql": { "version": "8.4.10", "buffer_pool_mb": 128,
+             "flush_method": "O_DIRECT", "max_connections": 151 },
+  "hikari": { "maximum_pool_size": 50, "minimum_idle": 10 },
+  "k6": { "version": "k6 v1.6.1 (commit/devel, go1.26.0, darwin/arm64)", "vus": 2, "seed": 20260728 },
+  "host": { "cpu_cores": 8, "mem_bytes": 17179869184,
+            "docker_cpus": 2, "docker_mem": 8074129408 },
+  "rows": { "exhibitions": 500174,
+            "exhibition_place": 365942,
+            "exhibition_detail": 500174,
+            "exhibition_genre": 500174 },
+  "note": "r2는 중단으로 목표 표본의 약 82%만 채워짐(경로별 n을 표에 함께 기록)" }
