@@ -3,6 +3,7 @@ package modi.backend.interfaces.remind;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -62,5 +63,14 @@ public class RemindV1Controller implements RemindV1ApiSpec {
 			@Parameter(hidden = true) @Authentication LoginUser loginUser,
 			@PathVariable Long remindId) {
 		return ApiResponse.success(RemindDto.SummaryResponse.from(remindFacade.get(loginUser.userId(), remindId)));
+	}
+
+	@Override
+	@DeleteMapping("/{remindId}")
+	public ApiResponse<Object> delete(
+			@Parameter(hidden = true) @Authentication LoginUser loginUser,
+			@PathVariable Long remindId) {
+		remindFacade.delete(loginUser.userId(), remindId);
+		return ApiResponse.success();
 	}
 }

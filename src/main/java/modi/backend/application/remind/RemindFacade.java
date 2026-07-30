@@ -119,6 +119,18 @@ public class RemindFacade {
 		return toSummary(remind, afterEmotions, beforeContent, beforeEmotions);
 	}
 
+	/** 여운(리마인드) 삭제 — 소유자 검증 후 soft-delete. 원본 기록은 건드리지 않는다. */
+	@Transactional
+	public void delete(Long userId, Long remindId) {
+		Remind remind = remindRepository.findByIdAndDeletedAtIsNull(remindId)
+				.orElseThrow(() -> new CoreException(RemindErrorCode.REMIND_NOT_FOUND));
+		if (!Objects.equals(remind.getUserId(), userId)) {
+			throw new CoreException(RemindErrorCode.FORBIDDEN_REMIND);
+		}
+		remind.delete();
+		remindRepository.save(remind);
+	}
+
 	/** 아카이브 '리마인드' 목록(최신순). */
 	@Transactional(readOnly = true)
 	public Page<RemindResult.ListItem> list(Long userId, Pageable pageable) {
