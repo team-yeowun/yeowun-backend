@@ -44,4 +44,9 @@ public interface RemindV1ApiSpec {
 	ApiResponse<RemindDto.SummaryResponse> get(
 			@Parameter(hidden = true) LoginUser loginUser,
 			@Parameter(description = "리마인드 ID") Long remindId);
+
+	@Operation(summary = "리마인드(여운) 삭제", description = "내 여운 1건을 삭제한다(soft-delete). 원본 기록은 유지된다.")
+	ApiResponse<Object> delete(
+			@Parameter(hidden = true) LoginUser loginUser,
+			@Parameter(description = "리마인드 ID") Long remindId);
 }
