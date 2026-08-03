@@ -122,7 +122,7 @@ class AdminExhibitionEditHistoryTest {
 		Long placeId = modi.backend.domain.exhibition.catalog.ExhibitionTestFactory.placeId(
 				exhibitionPlaceRepository, place, ExhibitionRegion.SEOUL);
 		Exhibition e = exhibitionRepository.save(Exhibition.createCatalog("EDIT-" + SEQ.getAndIncrement(), title,
-				placeId, null, null, ExhibitionCategory.PAINTING, null, null, "기관"));
+				placeId, ExhibitionRegion.SEOUL, null, null, ExhibitionCategory.PAINTING, null, null, "기관"));
 		exhibitionDetailRepository.save(modi.backend.domain.exhibition.catalog.ExhibitionDetail.create(
 				e.getId(), price, description, null, java.time.LocalDateTime.now()));
 		return e;

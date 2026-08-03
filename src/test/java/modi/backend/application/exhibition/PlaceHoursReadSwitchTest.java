@@ -114,6 +114,6 @@ class PlaceHoursReadSwitchTest {
 
 	private Exhibition seedCatalog(ExhibitionPlace place) {
 		return exhibitionRepository.save(Exhibition.createCatalog("HOURS-READ-" + SEQ.getAndIncrement(),
-				"영업시간 읽기 전환 전시", place.getId(), null, null, ExhibitionCategory.PAINTING, null, null, "기관"));
+				"영업시간 읽기 전환 전시", place.getId(), place.getRegion(), null, null, ExhibitionCategory.PAINTING, null, null, "기관"));
 	}
 }

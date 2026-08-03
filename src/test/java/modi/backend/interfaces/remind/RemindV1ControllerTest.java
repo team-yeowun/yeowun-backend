@@ -88,7 +88,7 @@ class RemindV1ControllerTest {
 		Long placeId = modi.backend.domain.exhibition.catalog.ExhibitionTestFactory.placeId(
 				exhibitionPlaceRepository, "동작아트갤러리", null);
 		Exhibition exhibition = exhibitionRepository.save(Exhibition.createCustom(
-				u1.getId(), "조용한 호숫가", placeId, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30),
+				u1.getId(), "조용한 호숫가", placeId, null, LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30),
 				null, null, "김미경 외 10인", "http://poster/lake.jpg"));
 		// 작가는 조인(N:M)에서 조립되므로 명시적으로 연결한다(리마인드 응답 artist 조립 경로 검증). resolve-or-create로 UK 충돌 방지.
 		String artistName = modi.backend.domain.exhibition.catalog.Artist.normalize("김미경 외 10인");

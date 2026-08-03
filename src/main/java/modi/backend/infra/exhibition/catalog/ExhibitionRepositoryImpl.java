@@ -3,9 +3,7 @@ package modi.backend.infra.exhibition.catalog;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.data.domain.PageRequest;
@@ -118,18 +116,6 @@ public class ExhibitionRepositoryImpl implements ExhibitionRepository {
 			return jpaRepository.findActiveByIdsWithoutEndDateAfter(ids, cursorId, page);
 		}
 		return jpaRepository.findActiveByIdsOrderByEndDateAfter(ids, cursorEndDate, cursorId, page);
-	}
-
-	@Override
-	public Map<Long, String> findPricesByExhibitionIds(Collection<Long> exhibitionIds) {
-		if (exhibitionIds == null || exhibitionIds.isEmpty()) {
-			return Map.of();
-		}
-		Map<Long, String> prices = new HashMap<>();
-		for (Object[] row : detailJpaRepository.findPrices(exhibitionIds)) {
-			prices.put((Long) row[0], (String) row[1]);
-		}
-		return prices;
 	}
 
 	@Override

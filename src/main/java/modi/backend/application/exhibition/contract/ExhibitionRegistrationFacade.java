@@ -41,9 +41,12 @@ public class ExhibitionRegistrationFacade implements ExhibitionRegistrar {
 		// 승격이 먼저 닿는 경합의 안전망으로 유지한다(설계 §6-2 — 멱등이라 중복 생성이 없다).
 		ExhibitionPlace place = exhibitionPlaceRepository.resolveOrCreate(r.placeName(), r.region(), r.sigungu(),
 				r.gpsX(), r.gpsY());
-		Exhibition promoted = exhibitionRepository.save(Exhibition.createCatalog(r.externalId(), r.title(),
-				place.getId(), r.startDate(), r.endDate(), r.category(), r.posterUrl(), r.detailUrl(),
-				r.serviceName()));
+		// 지역·무료는 여기가 "적재 시점"이다(V49). 지역은 방금 resolve한 전시장의 값을,
+		// 무료는 수집이 완성해 온 가격을 도메인 규칙으로 판정해 전시 행에 굳힌다.
+		// 계약(ExhibitionRegistration)은 그대로다 — 수집은 복제본도 판정 규칙도 몰라야 한다(ADR-12).
+		Exhibition exhibition = Exhibition.createCatalog(r.externalId(), r.title(), place.getId(), place.getRegion(),
+				r.startDate(), r.endDate(), r.category(), r.posterUrl(), r.detailUrl(), r.serviceName());
+		Exhibition promoted = exhibitionRepository.save(exhibition);
 		applyDetail(r, promoted, place, now);
 		exhibitionRepository.applyGenre(promoted.getId(),
 				new GenreResult(r.genreKeyword(), r.genreProvider(), r.genreModel()), now);
@@ -59,6 +62,10 @@ public class ExhibitionRegistrationFacade implements ExhibitionRegistrar {
 		} else {
 			exhibitionRepository.markDetailChecked(promoted.getId(), now);
 		}
+		// 무료 판정을 전시 행에 굳힌다(V49). 가격은 상세(satellite)에 있지만 필터가 보는 값은 루트 컬럼이라,
+		// 상세를 반영한 직후 같은 tx에서 다시 굳혀야 둘이 어긋나지 않는다. 규칙은 도메인이 안다.
+		promoted.applyPriceJudgement(r.price());
+		exhibitionRepository.save(promoted);
 		if (r.placeAddr() != null || r.placePhone() != null || r.placeUrl() != null) {
 			place.enrichDetail(r.placeAddr(), r.placePhone(), r.placeUrl());
 			exhibitionPlaceRepository.save(place);

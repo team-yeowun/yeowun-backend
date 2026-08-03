@@ -119,8 +119,13 @@ class ExhibitionSearchFilterOngoingTest {
 		return ExhibitionTestFactory.placeId(exhibitionPlaceRepository, name, region);
 	}
 
+	/**
+	 * 전시장의 지역을 전시 행에도 복제한다 — 적재 경로가 하는 일과 같다(V49). 이걸 빠뜨리면 지역 필터가
+	 * 0건을 돌려주고, "포함 없음 · 제외 없음"이라 지역 테스트가 <b>공허하게 통과</b>한다.
+	 */
 	private Long 전시(Long placeId, String title, LocalDate start, LocalDate end, ExhibitionCategory category) {
-		Exhibition saved = exhibitionRepository.save(ExhibitionTestFactory.catalog(placeId,
+		ExhibitionRegion region = exhibitionPlaceRepository.findById(placeId).orElseThrow().getRegion();
+		Exhibition saved = exhibitionRepository.save(ExhibitionTestFactory.catalog(placeId, region,
 				"filter-" + SEQ.getAndIncrement(), title, start, end, category));
 		return saved.getId();
 	}

@@ -26,8 +26,25 @@ public final class ExhibitionResult {
 	private ExhibitionResult() {
 	}
 
-	/** 목록 한 페이지 결과 — 커서 페이지네이션 shape(content·nextCursor·hasNext·totalCount). */
+	/**
+	 * 목록 한 페이지 결과 — 커서 페이지네이션 shape(content·nextCursor·hasNext·totalCount).
+	 *
+	 * <p>총 건수를 응답에 <b>함께 담는다</b> — 기존 응답 계약 유지가 우선이라는 결정이다(프론트 1명, 호출
+	 * 구조 변경 비용 회피). 목록이 count 지연에 묶이는 대가는 count 자체를 싸게 만드는 것(커버링 인덱스·
+	 * 다중지역 힌트)으로 갚았다. 목록 없이 숫자만 필요한 화면(필터 시트)은 {@link Count}를 쓸 수 있다.
+	 */
 	public record ListPage(List<ListItem> content, String nextCursor, boolean hasNext, long totalCount) {
+	}
+
+	/**
+	 * 필터 조건의 총 건수({@code GET /exhibitions/count}) — 목록 없이 숫자만 필요한 화면용 <b>보조</b> 엔드포인트.
+	 * 목록 응답의 totalCount와 같은 조립 경로를 타므로 두 숫자는 어긋나지 않는다.
+	 *
+	 * <p>{@code exact}는 현재 <b>항상 true</b>다(정확한 count). 지금 넣어 두는 이유는 나중에 상한 근사로
+	 * 갈아탈 때 필드를 그때 추가하면 프론트 재작업이 되기 때문이다 — 지금은 프론트가 안 읽으면 그만이라 비용이 0이고,
+	 * 갈아타기가 백엔드 한 줄로 끝난다.
+	 */
+	public record Count(long count, boolean exact) {
 	}
 
 	/** 지역 필터 그룹(디자인 병합 칩) — code=그룹 식별자, regions=검색 region 파라미터로 펼칠 코드들. */
@@ -40,25 +57,29 @@ public final class ExhibitionResult {
 	}
 
 	/**
-	 * 목록 항목(5.2 content[]). place·region은 이제 {@link ExhibitionPlace} 조인에서 온다. free는 상세 가격에서 파생해
-	 * Facade가 주입한다(목록은 CATALOG만이라 artistSummary는 원천 미보유 → null). bookmarked는 Facade가 배치 조회해 주입.
+	 * 목록 항목(5.2 content[]). place 이름은 {@link ExhibitionPlace} 조인에서, <b>region·free는 전시 행의
+	 * 복제본</b>에서 온다(V49). bookmarked는 Facade가 배치 조회해 주입.
+	 *
+	 * <p><b>왜 region을 전시장이 아니라 전시에서 읽는가</b>: 필터가 {@code exhibitions.region}을 보는데
+	 * 표시는 전시장을 조인하면, 전시장 지역이 바뀐 순간 "서울로 검색했는데 경기라고 적힌 카드"가 나온다.
+	 * 복제본은 갱신하지 않는 스냅샷이라 두 경로가 같은 값을 봐야 한다.
 	 */
 	public record ListItem(Long exhibitionId, String type, String title, String posterUrl,
 			LocalDate startDate, LocalDate endDate, String place, String region, String category,
 			String artistSummary, Integer dDay, boolean free, boolean bookmarked) {
 
-		public static ListItem from(Exhibition exhibition, ExhibitionPlace place, LocalDate today, boolean free,
+		public static ListItem from(Exhibition exhibition, ExhibitionPlace place, LocalDate today,
 				boolean bookmarked) {
 			return new ListItem(
 					// 코어(exhibitions)
 					exhibition.getId(), exhibition.getType().name(), exhibition.getTitle(),
 					exhibition.getPosterUrl(), exhibition.getStartDate(), exhibition.getEndDate(),
 
-					// 전시장 · 코어 분류
-					place.getName(), name(place.getRegion()), name(exhibition.getCategory()),
+					// 전시장 이름은 조인 · 지역은 전시 행의 스냅샷(필터와 같은 출처)
+					place.getName(), name(exhibition.getRegion()), name(exhibition.getCategory()),
 
 					// 파생값(목록은 CATALOG만이라 artistSummary는 원천 미보유 → null)
-					null, exhibition.dDay(today), free, bookmarked);
+					null, exhibition.dDay(today), exhibition.isFree(), bookmarked);
 		}
 	}
 
@@ -86,8 +107,8 @@ public final class ExhibitionResult {
 					exhibition.getId(), exhibition.getType().name(), exhibition.getTitle(),
 					exhibition.getPosterUrl(), exhibition.getStartDate(), exhibition.getEndDate(),
 
-					// 전시장(exhibition_place) + 코어 분류
-					place.getName(), name(place.getRegion()),
+					// 전시장 이름은 조인 · 지역은 전시 행의 스냅샷(목록·필터와 같은 출처, V49)
+					place.getName(), name(exhibition.getRegion()),
 					name(exhibition.getCategory()), name(exhibition.getFormat()),
 
 					// 상세(exhibition_detail) · 영업시간(place_hours)
@@ -106,8 +127,8 @@ public final class ExhibitionResult {
 					exhibition.getOurViewCount(),
 					place.getSigungu(), place.getPlaceUrl(),
 
-					// 파생값 · 요청자 기준 개인화
-					artistSummary, Exhibition.isFree(price), bookmarked, recorded);
+					// 파생값 · 요청자 기준 개인화 (free는 목록·필터와 같은 출처 = 전시 행의 굳은 판정, V49)
+					artistSummary, exhibition.isFree(), bookmarked, recorded);
 		}
 	}
 

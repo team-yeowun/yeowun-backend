@@ -1,0 +1,58 @@
+-- 지역 필터 × 정렬축 복합 인덱스 — 지역 목록의 "깊이 걷기"를 없앤다.
+--
+-- ## 무엇이 문제였나
+-- V49가 region을 exhibitions로 비정규화한 뒤, 지역 목록의 계획은 이렇게 굳었다:
+--
+--   Index range scan on e using idx_exhibitions_start_id over (start_date <= today) (reverse)
+--     -> Filter: (e.region = 'JEJU' and ...)          <-- region은 "잔여 필터"다
+--
+-- 정렬 인덱스를 최신순으로 걸어가면서 region이 맞는 행을 21건 모을 때까지 계속 걷는다.
+-- 비용은 지역 크기가 아니라 <b>"오늘로부터 그 지역의 가장 최근 진행 전시까지의 날짜 간격"</b>에 비례한다.
+-- 그 지역에 진행 중 전시가 없으면 <b>범위 전체를 걷고 0건을 돌려준다</b>(상한이 없다).
+--
+-- 1,000,035행 실측(최신순, LIMIT 21) — 선택도가 아니라 날짜 간격이 비용을 만든다:
+--
+--   | 지역     | 비중   | 최근 진행 시작일 | 간격 | 걸은 행 수 | 지연      |
+--   |----------|-------|----------------|-----|-----------|----------|
+--   | SEOUL    | 36.7% | 오늘            |  0일 |        33 |    0.3ms |
+--   | JEONBUK  |  2.9% | 오늘            |  0일 |       254 |    1.0ms |
+--   | DAEGU    |  3.8% | 07-26          |  4일 |    10,793 |  112.0ms |
+--   | JEJU     |  2.9% | 07-16          | 14일 |    64,026 |  657.0ms |
+--   | SEJONG   |  0.3% | 07-09          | 21일 |   132,384 | 2,726.0ms |
+--   | CHUNGNAM |  0.6% | 없음            |   ∞ |   957,575 | 17,501.0ms |
+--
+-- JEONBUK과 JEJU는 <b>비중이 똑같이 2.88%인데 걸은 행 수가 252배 다르다</b> — 선택도 가설은 이 표에서 깨진다.
+-- 인기순은 더 나빴다(CHUNGNAM 50,505ms): our_view_count 인덱스는 날짜와 무관해 전 인덱스를 훑는다.
+--
+-- ## 이 인덱스가 하는 일
+-- region을 <b>등치 선두</b>로 두고 정렬 컬럼을 그 뒤 범위로 둔다. 그러면 "그 지역 안에서 정렬 순서대로"
+-- 읽을 수 있어 LIMIT 21이 <b>인덱스 엔트리 21개</b>로 끝난다(정렬도 없다). 위 표 전부 0.1~0.3ms가 된다.
+-- 진행 중이 0건인 지역(CHUNGNAM)만 그 지역 전체를 읽지만, 그래도 상한이 <b>지역 크기</b>다(6,390행 = 14ms).
+-- 전체 범위를 걷던 것(957,575행 = 17.5초)과 비교하면 상한이 생긴 것 자체가 이득이다.
+--
+-- id를 꼬리에 넣는 이유: 정렬 타이브레이커가 (정렬컬럼, id)라 id까지 인덱스에 있어야 filesort가 죽는다.
+--
+-- ## 정렬축마다 하나씩 필요하다
+-- 목록 정렬은 3축이고 축마다 정렬 컬럼이 다르다. 한 인덱스로는 한 축만 커버된다.
+--   최신순(기본)·거리순 -> (region, start_date, id)
+--   종료순             -> (region, end_date, id)
+--   인기순             -> (region, our_view_count, id)
+--
+-- ## 비용
+-- 1,000,035행에서 생성 2~3초, 크기 27.6+27.6+32.6 = 87.8MB. 쓰기 비용이 생긴다 —
+-- ingestion 대량 적재가 인덱스 3개만큼 느려진다. <b>이 비용은 측정하지 않았다</b>(부하 하네스는 읽기만 돈다).
+--
+-- ## 단일 지역에서만 쓴다
+-- region이 IN(2개 이상)이면 이 인덱스는 구간이 쪼개져 정렬을 다시 해야 한다 — 밀집 조합
+-- (SEOUL,GYEONGGI)에서 강제하면 334,344행을 정렬해 1,339ms다(강제 안 하면 0.19ms).
+-- 그래서 애플리케이션은 <b>지역이 정확히 1개일 때만</b> 이 인덱스를 힌트로 지목한다
+-- (ExhibitionQueryRepositoryImpl.regionSortIndexFor). 다중 지역은 옵티마이저에게 맡긴다.
+--
+-- ## 되돌리기
+--   drop index idx_exhibitions_region_start_id on exhibitions;
+--   drop index idx_exhibitions_region_end_id   on exhibitions;
+--   drop index idx_exhibitions_region_views_id on exhibitions;
+
+create index idx_exhibitions_region_start_id on exhibitions (region, start_date, id);
+create index idx_exhibitions_region_end_id on exhibitions (region, end_date, id);
+create index idx_exhibitions_region_views_id on exhibitions (region, our_view_count, id);

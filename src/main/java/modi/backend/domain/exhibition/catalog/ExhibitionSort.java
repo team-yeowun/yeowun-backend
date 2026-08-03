@@ -70,12 +70,19 @@ public enum ExhibitionSort {
 		return property != null;
 	}
 
-	/** 이 정렬에서 커서에 실을 값(정렬 컬럼의 마지막 값). 값이 없으면 null(= nulls 블록). */
+	/**
+	 * 이 정렬에서 커서에 실을 값(정렬 컬럼의 마지막 값).
+	 *
+	 * <p>날짜 축은 <b>저장값(센티널 포함)</b>을 싣는다 — ORDER BY가 세우는 값과 커서 경계가 같은 값을 봐야
+	 * 행이 누락·중복되지 않는다. 도메인 값(null 마스킹)을 실으면 경계가 다른 축을 보게 된다.
+	 * 그래서 날짜 축은 정규화(V47) 이후 <b>null을 내지 않는다</b>(= nulls 블록이 사라졌다).
+	 * {@link #DISTANCE}만 null이다(DB 정렬 아님).
+	 */
 	public String cursorKeyOf(Exhibition exhibition) {
 		return switch (this) {
-			case ENDING -> exhibition.getEndDate() == null ? null : exhibition.getEndDate().toString();
+			case ENDING -> exhibition.endDateKey().toString();
 			case POPULAR -> String.valueOf(exhibition.getOurViewCount());
-			case LATEST -> exhibition.getStartDate() == null ? null : exhibition.getStartDate().toString();
+			case LATEST -> exhibition.startDateKey().toString();
 			case DISTANCE -> null; // 거리는 앱이 계산한 값이라 호출부가 직접 싣는다
 		};
 	}

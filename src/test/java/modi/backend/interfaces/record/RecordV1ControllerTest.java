@@ -100,7 +100,7 @@ class RecordV1ControllerTest {
 		Long placeId = modi.backend.domain.exhibition.catalog.ExhibitionTestFactory.placeId(
 				exhibitionPlaceRepository, "예술의전당", null);
 		Exhibition exhibition = exhibitionRepository.save(Exhibition.createCatalog(
-				"RECORD-TEST-" + System.nanoTime(), "모네전", placeId, null, null, null, null, null, "기관"));
+				"RECORD-TEST-" + System.nanoTime(), "모네전", placeId, null, null, null, null, null, null, "기관"));
 		exhibitionId = exhibition.getId();
 	}
 

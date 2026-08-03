@@ -68,7 +68,7 @@ class ExhibitionDetailTest {
 	}
 
 	private Exhibition catalog(String externalId, long id) {
-		Exhibition e = Exhibition.createCatalog(externalId, "제목", 5L, null, null, null, null, null, "기관");
+		Exhibition e = Exhibition.createCatalog(externalId, "제목", 5L, null, null, null, null, null, null, "기관");
 		ReflectionTestUtils.setField(e, "id", id);
 		return e;
 	}
@@ -117,7 +117,7 @@ class ExhibitionDetailTest {
 	@Test
 	@DisplayName("타인의 CUSTOM 전시 조회 시 403")
 	void 상세_타인의_CUSTOM_403() {
-		Exhibition custom = Exhibition.createCustom(10L, "개인 전시", 5L, null, null, null, null, null, null);
+		Exhibition custom = Exhibition.createCustom(10L, "개인 전시", 5L, null, null, null, null, null, null, null);
 		given(exhibitionRepository.findById(3L)).willReturn(Optional.of(custom));
 
 		assertThatThrownBy(() -> detailService.getDetail(new ExhibitionCriteria.Detail(3L, 20L)))
