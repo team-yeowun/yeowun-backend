@@ -120,9 +120,11 @@ public class ExhibitionDemoSeeder implements ApplicationRunner {
 							r.place(), r.region(), r.sigungu(), r.gpsX(), r.gpsY())));
 			place.enrichDetail(null, null, r.detailUrl());
 			exhibitionPlaceRepository.save(place);
-			Exhibition saved = exhibitionRepository.save(Exhibition.createCatalog(
-					r.externalId(), r.title(), place.getId(), r.startDate(), r.endDate(), r.category(),
-					r.posterUrl(), r.detailUrl(), SERVICE_NAME));
+			Exhibition demo = Exhibition.createCatalog(
+					r.externalId(), r.title(), place.getId(), place.getRegion(), r.startDate(), r.endDate(),
+					r.category(), r.posterUrl(), r.detailUrl(), SERVICE_NAME);
+			demo.applyPriceJudgement(r.price());
+			Exhibition saved = exhibitionRepository.save(demo);
 			// 상세 satellite(price·description·img) + 영업시간 정준행(operatingHours) — 응답 전 필드가 채워지게.
 			exhibitionRepository.saveDetail(ExhibitionDetail.create(saved.getId(), r.price(), r.description(),
 					r.posterUrl(), now));

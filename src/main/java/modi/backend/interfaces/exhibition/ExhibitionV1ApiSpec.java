@@ -26,6 +26,8 @@ public interface ExhibitionV1ApiSpec {
 
 	@Operation(summary = "전시 목록/탐색", description = """
 			필터·정렬·커서로 전시를 조회한다(커서 페이지네이션). 필터 미지정 시 오늘 진행 중인 전시를 기본 노출한다.
+			이 응답에는 총 건수(totalCount)가 없다 — 숫자가 필요하면 같은 필터로 GET /exhibitions/count를 병렬 호출한다
+			(목록이 총 건수를 기다리지 않고 먼저 뜬다).
 			비로그인은 CATALOG만, 로그인은 CATALOG + 본인 CUSTOM을 함께 본다(로그인 시 bookmarked 개인화).
 			인증은 선택(Optional)이다 — Authorization 헤더가 없거나 토큰이 무효해도 401을 내지 않고
 			비로그인(익명)으로 취급해 조회를 계속한다.
@@ -56,8 +58,7 @@ public interface ExhibitionV1ApiSpec {
 							      }
 							    ],
 							    "nextCursor": "eyJzb3J0IjoibGF0ZXN0IiwibGFzdElkIjo1MX0",
-							    "hasNext": true,
-							    "totalCount": 160
+							    "hasNext": true
 							  }
 							}
 							"""))),
@@ -89,6 +90,47 @@ public interface ExhibitionV1ApiSpec {
 			@Parameter(description = "경도(sort=distance 필수)", example = "126.9575") Double lng,
 			@Parameter(description = "다음 페이지 조회용 opaque 커서(첫 페이지는 생략)") String cursor,
 			@Parameter(description = "페이지 크기(기본 20, 최대 50)", example = "20") Integer size,
+			@Parameter(hidden = true) Optional<LoginUser> loginUser);
+
+	@Operation(summary = "전시 총 건수", description = """
+			목록과 같은 필터 조건의 전시 총 건수를 반환한다. 목록(GET /exhibitions)에서 분리된 엔드포인트다.
+			필터 시트("126개 전시 보기")는 목록 없이 이것만 호출하고, 목록 헤더("전시 20")는 목록과 이것을 병렬 호출한다
+			— 그래야 목록이 총 건수를 기다리지 않고 먼저 뜬다.
+			필터 파라미터는 목록과 동일하며(keyword·section·period·region·category·date), 서버가 목록과 같은
+			조건 조립 경로를 공유하므로 두 응답의 필터 해석이 어긋나지 않는다.
+			정렬(sort)·커서(cursor)·페이지 크기(size)·좌표(lat/lng)는 총 건수와 무관해 받지 않는다.
+			인증은 선택(Optional) — 로그인 시 본인 CUSTOM 전시가 목록과 동일하게 집계에 포함된다.
+			exact는 현재 항상 true다(정확한 count). 나중에 상한 근사로 바뀌면 이 값이 false가 될 수 있다.""")
+	@ApiResponses({
+			@ApiResponse(responseCode = "200", description = "조회 성공", content = @Content(
+					mediaType = MediaType.APPLICATION_JSON_VALUE,
+					schema = @Schema(implementation = ExhibitionDto.CountResponse.class),
+					examples = @ExampleObject(name = "총 건수 조회 성공", value = """
+							{
+							  "meta": { "result": "SUCCESS", "errorCode": null, "message": null },
+							  "data": { "count": 126, "exact": true }
+							}
+							"""))),
+			@ApiResponse(responseCode = "400", description = "INVALID_INPUT — keyword 1글자, 미정의 region/category/section 코드, "
+					+ "date 형식 오류(목록과 같은 검증 규칙)",
+					content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+							examples = @ExampleObject(name = "검색어가 1글자", value = """
+									{
+									  "meta": { "result": "FAIL", "errorCode": "INVALID_INPUT", "message": "입력값이 올바르지 않습니다." },
+									  "data": null
+									}
+									"""))),
+	})
+	ResponseEntity<modi.backend.support.response.ApiResponse<ExhibitionDto.CountResponse>> count(
+			@Parameter(description = "전시명·전시장명 부분 일치(최소 2글자)", example = "모네") String keyword,
+			@Parameter(description = "섹션 필터", schema = @Schema(allowableValues = { "ending-soon",
+					"opening-this-month", "free" }), example = "ending-soon") String section,
+			@Parameter(description = "opening-this-month 기간 범위(기본 month)",
+					schema = @Schema(allowableValues = { "month", "week" }), example = "month") String period,
+			@Parameter(description = "지역 코드 콤마 다중(SEOUL,GYEONGGI 등)", example = "SEOUL,GYEONGGI") String region,
+			@Parameter(description = "카테고리 코드 콤마 다중(PAINTING·PHOTO·MEDIA·SCULPTURE·DESIGN·CRAFT·"
+					+ "ARCHITECTURE·PERFORMANCE·ETC)", example = "PHOTO,MEDIA") String category,
+			@Parameter(description = "해당 날짜에 진행 중인 전시(YYYY-MM-DD)", example = "2026-06-30") String date,
 			@Parameter(hidden = true) Optional<LoginUser> loginUser);
 
 	@Operation(summary = "홈 배너 조회", description = """

@@ -286,6 +286,9 @@ INSERT INTO `exhibition_place` (`id`,`place_key`,`name`,`region`,`sigungu`,`gps_
 (229,'알지비큐브','알지비큐브','SEOUL','마포구',126.92663033158033,37.55482007936552,'서울특별시 마포구 와우산로29라길 26 1.5층','02-6015-0998','http://www.urbanpluto.com/exhibition/rgbcube',NOW(6),NOW(6));
 
 -- Dumping data for table `exhibitions` (core, 이관 후 스키마)
+-- ⚠ region·is_free(V49 비정규화 복제본)는 이 열거에 <b>없다</b> — 313행 리터럴을 다시 뜨지 않으려고
+--   seed-local-dummy-enrichment.sql 5)에서 굳힌다(가격 보강이 끝난 뒤여야 판정이 맞다).
+--   빼먹으면 지역·무료 필터가 0건인데 스캔 시간은 그대로 나온다. 컬럼을 추가할 땐 그쪽도 확인할 것.
 INSERT INTO `exhibitions` (`id`,`type`,`external_id`,`owner_id`,`title`,`exhibition_place_id`,`start_date`,`end_date`,`category`,`format`,`poster_url`,`detail_url`,`service_name`,`our_view_count`,`created_at`,`updated_at`,`deleted_at`) VALUES
 (1,'CATALOG','319005',NULL,'패트릭 블랑: 수직정원',1,'2018-06-16','2028-12-31','PAINTING',NULL,'http://www.culture.go.kr/upload/rdf/25/04/show_20250415142925884.jpg','https://www.busan.go.kr/moca/exhibition01/1606735','전시',0,'2026-07-12 07:37:23.016858','2026-07-13 09:53:07.802367',NULL),
 (2,'CATALOG','267899',NULL,'홍영철의 유산, 부산영화를 담다',2,'2018-10-05','2030-12-31','PAINTING',NULL,'http://www.culture.go.kr/upload/rdf/24/01/show_2024012616153926131.jpg','https://busanbom.kr/exhibition_1stFloor','전시',0,'2026-07-12 07:37:23.057501','2026-07-13 09:53:08.509879',NULL),

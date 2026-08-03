@@ -73,7 +73,14 @@ public class AdminExhibitionFacade {
 
 		exhibition.applyTitleEdit(title).ifPresent(changes::add);
 		applyPlaceEdit(exhibition, place).ifPresent(changes::add);
-		changes.addAll(applyDetailEdit(exhibitionId, price, description));
+		List<FieldChange> detailChanges = applyDetailEdit(exhibitionId, price, description);
+		changes.addAll(detailChanges);
+		// 가격이 실제로 바뀌었으면 전시 행의 무료 판정을 다시 굳힌다(V49). 가격이 코어에 닿는 지점은
+		// 승격 등록과 여기 둘뿐이라, 이 한 줄이 빠지면 필터(is_free)와 상세에 보이는 가격이 어긋난다.
+		if (detailChanges.stream().anyMatch(change -> "price".equals(change.fieldName()))) {
+			exhibition.applyPriceJudgement(exhibitionRepository.findDetail(exhibitionId)
+					.map(ExhibitionDetail::getPrice).orElse(null));
+		}
 
 		if (changes.isEmpty()) {
 			return new AdminExhibitionResult.Edited(exhibitionId, 0);
@@ -103,7 +110,8 @@ public class AdminExhibitionFacade {
 								current == null ? null : current.getSigungu(),
 								current == null ? null : current.getGpsX(),
 								current == null ? null : current.getGpsY())));
-		exhibition.reassignPlace(resolved.getId());
+		// 지역 스냅샷도 새 전시장 것으로 옮긴다(V49) — 전시장이 바뀌었는데 지역만 옛 값이면 필터·표시가 둘 다 틀린다.
+		exhibition.reassignPlace(resolved.getId(), resolved.getRegion());
 		return java.util.Optional.of(new FieldChange("place", currentName, resolved.getName()));
 	}
 

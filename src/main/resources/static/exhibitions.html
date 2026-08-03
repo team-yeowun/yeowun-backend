@@ -354,10 +354,31 @@
     return p.toString();
   }
 
+  // 총 건수 쿼리스트링 — 목록과 같은 필터만 싣는다(정렬·페이지 크기는 건수와 무관해 서버가 받지 않는다).
+  function countQs(overrides) {
+    const p = new URLSearchParams();
+    const keyword = document.getElementById('keyword').value.trim();
+    if (keyword) p.set('keyword', keyword);
+    const region = overrides && 'region' in overrides ? overrides.region : appliedRegion;
+    if (region) p.set('region', region);
+    return p.toString();
+  }
+
+  /** 총 건수는 목록과 별개 엔드포인트다 — 실패해도 목록 렌더를 막지 않는다(best-effort). */
+  async function fetchCount(overrides) {
+    const res = await fetch('/api/v1/exhibitions/count?' + countQs(overrides));
+    const json = await res.json();
+    if (json.meta?.result !== 'SUCCESS') throw new Error(json.meta?.errorCode || 'FAIL');
+    return json.data?.count ?? 0;
+  }
+
   async function loadList() {
     const status = document.getElementById('status');
     const list = document.getElementById('list');
     status.textContent = '불러오는 중…';
+
+    // 목록과 총 건수를 병렬로 부른다 — 목록 응답은 더 이상 총 건수를 기다리지 않는다.
+    const countPromise = fetchCount().catch(() => null);
     try {
       const res = await fetch('/api/v1/exhibitions?' + qs());
       const json = await res.json();
@@ -366,10 +387,13 @@
       if (items.length === 0) {
         status.textContent = '조건에 맞는 전시가 없습니다.';
         list.innerHTML = '<div class="empty-state">표시할 전시가 없습니다.</div>';
-      } else {
-        status.textContent = `총 ${json.data.totalElements}건`;
-        list.innerHTML = items.map(cardHtml).join('');
+        return;
       }
+      // 목록을 먼저 그리고, 숫자는 도착하는 대로 채운다.
+      status.textContent = `${items.length}건 표시 중`;
+      list.innerHTML = items.map(cardHtml).join('');
+      const total = await countPromise;
+      if (total !== null) status.textContent = `총 ${total}건`;
     } catch (e) {
       status.textContent = '전시 목록을 불러오지 못했습니다. (' + e.message + ')';
       list.innerHTML = '<div class="empty-state">잠시 후 다시 시도해주세요.</div>';
@@ -456,12 +480,9 @@
     const applyBtn = document.getElementById('filter-apply-btn');
     applyBtn.textContent = '전시 보기';
     try {
-      const res = await fetch('/api/v1/exhibitions?' + qs({ region: sheetRegion, size: 1 }));
-      const json = await res.json();
-      if (json.meta?.result === 'SUCCESS') {
-        const n = json.data?.totalElements ?? 0;
-        applyBtn.textContent = `${n}개 전시 보기`;
-      }
+      // 필터 시트는 목록이 필요 없다 — 숫자만 부른다(예전엔 목록을 1건 불러 총 건수만 꺼내 썼다).
+      const n = await fetchCount({ region: sheetRegion });
+      applyBtn.textContent = `${n}개 전시 보기`;
     } catch (e) {
       // count preview is best-effort; keep default label on failure
     }

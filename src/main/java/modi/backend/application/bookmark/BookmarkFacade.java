@@ -104,7 +104,9 @@ public class BookmarkFacade {
 			return List.of();
 		}
 		String cursorKey = Cursor.keyOf(cursor);
-		LocalDate cursorEndDate = cursorKey == null ? null : LocalDate.parse(cursorKey);
+		// 종료일은 이제 NOT NULL이라 커서 키도 항상 있다(미상은 센티널). null로 오는 건 정규화(V47) 전에
+		// 발급된 옛 커서뿐이고, 그때의 "종료일 미상 블록"이 지금의 센티널 블록이다.
+		LocalDate cursorEndDate = cursorKey == null ? Exhibition.END_DATE_UNKNOWN : LocalDate.parse(cursorKey);
 		return exhibitionRepository.findActiveByIdsOrderByEndDate(allIds, cursorEndDate, cursorId, limitPlusOne);
 	}
 
@@ -112,7 +114,10 @@ public class BookmarkFacade {
 		return exhibitionBookmarkRepository.findActiveExhibitionIdsByUserIdOrderByRegisteredDesc(userId);
 	}
 
-	/** 페이지 전시들을 장소·가격 배치 조회로 조립한다(N+1 방지). 관심 목록이므로 bookmarked는 항상 true. */
+	/**
+	 * 페이지 전시들을 장소 배치 조회로 조립한다(N+1 방지). 관심 목록이므로 bookmarked는 항상 true.
+	 * 가격 배치 조회는 없어졌다(V49) — free 판정이 전시 행에 굳어 있어 전시 탐색 목록과 같은 값을 본다.
+	 */
 	private List<ExhibitionResult.ListItem> toListItems(List<Exhibition> page, LocalDate today) {
 		if (page.isEmpty()) {
 			return List.of();
@@ -120,19 +125,18 @@ public class BookmarkFacade {
 		Map<Long, ExhibitionPlace> placesById = exhibitionPlaceRepository.findAllByIds(
 				page.stream().map(Exhibition::getExhibitionPlaceId).collect(Collectors.toSet())).stream()
 				.collect(Collectors.toMap(ExhibitionPlace::getId, p -> p, (a, b) -> a));
-		Map<Long, String> pricesById = exhibitionRepository
-				.findPricesByExhibitionIds(page.stream().map(Exhibition::getId).toList());
 		return page.stream()
-				.map(e -> ExhibitionResult.ListItem.from(e, placesById.get(e.getExhibitionPlaceId()), today,
-						Exhibition.isFree(pricesById.get(e.getId())), true))
+				.map(e -> ExhibitionResult.ListItem.from(e, placesById.get(e.getExhibitionPlaceId()), today, true))
 				.toList();
 	}
 
-	/** 종료임박순만 정렬 값(종료일)을 커서에 싣는다. 등록순은 북마크 쪽 순서라 id만으로 충분하다. */
+	/**
+	 * 종료임박순만 정렬 값(종료일)을 커서에 싣는다. 등록순은 북마크 쪽 순서라 id만으로 충분하다.
+	 * 싣는 값은 도메인 값이 아니라 <b>저장값</b>({@code endDateKey})이다 — ORDER BY가 세우는 값과 같아야
+	 * 경계가 어긋나지 않는다.
+	 */
 	private static String encodeCursor(BookmarkSort sort, Exhibition last) {
-		String key = sort.sortedByExhibitionColumn() && last.getEndDate() != null
-				? last.getEndDate().toString()
-				: null;
+		String key = sort.sortedByExhibitionColumn() ? last.endDateKey().toString() : null;
 		return Cursor.of(sort.code(), key, last.getId()).encode();
 	}
 

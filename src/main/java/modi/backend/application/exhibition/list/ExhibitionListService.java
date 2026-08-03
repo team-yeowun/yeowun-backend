@@ -68,7 +68,23 @@ public class ExhibitionListService {
 		List<ExhibitionResult.ListItem> content = listAssembler.assemble(page, today, criteria.requesterId());
 		String nextCursor = hasNext ? encodeCursor(sort, page.get(page.size() - 1)) : null;
 
-		return new ExhibitionResult.ListPage(content, nextCursor, hasNext, exhibitionQueryRepository.count(query));
+		return new ExhibitionResult.ListPage(content, nextCursor, hasNext);
+	}
+
+	/**
+	 * 같은 필터의 총 건수({@code GET /exhibitions/count}). 목록과 <b>같은 입력({@link ExhibitionCriteria.Search})</b>을
+	 * 받아 <b>같은 조립 경로({@link ExhibitionSearchQueryFactory})</b>를 탄다 — 커서만 없다(총 건수는 경계가 없다).
+	 *
+	 * <p>파라미터 목록을 복사하지 않고 조립 경로를 공유하는 것이 요점이다. 복사하면 목록과 count의 필터가
+	 * 조용히 어긋나 "126개 전시 보기"를 눌렀는데 다른 개수가 나오는 종류의 버그가 생긴다.
+	 *
+	 * <p>{@code exact}는 항상 true다 — 루트 B(정확성 유지)의 count는 근사가 아니다.
+	 */
+	@Transactional(readOnly = true)
+	public ExhibitionResult.Count count(ExhibitionCriteria.Search criteria) {
+		LocalDate today = LocalDate.now(AppTime.KST);
+		ExhibitionQuery query = queryFactory.create(criteria, ExhibitionSort.from(criteria.sort()), today, null, null);
+		return new ExhibitionResult.Count(exhibitionQueryRepository.count(query), true);
 	}
 
 	/**
@@ -102,7 +118,9 @@ public class ExhibitionListService {
 						sliced.lastItem().getId()).encode()
 				: null;
 
-		return new ExhibitionResult.ListPage(content, nextCursor, sliced.hasNext(), ordered.size());
+		// ordered.size()는 쿼리가 아니라 이미 메모리에 있는 후보 수다 — 여기서 빼는 건 성능이 아니라
+		// 응답 일관성 때문이다(정렬 축이 달라도 목록 응답의 모양은 하나여야 한다).
+		return new ExhibitionResult.ListPage(content, nextCursor, sliced.hasNext());
 	}
 
 	private static String encodeCursor(ExhibitionSort sort, Exhibition last) {

@@ -35,9 +35,14 @@ public class ExhibitionFacade {
 		return exhibitionListService.getRegionGroups();
 	}
 
-	/** 목록/탐색(5.2). 필터 미지정 시 오늘 진행 중인 전시를 기본 노출한다. */
+	/** 목록/탐색(5.2). 필터 미지정 시 오늘 진행 중인 전시를 기본 노출한다. 총 건수는 {@link #count}가 따로 준다. */
 	public ExhibitionResult.ListPage search(ExhibitionCriteria.Search criteria) {
 		return exhibitionListService.search(criteria);
+	}
+
+	/** 같은 필터의 총 건수. 목록과 같은 입력·같은 조건 조립 경로를 공유한다(필터가 어긋날 여지를 없앤다). */
+	public ExhibitionResult.Count count(ExhibitionCriteria.Search criteria) {
+		return exhibitionListService.count(criteria);
 	}
 
 	/** 홈 배너(E-10). 오늘 진행 중인 전시 중 조회수 상위 최대 3개. */

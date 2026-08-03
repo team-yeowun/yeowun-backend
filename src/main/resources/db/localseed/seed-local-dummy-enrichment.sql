@@ -47,3 +47,28 @@ WHERE d.description IS NULL;
 UPDATE exhibition_detail
 SET price = ELT(1 + MOD(exhibition_id, 3), '무료', '성인 5,000원', '성인 10,000원 / 학생 5,000원')
 WHERE price IS NULL;
+
+-- 5) 비정규화 복제본 굳히기 (V49) — 반드시 <b>마지막</b>이다. 위 4)까지 price가 확정된 뒤에 판정해야 한다.
+--
+-- 왜 여기 있는가: 시드는 mysqldump INSERT라 컬럼을 명시 열거하고, exhibitions INSERT에는
+-- region·is_free가 없다(313행 리터럴을 다시 뜨지 않는 한 넣을 수 없다). 그런데 시더는 ApplicationRunner라
+-- <b>Flyway 이후</b>에 돈다 — 즉 완전히 새 DB에서는 V49 백필이 빈 테이블에 적용되고(0행), 그 뒤에 시드가
+-- region=NULL·is_free=0인 313행을 넣는다. 그러면 지역·무료 필터가 <b>0건을 돌려주면서 스캔 시간은 그대로</b>
+-- 나오는 가짜 상태가 된다(부하 측정에서는 가짜 개선으로 읽힌다 — loadtest/seed/amplify.sh가 증폭 단계에서
+-- 막은 것과 같은 함정이 시드 단계에 남아 있었다).
+--
+-- 규칙은 V49__denormalize_exhibition_region_and_free.sql과 <b>같아야 한다</b>. 갈리면 시드로 만든 로컬 DB와
+-- 실제 적재 경로가 다른 판정을 쓰게 된다. (도메인 코드 Exhibition.isFreePrice와의 일치는
+-- ExhibitionFreeRuleTest가 실데이터 가격 57종으로 고정한다.)
+UPDATE exhibitions e
+JOIN exhibition_place p ON p.id = e.exhibition_place_id
+SET e.region = p.region
+WHERE e.region IS NULL;
+
+UPDATE exhibitions e
+JOIN exhibition_detail d ON d.exhibition_id = e.id
+SET e.is_free = 1
+WHERE d.price IS NOT NULL
+  AND TRIM(d.price) <> ''
+  AND NOT REGEXP_LIKE(d.price, '[1-9][0-9,]*[[:space:]]*원')
+  AND (d.price LIKE '%무료%' OR REGEXP_LIKE(REGEXP_REPLACE(d.price, '[^0-9]', ''), '^0+$'));
