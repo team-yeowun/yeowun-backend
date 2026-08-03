@@ -104,9 +104,13 @@ class ExhibitionSectionOngoingTest {
 		return saved.getId();
 	}
 
+	/** 가격을 넣고 무료 판정을 전시 행에 굳힌다 — 적재 경로(ExhibitionRegistrationFacade)가 하는 일과 같다(V49). */
 	private Long 무료전시(LocalDate start, LocalDate end) {
 		Long id = 전시(start, end);
 		exhibitionRepository.applyDetail(id, "무료", null, null, LocalDateTime.now());
+		Exhibition exhibition = exhibitionRepository.findById(id).orElseThrow();
+		exhibition.applyPriceJudgement("무료");
+		exhibitionRepository.save(exhibition);
 		return id;
 	}
 

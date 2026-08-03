@@ -53,15 +53,40 @@ public class ExhibitionV1Controller implements ExhibitionV1ApiSpec {
 			@RequestParam(required = false) Double lng,
 			@RequestParam(required = false) String cursor,
 			@RequestParam(required = false) Integer size,
-			@OptionalAuthentication Optional<LoginUser> loginUser) {
+			@OptionalAuthentication Optional<LoginUser> loginUser
+    ) {
 		ExhibitionCriteria.Search criteria = new ExhibitionCriteria.Search(
 				keyword, section, period, region, category, parseDate(date), sort, lat, lng, cursor, size,
-				requesterId(loginUser));
+				requesterId(loginUser)
+        );
 		ExhibitionResult.ListPage result = exhibitionFacade.search(criteria);
-		CursorResponse<ExhibitionDto.ListItemResponse> data = CursorResponse.of(
-				result.content().stream().map(ExhibitionDto.ListItemResponse::from).toList(),
-				result.nextCursor(), result.hasNext(), result.totalCount());
+
+		CursorResponse<ExhibitionDto.ListItemResponse> data = CursorResponse.of(result.content().stream()
+                        .map(ExhibitionDto.ListItemResponse::from)
+                        .toList(), result.nextCursor(), result.hasNext(), result.totalCount());
 		return ResponseEntity.ok(ApiResponse.success(data));
+	}
+
+	/**
+	 * 같은 필터의 전시 총 건수. 목록과 <b>같은 필터 파라미터</b>를 받아 같은 조건 조립 경로를 탄다
+	 * (정렬·커서·페이지 크기·좌표는 총 건수와 무관해 받지 않는다).
+	 */
+	@Override
+	@GetMapping("/count")
+	public ResponseEntity<ApiResponse<ExhibitionDto.CountResponse>> count(
+			@RequestParam(required = false) String keyword,
+			@RequestParam(required = false) String section,
+			@RequestParam(required = false) String period,
+			@RequestParam(required = false) String region,
+			@RequestParam(required = false) String category,
+			@RequestParam(required = false) String date,
+			@OptionalAuthentication Optional<LoginUser> loginUser) {
+		// 목록과 같은 Criteria를 쓴다 — 파라미터 목록을 복사하지 않아야 두 경로의 필터가 어긋나지 않는다.
+		ExhibitionCriteria.Search criteria = new ExhibitionCriteria.Search(
+				keyword, section, period, region, category, parseDate(date), null, null, null, null, null,
+				requesterId(loginUser));
+		return ResponseEntity.ok(ApiResponse.success(
+				ExhibitionDto.CountResponse.from(exhibitionFacade.count(criteria))));
 	}
 
 	/** 홈 배너(E-10). 오늘 진행 중인 전시 중 조회수 상위 최대 3개. 공개(인증 불필요). */

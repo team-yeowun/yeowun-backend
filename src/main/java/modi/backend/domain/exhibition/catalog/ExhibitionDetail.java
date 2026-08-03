@@ -118,8 +118,13 @@ public class ExhibitionDetail {
 		return changes;
 	}
 
+	/**
+	 * 가격 텍스트로 본 무료 여부. 판정 규칙은 {@link Exhibition#isFreePrice(String)} 한 곳에만 있다.
+	 * <b>조회 경로는 이걸 쓰지 않는다</b> — 목록·상세·필터는 전시 행에 굳은 {@code exhibitions.is_free}를 본다(V49).
+	 * 여기 남는 건 "이 상세 행의 가격이 무료인가"를 묻는 도메인 질문이라 값과 규칙이 같은 자리에 있는 편이 낫기 때문이다.
+	 */
 	public boolean isFree() {
-		return Exhibition.isFree(this.price);
+		return Exhibition.isFreePrice(this.price);
 	}
 	/** 빈 상세는 조회용이라 저장하면 유령 행이 된다 — 영속화 시점에 막는다. */
 	@PrePersist

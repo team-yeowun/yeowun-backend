@@ -69,12 +69,6 @@ public interface ExhibitionRepository {
 	/** 여러 전시의 상세를 일괄 조회(목록 조립 N+1 방지). 빈 입력이면 빈 목록. */
 	List<ExhibitionDetail> findDetails(Collection<Long> exhibitionIds);
 
-	/**
-	 * 여러 전시의 <b>가격만</b> 조회한다(목록의 free 배지용). 빈 입력이면 빈 맵.
-	 * 상세 엔티티를 통째로 읽으면 쓰지도 않는 {@code description}(평균 1KB+)까지 따라온다.
-	 */
-	Map<Long, String> findPricesByExhibitionIds(Collection<Long> exhibitionIds);
-
 	/** 설명이 있는 상세 전체(관리자 장르 재분류 입력용). */
 	List<ExhibitionDetail> findDetailsWithDescription();
 

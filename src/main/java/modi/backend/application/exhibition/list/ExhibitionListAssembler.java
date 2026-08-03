@@ -14,7 +14,6 @@ import modi.backend.domain.bookmark.ExhibitionBookmarkRepository;
 import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlace;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlaceRepository;
-import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
 
 /**
  * 전시 페이지 → 목록 항목 조립 컴포넌트. 애그리거트가 쪼개져 있어 장소(N:1)·가격(1:1)·관심 여부를 각각 읽어야 하는데,
@@ -27,7 +26,6 @@ import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
 @RequiredArgsConstructor
 public class ExhibitionListAssembler {
 
-	private final ExhibitionRepository exhibitionRepository;
 	private final ExhibitionPlaceRepository exhibitionPlaceRepository;
 	private final ExhibitionBookmarkRepository exhibitionBookmarkRepository;
 
@@ -37,14 +35,14 @@ public class ExhibitionListAssembler {
 			return List.of();
 		}
 		// 조각마다 배치 조회 — 쿼리 수가 페이지 크기에 비례하지 않게 한다.
+		// 가격 배치 조회는 없어졌다(V49): free 판정이 전시 행에 굳어 있어 페이지당 쿼리가 하나 준다.
+		// 전시장 배치 조회는 남는다 — 지역은 복제본에서 읽지만 <b>전시장 이름</b>은 여전히 조인에서 온다.
 		Map<Long, ExhibitionPlace> placesById = placesById(page);
-		Map<Long, String> pricesById = exhibitionRepository
-				.findPricesByExhibitionIds(page.stream().map(Exhibition::getId).toList());
 		Set<Long> bookmarked = bookmarkedIds(requesterId, page);
 
 		return page.stream().map(e -> ExhibitionResult.ListItem.from(e,
 				placesById.getOrDefault(e.getExhibitionPlaceId(), ExhibitionPlace.unknown()), today,
-				Exhibition.isFree(pricesById.get(e.getId())), bookmarked.contains(e.getId()))).toList();
+				bookmarked.contains(e.getId()))).toList();
 	}
 
 	/** 전시들의 전시장을 배치 조회한다(거리순 정렬도 좌표가 필요해 이 결과를 쓴다). */

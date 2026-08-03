@@ -90,8 +90,11 @@ public class ExhibitionCustomService {
 				log.warn("CUSTOM 등록 장르 분류 실패 — 장르 없이 등록(기능 강등): {}", e.getMessage());
 			}
 		}
+		// 지역은 방금 resolve한 전시장의 값을 전시 행에 복제한다(V49) — 여기가 CUSTOM의 적재 시점이다.
+		// (개인 등록엔 가격 입력이 없어 is_free는 기본 false다. 관리자가 나중에 가격을 넣으면 그때 굳는다.)
 		Exhibition exhibition = Exhibition.createCustom(criteria.ownerId(), criteria.title(), place.getId(),
-				criteria.startDate(), criteria.endDate(), category, format, criteria.artist(), criteria.posterUrl());
+				place.getRegion(), criteria.startDate(), criteria.endDate(), category, format, criteria.artist(),
+				criteria.posterUrl());
 		Exhibition saved = exhibitionRepository.save(exhibition);
 		linkArtist(saved.getId(), criteria.artist());
 		if (genre != null) {

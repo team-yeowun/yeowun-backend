@@ -1,0 +1,679 @@
+# HELP application_ready_time_seconds Time taken for the application to be ready to service requests
+# TYPE application_ready_time_seconds gauge
+application_ready_time_seconds{application="modi-backend",main_application_class="modi.backend.BackendApplication"} 8.595
+# HELP application_started_time_seconds Time taken to start the application
+# TYPE application_started_time_seconds gauge
+application_started_time_seconds{application="modi-backend",main_application_class="modi.backend.BackendApplication"} 8.397
+# HELP disk_free_bytes Usable space for path
+# TYPE disk_free_bytes gauge
+disk_free_bytes{application="modi-backend",path="/Users/jins/Desktop/2026 Project/여운/backend/."} 1.42895218688E11
+# HELP disk_total_bytes Total space for path
+# TYPE disk_total_bytes gauge
+disk_total_bytes{application="modi-backend",path="/Users/jins/Desktop/2026 Project/여운/backend/."} 4.94384795648E11
+# HELP executor_active_threads The approximate number of threads that are actively executing tasks
+# TYPE executor_active_threads gauge
+executor_active_threads{application="modi-backend",name="activityLogExecutor"} 0.0
+executor_active_threads{application="modi-backend",name="aiExecutor"} 0.0
+executor_active_threads{application="modi-backend",name="outboxRelayExecutor"} 0.0
+executor_active_threads{application="modi-backend",name="taskScheduler"} 0.0
+# HELP executor_completed_tasks_total The approximate total number of tasks that have completed execution
+# TYPE executor_completed_tasks_total counter
+executor_completed_tasks_total{application="modi-backend",name="activityLogExecutor"} 0.0
+executor_completed_tasks_total{application="modi-backend",name="aiExecutor"} 0.0
+executor_completed_tasks_total{application="modi-backend",name="outboxRelayExecutor"} 0.0
+executor_completed_tasks_total{application="modi-backend",name="taskScheduler"} 0.0
+# HELP executor_pool_core_threads The core number of threads for the pool
+# TYPE executor_pool_core_threads gauge
+executor_pool_core_threads{application="modi-backend",name="activityLogExecutor"} 1.0
+executor_pool_core_threads{application="modi-backend",name="aiExecutor"} 4.0
+executor_pool_core_threads{application="modi-backend",name="outboxRelayExecutor"} 1.0
+executor_pool_core_threads{application="modi-backend",name="taskScheduler"} 1.0
+# HELP executor_pool_max_threads The maximum allowed number of threads in the pool
+# TYPE executor_pool_max_threads gauge
+executor_pool_max_threads{application="modi-backend",name="activityLogExecutor"} 2.0
+executor_pool_max_threads{application="modi-backend",name="aiExecutor"} 8.0
+executor_pool_max_threads{application="modi-backend",name="outboxRelayExecutor"} 1.0
+executor_pool_max_threads{application="modi-backend",name="taskScheduler"} 2.147483647E9
+# HELP executor_pool_size_threads The current number of threads in the pool
+# TYPE executor_pool_size_threads gauge
+executor_pool_size_threads{application="modi-backend",name="activityLogExecutor"} 0.0
+executor_pool_size_threads{application="modi-backend",name="aiExecutor"} 0.0
+executor_pool_size_threads{application="modi-backend",name="outboxRelayExecutor"} 0.0
+executor_pool_size_threads{application="modi-backend",name="taskScheduler"} 1.0
+# HELP executor_queue_remaining_tasks The number of additional elements that this queue can ideally accept without blocking
+# TYPE executor_queue_remaining_tasks gauge
+executor_queue_remaining_tasks{application="modi-backend",name="activityLogExecutor"} 500.0
+executor_queue_remaining_tasks{application="modi-backend",name="aiExecutor"} 50.0
+executor_queue_remaining_tasks{application="modi-backend",name="outboxRelayExecutor"} 1.0
+executor_queue_remaining_tasks{application="modi-backend",name="taskScheduler"} 2.147483647E9
+# HELP executor_queued_tasks The approximate number of tasks that are queued for execution
+# TYPE executor_queued_tasks gauge
+executor_queued_tasks{application="modi-backend",name="activityLogExecutor"} 0.0
+executor_queued_tasks{application="modi-backend",name="aiExecutor"} 0.0
+executor_queued_tasks{application="modi-backend",name="outboxRelayExecutor"} 0.0
+executor_queued_tasks{application="modi-backend",name="taskScheduler"} 1.0
+# HELP hikaricp_connections Total connections
+# TYPE hikaricp_connections gauge
+hikaricp_connections{application="modi-backend",pool="HikariPool-1"} 12.0
+# HELP hikaricp_connections_acquire_seconds Connection acquire time
+# TYPE hikaricp_connections_acquire_seconds summary
+hikaricp_connections_acquire_seconds_count{application="modi-backend",pool="HikariPool-1"} 803
+hikaricp_connections_acquire_seconds_sum{application="modi-backend",pool="HikariPool-1"} 0.033
+# HELP hikaricp_connections_acquire_seconds_max Connection acquire time
+# TYPE hikaricp_connections_acquire_seconds_max gauge
+hikaricp_connections_acquire_seconds_max{application="modi-backend",pool="HikariPool-1"} 0.007
+# HELP hikaricp_connections_active Active connections
+# TYPE hikaricp_connections_active gauge
+hikaricp_connections_active{application="modi-backend",pool="HikariPool-1"} 0.0
+# HELP hikaricp_connections_creation_seconds Connection creation time
+# TYPE hikaricp_connections_creation_seconds summary
+hikaricp_connections_creation_seconds_count{application="modi-backend",pool="HikariPool-1"} 2
+hikaricp_connections_creation_seconds_sum{application="modi-backend",pool="HikariPool-1"} 0.04
+# HELP hikaricp_connections_creation_seconds_max Connection creation time
+# TYPE hikaricp_connections_creation_seconds_max gauge
+hikaricp_connections_creation_seconds_max{application="modi-backend",pool="HikariPool-1"} 0.026
+# HELP hikaricp_connections_idle Idle connections
+# TYPE hikaricp_connections_idle gauge
+hikaricp_connections_idle{application="modi-backend",pool="HikariPool-1"} 12.0
+# HELP hikaricp_connections_max Max connections
+# TYPE hikaricp_connections_max gauge
+hikaricp_connections_max{application="modi-backend",pool="HikariPool-1"} 50.0
+# HELP hikaricp_connections_min Min connections
+# TYPE hikaricp_connections_min gauge
+hikaricp_connections_min{application="modi-backend",pool="HikariPool-1"} 10.0
+# HELP hikaricp_connections_pending Pending threads
+# TYPE hikaricp_connections_pending gauge
+hikaricp_connections_pending{application="modi-backend",pool="HikariPool-1"} 0.0
+# HELP hikaricp_connections_timeout_total Connection timeout total count
+# TYPE hikaricp_connections_timeout_total counter
+hikaricp_connections_timeout_total{application="modi-backend",pool="HikariPool-1"} 0.0
+# HELP hikaricp_connections_usage_seconds Connection usage time
+# TYPE hikaricp_connections_usage_seconds summary
+hikaricp_connections_usage_seconds_count{application="modi-backend",pool="HikariPool-1"} 803
+hikaricp_connections_usage_seconds_sum{application="modi-backend",pool="HikariPool-1"} 117.747
+# HELP hikaricp_connections_usage_seconds_max Connection usage time
+# TYPE hikaricp_connections_usage_seconds_max gauge
+hikaricp_connections_usage_seconds_max{application="modi-backend",pool="HikariPool-1"} 7.695
+# HELP http_server_requests_active_seconds  
+# TYPE http_server_requests_active_seconds histogram
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.005"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.005592405"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.006990506"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.008388607"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.009786708"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.011184809"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.01258291"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.013981011"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.015379112"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.016777216"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.022369621"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.027962026"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.033554431"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.039146836"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.044739241"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.050331646"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.055924051"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.061516456"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.067108864"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.089478485"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.111848106"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.134217727"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.156587348"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.178956969"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.20132659"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.223696211"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.246065832"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.268435456"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.357913941"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.447392426"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.536870911"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.626349396"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.715827881"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.805306366"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.894784851"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="0.984263336"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="1.073741824"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="1.431655765"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="1.789569706"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="2.147483647"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="2.505397588"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="2.863311529"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="3.0"} 1
+http_server_requests_active_seconds_bucket{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN",le="+Inf"} 1
+# HELP http_server_requests_active_seconds_gcount  
+# TYPE http_server_requests_active_seconds_gcount gauge
+http_server_requests_active_seconds_gcount{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN"} 1
+# HELP http_server_requests_active_seconds_gsum  
+# TYPE http_server_requests_active_seconds_gsum gauge
+http_server_requests_active_seconds_gsum{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN"} 0.0031295
+# HELP http_server_requests_active_seconds_max  
+# TYPE http_server_requests_active_seconds_max gauge
+http_server_requests_active_seconds_max{application="modi-backend",exception="none",method="GET",outcome="SUCCESS",status="200",uri="UNKNOWN"} 0.00313475
+# HELP http_server_requests_seconds  
+# TYPE http_server_requests_seconds histogram
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.005"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.005592405"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.006990506"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.008388607"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.009786708"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.011184809"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.01258291"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.013981011"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.015379112"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.016777216"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.022369621"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.027962026"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.033554431"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.039146836"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.044739241"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.050331646"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.055924051"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.061516456"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.067108864"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.089478485"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.111848106"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.134217727"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.156587348"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.178956969"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.20132659"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.223696211"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.246065832"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.268435456"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.357913941"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.447392426"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.536870911"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.626349396"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.715827881"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.805306366"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.894784851"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="0.984263336"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="1.073741824"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="1.431655765"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="1.789569706"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="2.147483647"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="2.505397588"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="2.863311529"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="3.0"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health",le="+Inf"} 1
+http_server_requests_seconds_count{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health"} 1
+http_server_requests_seconds_sum{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health"} 0.411819625
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.005"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.005592405"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.006990506"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.008388607"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.009786708"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.011184809"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.01258291"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.013981011"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.015379112"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.016777216"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.022369621"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.027962026"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.033554431"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.039146836"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.044739241"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.050331646"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.055924051"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.061516456"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.067108864"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.089478485"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.111848106"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.134217727"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.156587348"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.178956969"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.20132659"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.223696211"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.246065832"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.268435456"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.357913941"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.447392426"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.536870911"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.626349396"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.715827881"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.805306366"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.894784851"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="0.984263336"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="1.073741824"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="1.431655765"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="1.789569706"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="2.147483647"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="2.505397588"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="2.863311529"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="3.0"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus",le="+Inf"} 1
+http_server_requests_seconds_count{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus"} 1
+http_server_requests_seconds_sum{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus"} 0.033592584
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.005"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.005592405"} 2
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.006990506"} 93
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.008388607"} 318
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.009786708"} 474
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.011184809"} 537
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.01258291"} 572
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.013981011"} 586
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.015379112"} 600
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.016777216"} 609
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.022369621"} 628
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.027962026"} 636
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.033554431"} 638
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.039146836"} 639
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.044739241"} 640
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.050331646"} 641
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.055924051"} 641
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.061516456"} 642
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.067108864"} 642
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.089478485"} 642
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.111848106"} 642
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.134217727"} 642
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.156587348"} 643
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.178956969"} 643
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.20132659"} 644
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.223696211"} 644
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.246065832"} 645
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.268435456"} 646
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.357913941"} 650
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.447392426"} 653
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.536870911"} 656
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.626349396"} 660
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.715827881"} 664
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.805306366"} 664
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.894784851"} 664
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="0.984263336"} 664
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="1.073741824"} 664
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="1.431655765"} 664
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="1.789569706"} 664
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="2.147483647"} 664
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="2.505397588"} 664
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="2.863311529"} 664
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="3.0"} 664
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions",le="+Inf"} 680
+http_server_requests_seconds_count{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions"} 680
+http_server_requests_seconds_sum{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions"} 117.488799899
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.005"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.005592405"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.006990506"} 22
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.008388607"} 47
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.009786708"} 54
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.011184809"} 57
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.01258291"} 57
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.013981011"} 57
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.015379112"} 57
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.016777216"} 57
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.022369621"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.027962026"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.033554431"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.039146836"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.044739241"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.050331646"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.055924051"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.061516456"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.067108864"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.089478485"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.111848106"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.134217727"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.156587348"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.178956969"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.20132659"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.223696211"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.246065832"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.268435456"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.357913941"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.447392426"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.536870911"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.626349396"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.715827881"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.805306366"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.894784851"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="0.984263336"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="1.073741824"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="1.431655765"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="1.789569706"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="2.147483647"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="2.505397588"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="2.863311529"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="3.0"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners",le="+Inf"} 60
+http_server_requests_seconds_count{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners"} 60
+http_server_requests_seconds_sum{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners"} 0.491229754
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.005"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.005592405"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.006990506"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.008388607"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.009786708"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.011184809"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.01258291"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.013981011"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.015379112"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.016777216"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.022369621"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.027962026"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.033554431"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.039146836"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.044739241"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.050331646"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.055924051"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.061516456"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.067108864"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.089478485"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.111848106"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.134217727"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.156587348"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.178956969"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.20132659"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.223696211"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.246065832"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.268435456"} 40
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.357913941"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.447392426"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.536870911"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.626349396"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.715827881"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.805306366"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.894784851"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="0.984263336"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="1.073741824"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="1.431655765"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="1.789569706"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="2.147483647"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="2.505397588"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="2.863311529"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="3.0"} 41
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups",le="+Inf"} 41
+http_server_requests_seconds_count{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups"} 41
+http_server_requests_seconds_sum{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups"} 0.312209418
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.005"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.005592405"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.006990506"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.008388607"} 0
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.009786708"} 1
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.011184809"} 20
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.01258291"} 35
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.013981011"} 49
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.015379112"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.016777216"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.022369621"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.027962026"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.033554431"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.039146836"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.044739241"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.050331646"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.055924051"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.061516456"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.067108864"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.089478485"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.111848106"} 58
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.134217727"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.156587348"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.178956969"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.20132659"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.223696211"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.246065832"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.268435456"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.357913941"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.447392426"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.536870911"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.626349396"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.715827881"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.805306366"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.894784851"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="0.984263336"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="1.073741824"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="1.431655765"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="1.789569706"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="2.147483647"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="2.505397588"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="2.863311529"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="3.0"} 60
+http_server_requests_seconds_bucket{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}",le="+Inf"} 60
+http_server_requests_seconds_count{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}"} 60
+http_server_requests_seconds_sum{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}"} 0.959425124
+# HELP http_server_requests_seconds_max  
+# TYPE http_server_requests_seconds_max gauge
+http_server_requests_seconds_max{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/health"} 0.411819625
+http_server_requests_seconds_max{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/actuator/prometheus"} 0.033592584
+http_server_requests_seconds_max{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions"} 7.808208375
+http_server_requests_seconds_max{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/banners"} 0.02669025
+http_server_requests_seconds_max{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/region-groups"} 0.287381875
+http_server_requests_seconds_max{application="modi-backend",error="none",exception="none",method="GET",outcome="SUCCESS",status="200",uri="/api/v1/exhibitions/{exhibitionId}"} 0.128415709
+# HELP jdbc_connections_active Current number of active connections that have been allocated from the data source.
+# TYPE jdbc_connections_active gauge
+jdbc_connections_active{application="modi-backend",name="dataSource"} 0.0
+# HELP jdbc_connections_idle Number of established but idle connections.
+# TYPE jdbc_connections_idle gauge
+jdbc_connections_idle{application="modi-backend",name="dataSource"} 12.0
+# HELP jdbc_connections_max Maximum number of active connections that can be allocated at the same time.
+# TYPE jdbc_connections_max gauge
+jdbc_connections_max{application="modi-backend",name="dataSource"} 50.0
+# HELP jdbc_connections_min Minimum number of idle connections in the pool.
+# TYPE jdbc_connections_min gauge
+jdbc_connections_min{application="modi-backend",name="dataSource"} 10.0
+# HELP jvm_info JVM version info
+# TYPE jvm_info gauge
+jvm_info{application="modi-backend",runtime="OpenJDK Runtime Environment",vendor="Oracle Corporation",version="25.0.2+10-69"} 1
+# HELP jvm_buffer_count_buffers An estimate of the number of buffers in the pool
+# TYPE jvm_buffer_count_buffers gauge
+jvm_buffer_count_buffers{application="modi-backend",id="direct"} 2.0
+jvm_buffer_count_buffers{application="modi-backend",id="mapped"} 0.0
+jvm_buffer_count_buffers{application="modi-backend",id="mapped - 'non-volatile memory'"} 0.0
+# HELP jvm_buffer_memory_used_bytes An estimate of the memory that the Java virtual machine is using for this buffer pool
+# TYPE jvm_buffer_memory_used_bytes gauge
+jvm_buffer_memory_used_bytes{application="modi-backend",id="direct"} 10241.0
+jvm_buffer_memory_used_bytes{application="modi-backend",id="mapped"} 0.0
+jvm_buffer_memory_used_bytes{application="modi-backend",id="mapped - 'non-volatile memory'"} 0.0
+# HELP jvm_buffer_total_capacity_bytes An estimate of the total capacity of the buffers in this pool
+# TYPE jvm_buffer_total_capacity_bytes gauge
+jvm_buffer_total_capacity_bytes{application="modi-backend",id="direct"} 10240.0
+jvm_buffer_total_capacity_bytes{application="modi-backend",id="mapped"} 0.0
+jvm_buffer_total_capacity_bytes{application="modi-backend",id="mapped - 'non-volatile memory'"} 0.0
+# HELP jvm_classes_loaded_classes The number of classes that are currently loaded in the Java virtual machine
+# TYPE jvm_classes_loaded_classes gauge
+jvm_classes_loaded_classes{application="modi-backend"} 27864.0
+# HELP jvm_classes_loaded_count_classes_total The number of classes loaded in the Java virtual machine
+# TYPE jvm_classes_loaded_count_classes_total counter
+jvm_classes_loaded_count_classes_total{application="modi-backend"} 28153.0
+# HELP jvm_classes_unloaded_classes_total The number of classes unloaded in the Java virtual machine
+# TYPE jvm_classes_unloaded_classes_total counter
+jvm_classes_unloaded_classes_total{application="modi-backend"} 289.0
+# HELP jvm_compilation_time_ms_total The approximate accumulated elapsed time spent in compilation
+# TYPE jvm_compilation_time_ms_total counter
+jvm_compilation_time_ms_total{application="modi-backend",compiler="HotSpot 64-Bit Tiered Compilers"} 24634.0
+# HELP jvm_gc_concurrent_phase_time_seconds Time spent in concurrent phase
+# TYPE jvm_gc_concurrent_phase_time_seconds summary
+jvm_gc_concurrent_phase_time_seconds_count{action="end of concurrent GC pause",application="modi-backend",cause="No GC",gc="G1 Concurrent GC"} 50
+jvm_gc_concurrent_phase_time_seconds_sum{action="end of concurrent GC pause",application="modi-backend",cause="No GC",gc="G1 Concurrent GC"} 0.137
+# HELP jvm_gc_concurrent_phase_time_seconds_max Time spent in concurrent phase
+# TYPE jvm_gc_concurrent_phase_time_seconds_max gauge
+jvm_gc_concurrent_phase_time_seconds_max{action="end of concurrent GC pause",application="modi-backend",cause="No GC",gc="G1 Concurrent GC"} 0.05
+# HELP jvm_gc_live_data_size_bytes Size of long-lived heap memory pool after reclamation
+# TYPE jvm_gc_live_data_size_bytes gauge
+jvm_gc_live_data_size_bytes{application="modi-backend"} 9.2638052E8
+# HELP jvm_gc_max_data_size_bytes Max size of long-lived heap memory pool
+# TYPE jvm_gc_max_data_size_bytes gauge
+jvm_gc_max_data_size_bytes{application="modi-backend"} 1.073741824E9
+# HELP jvm_gc_memory_allocated_bytes_total Incremented for an increase in the size of the (young) heap memory pool after one GC to before the next
+# TYPE jvm_gc_memory_allocated_bytes_total counter
+jvm_gc_memory_allocated_bytes_total{application="modi-backend"} 1.9778240512E10
+# HELP jvm_gc_memory_promoted_bytes_total Count of positive increases in the size of the old generation memory pool before GC to after GC
+# TYPE jvm_gc_memory_promoted_bytes_total counter
+jvm_gc_memory_promoted_bytes_total{application="modi-backend"} 6.214437504E9
+# HELP jvm_gc_overhead An approximation of the percent of CPU time used by GC activities over the last lookback period or since monitoring began, whichever is shorter, in the range [0..1]
+# TYPE jvm_gc_overhead gauge
+jvm_gc_overhead{application="modi-backend"} 0.04679906461970532
+# HELP jvm_gc_pause_seconds Time spent in GC pause
+# TYPE jvm_gc_pause_seconds summary
+jvm_gc_pause_seconds_count{action="end of major GC",application="modi-backend",cause="G1 Compaction Pause",gc="G1 Old Generation"} 8
+jvm_gc_pause_seconds_sum{action="end of major GC",application="modi-backend",cause="G1 Compaction Pause",gc="G1 Old Generation"} 1.682
+jvm_gc_pause_seconds_count{action="end of minor GC",application="modi-backend",cause="G1 Evacuation Pause",gc="G1 Young Generation"} 117
+jvm_gc_pause_seconds_sum{action="end of minor GC",application="modi-backend",cause="G1 Evacuation Pause",gc="G1 Young Generation"} 2.721
+jvm_gc_pause_seconds_count{action="end of minor GC",application="modi-backend",cause="G1 Humongous Allocation",gc="G1 Young Generation"} 27
+jvm_gc_pause_seconds_sum{action="end of minor GC",application="modi-backend",cause="G1 Humongous Allocation",gc="G1 Young Generation"} 0.539
+# HELP jvm_gc_pause_seconds_max Time spent in GC pause
+# TYPE jvm_gc_pause_seconds_max gauge
+jvm_gc_pause_seconds_max{action="end of major GC",application="modi-backend",cause="G1 Compaction Pause",gc="G1 Old Generation"} 0.531
+jvm_gc_pause_seconds_max{action="end of minor GC",application="modi-backend",cause="G1 Evacuation Pause",gc="G1 Young Generation"} 0.137
+jvm_gc_pause_seconds_max{action="end of minor GC",application="modi-backend",cause="G1 Humongous Allocation",gc="G1 Young Generation"} 0.074
+# HELP jvm_memory_committed_bytes The amount of memory in bytes that is committed for the Java virtual machine to use
+# TYPE jvm_memory_committed_bytes gauge
+jvm_memory_committed_bytes{application="modi-backend",area="heap",id="G1 Eden Space"} 5.6623104E7
+jvm_memory_committed_bytes{application="modi-backend",area="heap",id="G1 Old Gen"} 1.00663296E9
+jvm_memory_committed_bytes{application="modi-backend",area="heap",id="G1 Survivor Space"} 1.048576E7
+jvm_memory_committed_bytes{application="modi-backend",area="nonheap",id="CodeHeap 'non-nmethods'"} 2555904.0
+jvm_memory_committed_bytes{application="modi-backend",area="nonheap",id="CodeHeap 'non-profiled nmethods'"} 8585216.0
+jvm_memory_committed_bytes{application="modi-backend",area="nonheap",id="CodeHeap 'profiled nmethods'"} 3.3554432E7
+jvm_memory_committed_bytes{application="modi-backend",area="nonheap",id="Compressed Class Space"} 2.1233664E7
+jvm_memory_committed_bytes{application="modi-backend",area="nonheap",id="Metaspace"} 1.523712E8
+# HELP jvm_memory_max_bytes The maximum amount of memory in bytes that can be used for memory management
+# TYPE jvm_memory_max_bytes gauge
+jvm_memory_max_bytes{application="modi-backend",area="heap",id="G1 Eden Space"} -1.0
+jvm_memory_max_bytes{application="modi-backend",area="heap",id="G1 Old Gen"} 1.073741824E9
+jvm_memory_max_bytes{application="modi-backend",area="heap",id="G1 Survivor Space"} -1.0
+jvm_memory_max_bytes{application="modi-backend",area="nonheap",id="CodeHeap 'non-nmethods'"} 5832704.0
+jvm_memory_max_bytes{application="modi-backend",area="nonheap",id="CodeHeap 'non-profiled nmethods'"} 1.22929152E8
+jvm_memory_max_bytes{application="modi-backend",area="nonheap",id="CodeHeap 'profiled nmethods'"} 1.22896384E8
+jvm_memory_max_bytes{application="modi-backend",area="nonheap",id="Compressed Class Space"} 1.073741824E9
+jvm_memory_max_bytes{application="modi-backend",area="nonheap",id="Metaspace"} -1.0
+# HELP jvm_memory_usage_after_gc The percentage of long-lived heap pool used after the last GC event, in the range [0..1]
+# TYPE jvm_memory_usage_after_gc gauge
+jvm_memory_usage_after_gc{application="modi-backend",area="heap",pool="long-lived"} 0.8991567268967628
+# HELP jvm_memory_used_bytes The amount of used memory
+# TYPE jvm_memory_used_bytes gauge
+jvm_memory_used_bytes{application="modi-backend",area="heap",id="G1 Eden Space"} 1.4680064E7
+jvm_memory_used_bytes{application="modi-backend",area="heap",id="G1 Old Gen"} 9.65462184E8
+jvm_memory_used_bytes{application="modi-backend",area="heap",id="G1 Survivor Space"} 1.048576E7
+jvm_memory_used_bytes{application="modi-backend",area="nonheap",id="CodeHeap 'non-nmethods'"} 1779072.0
+jvm_memory_used_bytes{application="modi-backend",area="nonheap",id="CodeHeap 'non-profiled nmethods'"} 2990272.0
+jvm_memory_used_bytes{application="modi-backend",area="nonheap",id="CodeHeap 'profiled nmethods'"} 5455104.0
+jvm_memory_used_bytes{application="modi-backend",area="nonheap",id="Compressed Class Space"} 2.054048E7
+jvm_memory_used_bytes{application="modi-backend",area="nonheap",id="Metaspace"} 1.50682808E8
+# HELP jvm_threads_daemon_threads The current number of live daemon threads
+# TYPE jvm_threads_daemon_threads gauge
+jvm_threads_daemon_threads{application="modi-backend"} 30.0
+# HELP jvm_threads_live_threads The current number of live threads including both daemon and non-daemon threads
+# TYPE jvm_threads_live_threads gauge
+jvm_threads_live_threads{application="modi-backend"} 35.0
+# HELP jvm_threads_peak_threads The peak live thread count since the Java virtual machine started or peak was reset
+# TYPE jvm_threads_peak_threads gauge
+jvm_threads_peak_threads{application="modi-backend"} 37.0
+# HELP jvm_threads_started_threads_total The total number of application threads started in the JVM
+# TYPE jvm_threads_started_threads_total counter
+jvm_threads_started_threads_total{application="modi-backend"} 41.0
+# HELP jvm_threads_states_threads The current number of threads
+# TYPE jvm_threads_states_threads gauge
+jvm_threads_states_threads{application="modi-backend",state="blocked"} 0.0
+jvm_threads_states_threads{application="modi-backend",state="new"} 0.0
+jvm_threads_states_threads{application="modi-backend",state="runnable"} 12.0
+jvm_threads_states_threads{application="modi-backend",state="terminated"} 0.0
+jvm_threads_states_threads{application="modi-backend",state="timed-waiting"} 10.0
+jvm_threads_states_threads{application="modi-backend",state="waiting"} 13.0
+# HELP lettuce_active_seconds  
+# TYPE lettuce_active_seconds summary
+lettuce_active_seconds_count{application="modi-backend",db_operation="CLIENT",db_system="redis",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 0
+lettuce_active_seconds_sum{application="modi-backend",db_operation="CLIENT",db_system="redis",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 0.0
+lettuce_active_seconds_count{application="modi-backend",db_operation="HELLO",db_system="redis",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 0
+lettuce_active_seconds_sum{application="modi-backend",db_operation="HELLO",db_system="redis",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 0.0
+lettuce_active_seconds_count{application="modi-backend",db_operation="INFO",db_system="redis",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 0
+lettuce_active_seconds_sum{application="modi-backend",db_operation="INFO",db_system="redis",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 0.0
+# HELP lettuce_active_seconds_max  
+# TYPE lettuce_active_seconds_max gauge
+lettuce_active_seconds_max{application="modi-backend",db_operation="CLIENT",db_system="redis",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 0.0
+lettuce_active_seconds_max{application="modi-backend",db_operation="HELLO",db_system="redis",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 0.0
+lettuce_active_seconds_max{application="modi-backend",db_operation="INFO",db_system="redis",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 0.0
+# HELP lettuce_seconds  
+# TYPE lettuce_seconds summary
+lettuce_seconds_count{application="modi-backend",db_operation="CLIENT",db_system="redis",error="none",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 3
+lettuce_seconds_sum{application="modi-backend",db_operation="CLIENT",db_system="redis",error="none",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 0.011225333
+lettuce_seconds_count{application="modi-backend",db_operation="HELLO",db_system="redis",error="none",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 1
+lettuce_seconds_sum{application="modi-backend",db_operation="HELLO",db_system="redis",error="none",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 0.017152292
+lettuce_seconds_count{application="modi-backend",db_operation="INFO",db_system="redis",error="none",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 1
+lettuce_seconds_sum{application="modi-backend",db_operation="INFO",db_system="redis",error="none",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 8.19125E-4
+# HELP lettuce_seconds_max  
+# TYPE lettuce_seconds_max gauge
+lettuce_seconds_max{application="modi-backend",db_operation="CLIENT",db_system="redis",error="none",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 0.004191083
+lettuce_seconds_max{application="modi-backend",db_operation="HELLO",db_system="redis",error="none",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 0.017152292
+lettuce_seconds_max{application="modi-backend",db_operation="INFO",db_system="redis",error="none",net_sock_peer_addr="localhost",net_sock_peer_port="6379",net_transport="IP.TCP"} 8.19125E-4
+# HELP logback_events_total Number of log events that were enabled by the effective log level
+# TYPE logback_events_total counter
+logback_events_total{application="modi-backend",level="debug"} 0.0
+logback_events_total{application="modi-backend",level="error"} 0.0
+logback_events_total{application="modi-backend",level="info"} 7.0
+logback_events_total{application="modi-backend",level="trace"} 0.0
+logback_events_total{application="modi-backend",level="warn"} 2.0
+# HELP process_cpu_time_ns_total The "cpu time" used by the Java Virtual Machine process
+# TYPE process_cpu_time_ns_total counter
+process_cpu_time_ns_total{application="modi-backend"} 1.08039971E11
+# HELP process_cpu_usage The "recent cpu usage" for the Java Virtual Machine process
+# TYPE process_cpu_usage gauge
+process_cpu_usage{application="modi-backend"} 0.1253651669663691
+# HELP process_files_max_files The maximum file descriptor count
+# TYPE process_files_max_files gauge
+process_files_max_files{application="modi-backend"} 1048576.0
+# HELP process_files_open_files The open file descriptor count
+# TYPE process_files_open_files gauge
+process_files_open_files{application="modi-backend"} 66.0
+# HELP process_start_time_seconds Start time of the process since unix epoch.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds{application="modi-backend"} 1.785374629261E9
+# HELP process_uptime_seconds The uptime of the Java virtual machine
+# TYPE process_uptime_seconds gauge
+process_uptime_seconds{application="modi-backend"} 114.408
+# HELP spring_data_repository_invocations_seconds Duration of repository invocations
+# TYPE spring_data_repository_invocations_seconds summary
+spring_data_repository_invocations_seconds_count{application="modi-backend",exception="None",method="findAll",repository="ExhibitionJpaRepository",state="SUCCESS"} 5
+spring_data_repository_invocations_seconds_sum{application="modi-backend",exception="None",method="findAll",repository="ExhibitionJpaRepository",state="SUCCESS"} 16.251447542
+spring_data_repository_invocations_seconds_count{application="modi-backend",exception="None",method="findArtistNames",repository="ExhibitionArtistJpaRepository",state="SUCCESS"} 60
+spring_data_repository_invocations_seconds_sum{application="modi-backend",exception="None",method="findArtistNames",repository="ExhibitionArtistJpaRepository",state="SUCCESS"} 0.059249246
+spring_data_repository_invocations_seconds_count{application="modi-backend",exception="None",method="findByExhibitionId",repository="ExhibitionDetailJpaRepository",state="SUCCESS"} 60
+spring_data_repository_invocations_seconds_sum{application="modi-backend",exception="None",method="findByExhibitionId",repository="ExhibitionDetailJpaRepository",state="SUCCESS"} 0.099440665
+spring_data_repository_invocations_seconds_count{application="modi-backend",exception="None",method="findByExhibitionId",repository="ExhibitionGenreJpaRepository",state="SUCCESS"} 60
+spring_data_repository_invocations_seconds_sum{application="modi-backend",exception="None",method="findByExhibitionId",repository="ExhibitionGenreJpaRepository",state="SUCCESS"} 0.081194629
+spring_data_repository_invocations_seconds_count{application="modi-backend",exception="None",method="findByExhibitionPlaceId",repository="PlaceHoursJpaRepository",state="SUCCESS"} 60
+spring_data_repository_invocations_seconds_sum{application="modi-backend",exception="None",method="findByExhibitionPlaceId",repository="PlaceHoursJpaRepository",state="SUCCESS"} 0.083859546
+spring_data_repository_invocations_seconds_count{application="modi-backend",exception="None",method="findByIdAndDeletedAtIsNull",repository="ExhibitionJpaRepository",state="SUCCESS"} 60
+spring_data_repository_invocations_seconds_sum{application="modi-backend",exception="None",method="findByIdAndDeletedAtIsNull",repository="ExhibitionJpaRepository",state="SUCCESS"} 0.11549101
+spring_data_repository_invocations_seconds_count{application="modi-backend",exception="None",method="findByIdAndDeletedAtIsNull",repository="ExhibitionPlaceJpaRepository",state="SUCCESS"} 60
+spring_data_repository_invocations_seconds_sum{application="modi-backend",exception="None",method="findByIdAndDeletedAtIsNull",repository="ExhibitionPlaceJpaRepository",state="SUCCESS"} 0.082769624
+spring_data_repository_invocations_seconds_count{application="modi-backend",exception="None",method="findByIdInAndDeletedAtIsNull",repository="ExhibitionPlaceJpaRepository",state="SUCCESS"} 745
+spring_data_repository_invocations_seconds_sum{application="modi-backend",exception="None",method="findByIdInAndDeletedAtIsNull",repository="ExhibitionPlaceJpaRepository",state="SUCCESS"} 17.349422586
+spring_data_repository_invocations_seconds_count{application="modi-backend",exception="None",method="findOngoingCatalogTopByViews",repository="ExhibitionJpaRepository",state="SUCCESS"} 60
+spring_data_repository_invocations_seconds_sum{application="modi-backend",exception="None",method="findOngoingCatalogTopByViews",repository="ExhibitionJpaRepository",state="SUCCESS"} 0.114526039
+spring_data_repository_invocations_seconds_count{application="modi-backend",exception="None",method="save",repository="ExhibitionJpaRepository",state="SUCCESS"} 60
+spring_data_repository_invocations_seconds_sum{application="modi-backend",exception="None",method="save",repository="ExhibitionJpaRepository",state="SUCCESS"} 0.018020254
+# HELP spring_data_repository_invocations_seconds_max Duration of repository invocations
+# TYPE spring_data_repository_invocations_seconds_max gauge
+spring_data_repository_invocations_seconds_max{application="modi-backend",exception="None",method="findAll",repository="ExhibitionJpaRepository",state="SUCCESS"} 3.624836417
+spring_data_repository_invocations_seconds_max{application="modi-backend",exception="None",method="findArtistNames",repository="ExhibitionArtistJpaRepository",state="SUCCESS"} 0.005227666
+spring_data_repository_invocations_seconds_max{application="modi-backend",exception="None",method="findByExhibitionId",repository="ExhibitionDetailJpaRepository",state="SUCCESS"} 0.010661666
+spring_data_repository_invocations_seconds_max{application="modi-backend",exception="None",method="findByExhibitionId",repository="ExhibitionGenreJpaRepository",state="SUCCESS"} 0.003364792
+spring_data_repository_invocations_seconds_max{application="modi-backend",exception="None",method="findByExhibitionPlaceId",repository="PlaceHoursJpaRepository",state="SUCCESS"} 0.017206792
+spring_data_repository_invocations_seconds_max{application="modi-backend",exception="None",method="findByIdAndDeletedAtIsNull",repository="ExhibitionJpaRepository",state="SUCCESS"} 0.024166667
+spring_data_repository_invocations_seconds_max{application="modi-backend",exception="None",method="findByIdAndDeletedAtIsNull",repository="ExhibitionPlaceJpaRepository",state="SUCCESS"} 0.010230042
+spring_data_repository_invocations_seconds_max{application="modi-backend",exception="None",method="findByIdInAndDeletedAtIsNull",repository="ExhibitionPlaceJpaRepository",state="SUCCESS"} 3.36615825
+spring_data_repository_invocations_seconds_max{application="modi-backend",exception="None",method="findOngoingCatalogTopByViews",repository="ExhibitionJpaRepository",state="SUCCESS"} 0.014170667
+spring_data_repository_invocations_seconds_max{application="modi-backend",exception="None",method="save",repository="ExhibitionJpaRepository",state="SUCCESS"} 0.006455416
+# HELP system_cpu_count The number of processors available to the Java virtual machine
+# TYPE system_cpu_count gauge
+system_cpu_count{application="modi-backend"} 8.0
+# HELP system_cpu_usage The "recent cpu usage" of the system the application is running in
+# TYPE system_cpu_usage gauge
+system_cpu_usage{application="modi-backend"} 0.5754528429567379
+# HELP system_load_average_1m The sum of the number of runnable entities queued to available processors and the number of runnable entities running on the available processors averaged over a period of time
+# TYPE system_load_average_1m gauge
+system_load_average_1m{application="modi-backend"} 5.66162109375
+# HELP tomcat_sessions_active_current_sessions  
+# TYPE tomcat_sessions_active_current_sessions gauge
+tomcat_sessions_active_current_sessions{application="modi-backend"} 0.0
+# HELP tomcat_sessions_active_max_sessions  
+# TYPE tomcat_sessions_active_max_sessions gauge
+tomcat_sessions_active_max_sessions{application="modi-backend"} 0.0
+# HELP tomcat_sessions_alive_max_seconds  
+# TYPE tomcat_sessions_alive_max_seconds gauge
+tomcat_sessions_alive_max_seconds{application="modi-backend"} 0.0
+# HELP tomcat_sessions_created_sessions_total  
+# TYPE tomcat_sessions_created_sessions_total counter
+tomcat_sessions_created_sessions_total{application="modi-backend"} 0.0
+# HELP tomcat_sessions_expired_sessions_total  
+# TYPE tomcat_sessions_expired_sessions_total counter
+tomcat_sessions_expired_sessions_total{application="modi-backend"} 0.0
+# HELP tomcat_sessions_rejected_sessions_total  
+# TYPE tomcat_sessions_rejected_sessions_total counter
+tomcat_sessions_rejected_sessions_total{application="modi-backend"} 0.0

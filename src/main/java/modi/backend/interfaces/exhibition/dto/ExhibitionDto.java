@@ -158,6 +158,20 @@ public final class ExhibitionDto {
 		}
 	}
 
+	/**
+	 * 전시 총 건수(필터 시트 "126개 전시 보기" · 목록 헤더 "전시 20"). 목록과 같은 필터 파라미터를 받는다.
+	 * {@code exact}는 현재 항상 true다 — 나중에 상한 근사로 갈아탈 때 프론트 재작업이 없도록 자리를 미리 잡아 둔 필드다.
+	 */
+	public record CountResponse(
+			@Schema(description = "필터 조건에 맞는 전시 총 건수", example = "126") long count,
+			@Schema(description = "count가 정확한 값인지 여부. 현재 구현은 항상 true(정확한 count).", example = "true")
+			boolean exact) {
+
+		public static CountResponse from(ExhibitionResult.Count result) {
+			return new CountResponse(result.count(), result.exact());
+		}
+	}
+
 	/** 홈 배너 목록(E-10). data.banners 배열로 최대 3개. 진행 중 전시가 없으면 빈 배열. */
 	public record BannersResponse(
 			@Schema(description = "홈 배너 목록(최대 3개). 진행 중 전시가 없으면 빈 배열.") List<BannerResponse> banners) {

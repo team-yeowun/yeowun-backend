@@ -221,7 +221,7 @@ class NotificationFacadeTest {
 	/** 테스트용 전시 — id는 영속 전 엔티티라 리플렉션으로 부여(엔티티에 setter를 만들지 않기 위함). */
 	private Exhibition exhibition(Long id, String title, LocalDate endDate) {
 		LocalDate startDate = LocalDate.now(AppTime.KST).minusDays(30);
-		Exhibition exhibition = Exhibition.createCustom(99L, title, 1L, startDate, endDate,
+		Exhibition exhibition = Exhibition.createCustom(99L, title, 1L, null, startDate, endDate,
 				null, null, null, "https://img/" + id + "-poster.jpg");
 		ReflectionTestUtils.setField(exhibition, "id", id);
 		return exhibition;

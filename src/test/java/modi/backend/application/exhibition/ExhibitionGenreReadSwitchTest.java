@@ -96,7 +96,7 @@ class ExhibitionGenreReadSwitchTest {
 		Long placeId = modi.backend.domain.exhibition.catalog.ExhibitionTestFactory.placeId(
 				exhibitionPlaceRepository, "시립미술관", ExhibitionRegion.SEOUL);
 		Exhibition e = Exhibition.createCatalog("GENRE-READ-" + SEQ.getAndIncrement(), "장르 읽기 전시", placeId,
-				null, null, ExhibitionCategory.PAINTING, null, null, "기관");
+				ExhibitionRegion.SEOUL, null, null, ExhibitionCategory.PAINTING, null, null, "기관");
 		return exhibitionRepository.save(e);
 	}
 }

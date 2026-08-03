@@ -20,9 +20,20 @@ public final class ExhibitionTestFactory {
 				.getId();
 	}
 
-	/** 지정 전시장에 소속된 CATALOG 전시 하나를 만든다(영속화는 호출부). */
+	/** 지정 전시장에 소속된 CATALOG 전시 하나를 만든다(영속화는 호출부). 지역 미지정. */
 	public static Exhibition catalog(Long placeId, String externalId, String title, LocalDate startDate,
 			LocalDate endDate, ExhibitionCategory category) {
-		return Exhibition.createCatalog(externalId, title, placeId, startDate, endDate, category, null, null, "기관");
+		return catalog(placeId, null, externalId, title, startDate, endDate, category);
+	}
+
+	/**
+	 * 지역까지 지정하는 변형. 지역 필터를 검증하는 테스트는 <b>반드시 이쪽</b>을 써야 한다 — V49 이후 지역은
+	 * 전시장 조인이 아니라 {@code exhibitions.region} 복제본에서 오므로, 전시장에만 지역을 넣으면
+	 * 필터가 0건을 돌려주고 "count도 0, 목록도 0"이라 대조 테스트가 <b>공허하게 통과</b>한다.
+	 */
+	public static Exhibition catalog(Long placeId, ExhibitionRegion region, String externalId, String title,
+			LocalDate startDate, LocalDate endDate, ExhibitionCategory category) {
+		return Exhibition.createCatalog(externalId, title, placeId, region, startDate, endDate, category, null, null,
+				"기관");
 	}
 }
