@@ -49,6 +49,11 @@ import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
  * (구간이 쪼개져 정렬이 되살아난다 — 밀집 조합 1,339ms vs 지목 안 함 0.19ms). 비지역 경로는 힌트 유무로
  * 계획이 동일했다(1M 17경로, 최대 차이 0.10ms↔0.12ms). 즉 <b>범위가 곧 정확성</b>이라 범위를 고정한다.
  *
+ * <p><b>count 쪽은 반대 방향의 범위가 있다</b>: 지역 2개 이상 + 키워드 없음일 때만 V50 커버링 인덱스를
+ * 지목한다(region IN 2개부터 옵티마이저가 커버링을 버린다 — 1M 실측 1,919ms → 지목 시 350ms). 0·1개는
+ * 스스로 고르고, 키워드가 끼면 지목이 풀 스캔 전환으로 해롭다. 목록 힌트와 count 힌트는 <b>서로 다른
+ * 인덱스</b>를 가리키므로 교차 오염(목록 인덱스가 count에, 커버링이 목록에)을 각 테스트가 막는다.
+ *
  * <p><b>2) 투영을 좁히면 안 된다.</b> 목록은 엔티티 전 컬럼을 읽는데, 이걸 {@code id}만으로 좁히면
  * 정렬 인덱스가 "커버링"이 되면서 옵티마이저가 통과 행 수를 42로 추정하고 전 인덱스 주사로 전환한다 —
  * 1M 실측 0.283ms → <b>6,824ms(24,100배)</b>. 힌트로는 이걸 막을 수 없다(힌트가 없어도 일어나고,
@@ -126,15 +131,52 @@ class ExhibitionListIndexHintTest {
 	}
 
 	@Test
-	@DisplayName("count 경로에는 힌트가 붙지 않는다 — count는 반대로 커버링 인덱스를 타야 한다")
-	void count에는_힌트가_붙지_않는다() {
-		exhibitionQueryRepository.count(sliceQuery(ExhibitionSort.LATEST, List.of(ExhibitionRegion.JEJU)));
+	@DisplayName("지역 0·1개 count에는 힌트가 붙지 않는다 — 옵티마이저가 스스로 커버링을 고른다(1M 확인)")
+	void 단일지역_count에는_힌트가_붙지_않는다() {
+		for (List<ExhibitionRegion> regions : List.of(List.<ExhibitionRegion>of(), List.of(ExhibitionRegion.JEJU))) {
+			SqlCapture.reset();
+			exhibitionQueryRepository.count(sliceQuery(ExhibitionSort.LATEST, regions));
+
+			String sql = exhibitionSelect();
+
+			assertThat(sql).startsWith("select count(");
+			assertThat(sql)
+					.as("지역 %s count: 붙일 이유가 측정되지 않았고, 목록 인덱스를 강제하면 커버링을 못 탄다"
+							+ "(500k 실측 138ms → 907ms)", regions)
+					.doesNotContain("use index");
+		}
+	}
+
+	@Test
+	@DisplayName("지역 2개 이상 count에는 V50 커버링 인덱스 힌트가 실린다 — 옵티마이저가 커버링을 버리는 유일한 경로")
+	void 다중지역_count에는_커버링인덱스_힌트가_실린다() {
+		SqlCapture.reset();
+		exhibitionQueryRepository.count(
+				sliceQuery(ExhibitionSort.LATEST, List.of(ExhibitionRegion.SEOUL, ExhibitionRegion.GYEONGGI)));
 
 		String sql = exhibitionSelect();
 
 		assertThat(sql).startsWith("select count(");
 		assertThat(sql)
-				.as("count에 목록 인덱스를 강제하면 V50 커버링 인덱스를 못 탄다(500k 실측 138ms → 907ms)")
+				.as("region IN이 2개가 되는 순간 옵티마이저가 idx_exhibitions_type_owner로 도망간다"
+						+ "(1M 실측 1,919ms → 지목 시 350ms). USE INDEX와 FORCE INDEX는 이 쿼리에서 계획이 동일하다")
+				.contains("use index (" + COUNT_COVER_INDEX + ")");
+	}
+
+	@Test
+	@DisplayName("다중지역이라도 키워드가 끼면 count에 힌트가 붙지 않는다 — 커버링이 원리적으로 불가한 경로")
+	void 키워드_count에는_힌트가_붙지_않는다() {
+		SqlCapture.reset();
+		exhibitionQueryRepository.count(new ExhibitionQuery("전시", LocalDate.now(), null,
+				List.of(ExhibitionRegion.SEOUL, ExhibitionRegion.GYEONGGI), List.of(), null, null, null,
+				ExhibitionSort.LATEST, null, null, null));
+
+		String sql = exhibitionSelect();
+
+		assertThat(sql).startsWith("select count(");
+		assertThat(sql)
+				.as("키워드 술어(title LIKE·전시장 서브쿼리)는 커버링 밖이라, 지목하면 풀 테이블 스캔으로 전환한다"
+						+ "(1M EXPLAIN: type=ALL)")
 				.doesNotContain("use index");
 	}
 

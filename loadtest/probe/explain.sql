@@ -138,6 +138,21 @@ EXPLAIN SELECT COUNT(e.id) FROM exhibitions e
    AND e.start_date <= CURDATE() AND e.end_date >= CURDATE()
    AND e.region IN ('SEOUL');
 
+SELECT '=== C3 다중지역 count · 힌트 없음 (idx_exhibitions_type_owner로 도망가는 계획 — 이게 기본이면 앱 힌트가 필요한 상태다) ===' AS ``;
+-- region IN이 2개가 되는 순간 옵티마이저가 커버링을 버린다(1M 실측 1,919ms). 앱은 이 경로에
+-- USE INDEX(count_cover)를 싣는다(ExhibitionQueryRepositoryImpl.countCoverIndexFor).
+EXPLAIN SELECT COUNT(e.id) FROM exhibitions e
+ WHERE e.deleted_at IS NULL AND e.type='CATALOG'
+   AND e.start_date <= CURDATE() AND e.end_date >= CURDATE()
+   AND e.region IN ('SEOUL','GYEONGGI');
+
+SELECT '=== C3h 다중지역 count · USE INDEX (앱이 싣는 모양 — range·key_len 174·Using index여야 한다) ===' AS ``;
+-- FORCE INDEX와 계획이 동일함을 확인했다(1M). 이 계획이 ref/ALL로 무너지면 힌트 전제가 깨진 것이다.
+EXPLAIN SELECT COUNT(e.id) FROM exhibitions e USE INDEX (idx_exhibitions_count_cover)
+ WHERE e.deleted_at IS NULL AND e.type='CATALOG'
+   AND e.start_date <= CURDATE() AND e.end_date >= CURDATE()
+   AND e.region IN ('SEOUL','GYEONGGI');
+
 SELECT '=== C1 무료 count ===' AS ``;
 EXPLAIN SELECT COUNT(e.id) FROM exhibitions e
  WHERE e.deleted_at IS NULL AND e.type='CATALOG'
