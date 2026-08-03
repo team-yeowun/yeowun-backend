@@ -1,0 +1,21 @@
+{
+  "label": "after-regionidx",
+  "volume": 1000035,
+  "git": { "sha": "98080ec", "branch": "perf/exhibition-count" },
+  "mysql": {
+    "version": "8.4.10",
+    "buffer_pool_mb": 128,
+    "flush_method": "O_DIRECT",
+    "max_connections": 151
+  },
+  "hikari": { "maximum_pool_size": 50, "minimum_idle": 10 },
+  "k6": { "version": "k6 v1.6.1 (commit/devel, go1.26.0, darwin/arm64)", "vus": 2, "seed": 20260728 },
+  "host": { "cpu_cores": 8, "mem_bytes": 17179869184,
+            "docker_cpus": 2, "docker_mem": 8074129408 },
+  "rows": {
+    "exhibitions": 1000035,
+    "exhibition_place": 731655,
+    "exhibition_detail": 1000035,
+    "exhibition_genre": 1000035
+  }
+}

@@ -28,6 +28,20 @@ DONE_GEN=$(q "SELECT COALESCE(MAX(CAST(SUBSTRING_INDEX(SUBSTRING_INDEX(external_
 NEED_GEN=$(( (TARGET_ROWS - PER_GEN + PER_GEN - 1) / PER_GEN ))
 (( NEED_GEN < 0 )) && NEED_GEN=0
 
+# V49(지역·무료 비정규화) 대응 — 증폭은 컬럼을 <b>명시적으로</b> 나열해 복제하므로, 새 컬럼을 여기 넣지 않으면
+# 증폭분 전체가 region=NULL·is_free=0으로 들어간다. 그러면 지역·무료 필터가 0건을 돌려주면서
+# 스캔 시간은 그대로 나와, "빨라진 것처럼 보이지만 실은 아무것도 안 센" 가짜 측정이 된다.
+# (앱 부팅 전에 증폭이 돌기 때문에 V49가 아직 적용되지 않은 DB도 있을 수 있어 컬럼 존재를 확인한다.)
+DENORM_COLS=""; DENORM_VALS=""
+if [ "$(q "SELECT COUNT(*) FROM information_schema.columns
+           WHERE table_schema='${DB}' AND table_name='exhibitions' AND column_name='region'")" = "1" ]; then
+  DENORM_COLS=", region, is_free"
+  DENORM_VALS=", e.region, e.is_free"
+  echo "[amplify] V49 비정규화 컬럼 감지 — region·is_free도 함께 복제한다"
+else
+  echo "[amplify] V49 이전 스키마 — region·is_free 복제 생략(부팅 시 Flyway 백필이 전량을 채운다)"
+fi
+
 echo "[amplify] 원본 ${PER_GEN}행/세대 · 현재 ${CUR}행(세대 ${DONE_GEN}) → 목표 ${TARGET_ROWS}행(세대 ${NEED_GEN})"
 
 if (( DONE_GEN >= NEED_GEN )); then
@@ -64,17 +78,22 @@ WHERE p.id <= (SELECT max_id FROM lt_base WHERE t='exhibition_place')
 INSERT INTO exhibitions
   (type, external_id, owner_id, title, exhibition_place_id, start_date, end_date,
    category, format, poster_url, detail_url, service_name, our_view_count,
-   created_at, updated_at, deleted_at)
+   created_at, updated_at, deleted_at${DENORM_COLS})
 SELECT e.type,
        CONCAT('LT-', s.n, '-', e.id),
        e.owner_id,
        e.title,
        np.id,
-       e.start_date + INTERVAL (((e.id * 31 + s.n * 17) % 31) - 15) DAY,
-       e.end_date   + INTERVAL (((e.id * 31 + s.n * 17) % 31) - 15) DAY,
+       -- 센티널(날짜 미상)은 지터를 먹이지 않는다. V47이 NULL을 '1000-01-01'/'9999-12-31'로 굳혔는데,
+       -- 여기에 ±15일을 더하면 ① '9999-12-31' + 15일이 DATE 범위를 넘어 NULL이 되고
+       -- ② 값이 센티널과 달라져 "미상"이라는 의미 자체가 사라진다(배너 제외·게터 마스킹이 안 먹는다).
+       CASE WHEN e.start_date = '1000-01-01' THEN e.start_date
+            ELSE e.start_date + INTERVAL (((e.id * 31 + s.n * 17) % 31) - 15) DAY END,
+       CASE WHEN e.end_date = '9999-12-31' THEN e.end_date
+            ELSE e.end_date + INTERVAL (((e.id * 31 + s.n * 17) % 31) - 15) DAY END,
        e.category, e.format, e.poster_url, e.detail_url, e.service_name,
        FLOOR(POW(((e.id * 131 + s.n * 7919) % 997) / 997.0, 3) * 1200),
-       e.created_at, e.updated_at, NULL
+       e.created_at, e.updated_at, NULL${DENORM_VALS}
 FROM exhibitions e
 JOIN exhibition_place op ON op.id = e.exhibition_place_id
 JOIN lt_seq s ON s.n BETWEEN ${from} AND ${to}
