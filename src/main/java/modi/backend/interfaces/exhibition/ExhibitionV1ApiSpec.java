@@ -26,8 +26,8 @@ public interface ExhibitionV1ApiSpec {
 
 	@Operation(summary = "전시 목록/탐색", description = """
 			필터·정렬·커서로 전시를 조회한다(커서 페이지네이션). 필터 미지정 시 오늘 진행 중인 전시를 기본 노출한다.
-			이 응답에는 총 건수(totalCount)가 없다 — 숫자가 필요하면 같은 필터로 GET /exhibitions/count를 병렬 호출한다
-			(목록이 총 건수를 기다리지 않고 먼저 뜬다).
+			응답에 조건 기준 총 건수(totalCount)를 함께 담는다. 목록 없이 숫자만 필요한 화면은
+			같은 필터로 GET /exhibitions/count를 쓸 수 있다(같은 조건 조립 경로라 두 숫자는 같다).
 			비로그인은 CATALOG만, 로그인은 CATALOG + 본인 CUSTOM을 함께 본다(로그인 시 bookmarked 개인화).
 			인증은 선택(Optional)이다 — Authorization 헤더가 없거나 토큰이 무효해도 401을 내지 않고
 			비로그인(익명)으로 취급해 조회를 계속한다.

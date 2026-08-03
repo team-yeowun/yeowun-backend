@@ -73,8 +73,8 @@ class ExhibitionCountRoutingBootTest {
 	}
 
 	@Test
-	@DisplayName("실제 부팅 앱에서 목록 응답 JSON에 totalCount 필드가 아예 없다")
-	void 실제_부팅앱_목록응답에_totalCount가_없다() {
+	@DisplayName("실제 부팅 앱에서 목록 응답 JSON에 totalCount가 기존 계약 그대로 실린다")
+	void 실제_부팅앱_목록응답에_totalCount가_실린다() {
 		LocalDate today = LocalDate.now(AppTime.KST);
 		String token = "라우팅목록토큰" + SEQ.getAndIncrement();
 		Long placeId = ExhibitionTestFactory.placeId(exhibitionPlaceRepository, "라우팅목록관", ExhibitionRegion.BUSAN);
@@ -91,8 +91,9 @@ class ExhibitionCountRoutingBootTest {
 		System.out.println("=== BOOTED APP: GET /api/v1/exhibitions (last page) ===");
 		System.out.println(last.substring(0, Math.min(400, last.length())));
 
-		assertThat(mid).doesNotContain("totalCount");
-		assertThat(last).doesNotContain("totalCount");
+		// 중간 페이지든 마지막 페이지든 totalCount는 필터 전량(3)이어야 한다 — 페이지에 담긴 수가 아니다.
+		assertThat(mid).contains("\"totalCount\":3");
+		assertThat(last).contains("\"totalCount\":3");
 		assertThat(mid).as("nextCursor는 살아 있어야 한다").contains("\"nextCursor\"");
 		assertThat(last).as("마지막 페이지에서도 nextCursor 필드는 null로 남아야 한다")
 				.contains("\"nextCursor\":null");

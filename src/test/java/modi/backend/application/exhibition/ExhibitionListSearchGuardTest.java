@@ -78,8 +78,8 @@ class ExhibitionListSearchGuardTest {
 	}
 
 	@Test
-	@DisplayName("목록 요청 하나는 페이지가 꽉 차도 JDBC 문 2개로 끝난다(버려지는 count도, totalCount도, 가격 배치도 없음)")
-	void 목록_요청당_JDBC_문은_2개다() {
+	@DisplayName("목록 요청 하나는 페이지가 꽉 차도 JDBC 문 3개로 끝난다(버려지는 count도, 가격 배치도 없음)")
+	void 목록_요청당_JDBC_문은_3개다() {
 		LocalDate today = LocalDate.now(AppTime.KST);
 		String token = "문수토큰" + SEQ.getAndIncrement();
 		Long placeId = ExhibitionTestFactory.placeId(exhibitionPlaceRepository, "문수검증관", ExhibitionRegion.DAEGU);
@@ -94,9 +94,11 @@ class ExhibitionListSearchGuardTest {
 
 		assertThat(page.content()).hasSize(3);
 		assertThat(page.hasNext()).as("페이지가 차야 옛 구현의 count가 드러난다").isTrue();
+		// 응답 계약 유지 결정으로 totalCount용 count 1문은 의도된 지출이다. 잡으려는 회귀는
+		// "쓰지도 않는" count(Page가 만들고 버리던 것)와 가격 배치의 부활이다.
 		assertThat(executed)
-				.as("슬라이스 1 · 전시장 배치 1 = 2 (가격 배치가 되살아나면 3, totalCount까지면 4, 버려지는 count까지면 5)")
-				.isEqualTo(2);
+				.as("슬라이스 1 · 전시장 배치 1 · totalCount 1 = 3 (가격 배치가 되살아나면 4, 버려지는 count까지면 5)")
+				.isEqualTo(3);
 	}
 
 	@Test

@@ -27,16 +27,18 @@ public final class ExhibitionResult {
 	}
 
 	/**
-	 * 목록 한 페이지 결과 — 커서 페이지네이션 shape(content·nextCursor·hasNext).
+	 * 목록 한 페이지 결과 — 커서 페이지네이션 shape(content·nextCursor·hasNext·totalCount).
 	 *
-	 * <p>총 건수는 여기 없다. 목록과 count는 <b>필요한 시점이 다른 두 리소스</b>라 갈랐다 —
-	 * 목록 헤더는 숫자를 늦게 받아도 되고, 필터 시트는 목록 없이 숫자만 쓴다. 총 건수는 {@link Count}가 준다.
+	 * <p>총 건수를 응답에 <b>함께 담는다</b> — 기존 응답 계약 유지가 우선이라는 결정이다(프론트 1명, 호출
+	 * 구조 변경 비용 회피). 목록이 count 지연에 묶이는 대가는 count 자체를 싸게 만드는 것(커버링 인덱스·
+	 * 다중지역 힌트)으로 갚았다. 목록 없이 숫자만 필요한 화면(필터 시트)은 {@link Count}를 쓸 수 있다.
 	 */
-	public record ListPage(List<ListItem> content, String nextCursor, boolean hasNext) {
+	public record ListPage(List<ListItem> content, String nextCursor, boolean hasNext, long totalCount) {
 	}
 
 	/**
-	 * 필터 조건의 총 건수({@code GET /exhibitions/count}).
+	 * 필터 조건의 총 건수({@code GET /exhibitions/count}) — 목록 없이 숫자만 필요한 화면용 <b>보조</b> 엔드포인트.
+	 * 목록 응답의 totalCount와 같은 조립 경로를 타므로 두 숫자는 어긋나지 않는다.
 	 *
 	 * <p>{@code exact}는 현재 <b>항상 true</b>다(정확한 count). 지금 넣어 두는 이유는 나중에 상한 근사로
 	 * 갈아탈 때 필드를 그때 추가하면 프론트 재작업이 되기 때문이다 — 지금은 프론트가 안 읽으면 그만이라 비용이 0이고,

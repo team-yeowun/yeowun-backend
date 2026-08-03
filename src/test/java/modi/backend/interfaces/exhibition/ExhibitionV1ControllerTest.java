@@ -30,11 +30,11 @@ import modi.backend.application.exhibition.ExhibitionResult;
 /**
  * 전시 목록·총 건수 응답의 <b>JSON 계약</b>을 고정한다(@WebMvcTest — 직렬화·라우팅 계층만 본다).
  *
- * <p>STEP 2가 바꾸는 것이 정확히 두 가지라, 그 두 가지를 그대로 단언한다.
+ * <p>단언하는 계약은 두 가지다.
  * <ol>
- *   <li>목록 응답에서 {@code totalCount}가 <b>사라진다</b> — {@code 0}으로 남으면 프론트가 "총 0개"를 읽는다.
- *       그래서 "값이 0이다"가 아니라 <b>"필드가 없다"</b>를 단언한다.</li>
- *   <li>{@code GET /exhibitions/count}가 {@code {count, exact}}를 준다 — {@code exact}는 지금 항상 true다.</li>
+ *   <li>목록 응답에 {@code totalCount}가 <b>기존 계약 그대로 실린다</b> — 응답 스펙 유지가 우선이라는 결정이다.
+ *       필드 존재와 값까지 단언해, 봉투가 조용히 바뀌면 여기서 걸린다.</li>
+ *   <li>{@code GET /exhibitions/count}가 {@code {count, exact}}를 준다(보조 엔드포인트) — {@code exact}는 지금 항상 true다.</li>
  * </ol>
  *
  * <p>{@code nextCursor}가 마지막 페이지에서도 살아 있는지를 함께 본다 —
@@ -57,36 +57,36 @@ class ExhibitionV1ControllerTest {
 	AuthFacade authFacade;
 
 	@Test
-	@DisplayName("전시 목록 JSON에는 totalCount 필드가 아예 없다(0으로 남으면 프론트가 '총 0개'를 읽는다)")
-	void 목록_응답에서_totalCount가_사라진다() throws Exception {
+	@DisplayName("전시 목록 JSON에 totalCount가 기존 계약 그대로 실린다")
+	void 목록_응답에_totalCount가_실린다() throws Exception {
 		given(exhibitionFacade.search(any(ExhibitionCriteria.Search.class)))
-				.willReturn(new ExhibitionResult.ListPage(List.of(listItem()), "next-cursor-token", true));
+				.willReturn(new ExhibitionResult.ListPage(List.of(listItem()), "next-cursor-token", true, 243L));
 
 		String body = mockMvc.perform(get("/api/v1/exhibitions"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.nextCursor").value("next-cursor-token"))
 				.andExpect(jsonPath("$.data.hasNext").value(true))
+				.andExpect(jsonPath("$.data.totalCount").value(243))
 				.andReturn().getResponse().getContentAsString();
 
 		JsonNode data = objectMapper.readTree(body).get("data");
 		assertThat(fieldNames(data))
-				.as("전시 목록 봉투 — totalCount는 GET /exhibitions/count로 갈라졌다")
-				.containsExactly("content", "nextCursor", "hasNext");
-		assertThat(body).doesNotContain("totalCount");
+				.as("전시 목록 봉투 — 기존 응답 계약(content·nextCursor·hasNext·totalCount) 유지")
+				.containsExactly("content", "nextCursor", "hasNext", "totalCount");
 	}
 
 	@Test
 	@DisplayName("마지막 페이지여도 nextCursor 필드는 null로 남는다(NON_NULL을 봉투 전체에 붙이면 여기서 걸린다)")
 	void 마지막_페이지에도_nextCursor_필드는_사라지지_않는다() throws Exception {
 		given(exhibitionFacade.search(any(ExhibitionCriteria.Search.class)))
-				.willReturn(new ExhibitionResult.ListPage(List.of(), null, false));
+				.willReturn(new ExhibitionResult.ListPage(List.of(), null, false, 0L));
 
 		String body = mockMvc.perform(get("/api/v1/exhibitions"))
 				.andExpect(status().isOk())
 				.andReturn().getResponse().getContentAsString();
 
 		JsonNode data = objectMapper.readTree(body).get("data");
-		assertThat(fieldNames(data)).containsExactly("content", "nextCursor", "hasNext");
+		assertThat(fieldNames(data)).containsExactly("content", "nextCursor", "hasNext", "totalCount");
 		assertThat(data.get("nextCursor").isNull()).isTrue();
 	}
 

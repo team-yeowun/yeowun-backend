@@ -194,11 +194,11 @@ class ExhibitionCountParityTest {
 	}
 
 	// ────────────────────────────────────────────────────────────────────────
-	// 4) 요청당 JDBC 문 수 — 비로그인 2 / 로그인은 몇인지 사실만 기록
+	// 4) 요청당 JDBC 문 수 — 비로그인 3 / 로그인은 몇인지 사실만 기록
 	// ────────────────────────────────────────────────────────────────────────
 
 	@Test
-	@DisplayName("요청당 JDBC 문 수 — 비로그인 2, 로그인은 관심 여부 배치가 1문 더 붙는다")
+	@DisplayName("요청당 JDBC 문 수 — 비로그인 3(슬라이스·전시장·totalCount), 로그인은 관심 여부 배치가 1문 더")
 	void 요청당_JDBC_문수를_로그인_비로그인_둘_다_센다() {
 		LocalDate today = LocalDate.now(AppTime.KST);
 		String token = "문수2토큰" + SEQ.getAndIncrement();
@@ -215,9 +215,11 @@ class ExhibitionCountParityTest {
 		System.out.println("=== JDBC statements ===");
 		System.out.println("목록(비로그인)=%d 목록(로그인)=%d /count=%d".formatted(비로그인, 로그인, count문수));
 
-		// V49로 무료 판정이 전시 행에 굳으면서 가격 배치가 사라졌다(3→2).
-		assertThat(비로그인).as("슬라이스 1 · 전시장 배치 1 = 2 (가격 배치가 되살아나면 3)").isEqualTo(2);
-		assertThat(로그인).as("로그인은 관심 여부 배치 1문이 더 붙는다").isEqualTo(3);
+		// V49로 가격 배치가 사라졌고(−1), 응답 계약 유지 결정으로 totalCount용 count가 목록에 붙는다(+1).
+		// 옛 구현과 문수는 같아도 내용이 다르다 — 옛 3은 "버리는 count 포함", 지금 3은 전부 쓰는 문장이다.
+		assertThat(비로그인).as("슬라이스 1 · 전시장 배치 1 · totalCount 1 = 3 (버리는 count가 되살아나면 4)")
+				.isEqualTo(3);
+		assertThat(로그인).as("로그인은 관심 여부 배치 1문이 더 붙는다").isEqualTo(4);
 		assertThat(count문수).as("총 건수는 SQL 한 문장").isEqualTo(1);
 	}
 

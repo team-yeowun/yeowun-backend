@@ -61,9 +61,9 @@ public class ExhibitionV1Controller implements ExhibitionV1ApiSpec {
         );
 		ExhibitionResult.ListPage result = exhibitionFacade.search(criteria);
 
-		CursorResponse<ExhibitionDto.ListItemResponse> data = CursorResponse.ofSlice(result.content().stream()
+		CursorResponse<ExhibitionDto.ListItemResponse> data = CursorResponse.of(result.content().stream()
                         .map(ExhibitionDto.ListItemResponse::from)
-                        .toList(), result.nextCursor(), result.hasNext());
+                        .toList(), result.nextCursor(), result.hasNext(), result.totalCount());
 		return ResponseEntity.ok(ApiResponse.success(data));
 	}
 

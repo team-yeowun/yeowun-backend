@@ -68,7 +68,10 @@ public class ExhibitionListService {
 		List<ExhibitionResult.ListItem> content = listAssembler.assemble(page, today, criteria.requesterId());
 		String nextCursor = hasNext ? encodeCursor(sort, page.get(page.size() - 1)) : null;
 
-		return new ExhibitionResult.ListPage(content, nextCursor, hasNext);
+		// 응답 계약 유지: totalCount를 목록에 함께 담는다. count는 filter 술어만 타므로(키셋 경계 무시)
+		// 커서가 담긴 같은 query를 넘겨도 "이 필터의 전체 건수"가 나온다.
+		return new ExhibitionResult.ListPage(content, nextCursor, hasNext,
+				exhibitionQueryRepository.count(query));
 	}
 
 	/**
@@ -118,9 +121,9 @@ public class ExhibitionListService {
 						sliced.lastItem().getId()).encode()
 				: null;
 
-		// ordered.size()는 쿼리가 아니라 이미 메모리에 있는 후보 수다 — 여기서 빼는 건 성능이 아니라
-		// 응답 일관성 때문이다(정렬 축이 달라도 목록 응답의 모양은 하나여야 한다).
-		return new ExhibitionResult.ListPage(content, nextCursor, sliced.hasNext());
+		// ordered.size()는 추가 쿼리가 아니라 이미 메모리에 있는 후보 수다 — 거리순은 후보 전량을
+		// 앱에서 세우므로 총 건수도 공짜다(정렬 축이 달라도 목록 응답의 모양은 하나여야 한다).
+		return new ExhibitionResult.ListPage(content, nextCursor, sliced.hasNext(), ordered.size());
 	}
 
 	private static String encodeCursor(ExhibitionSort sort, Exhibition last) {
