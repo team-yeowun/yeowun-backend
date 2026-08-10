@@ -44,6 +44,15 @@ public interface ExhibitionRepository {
 	long countActiveByIds(Collection<Long> ids);
 
 	/**
+	 * 누산된 조회수 델타(전시 id → 증가량)를 일괄 반영한다. 반환은 실제로 갱신된 행 수
+	 * (그 사이 삭제된 전시는 빠지므로 입력 크기보다 작을 수 있다).
+	 *
+	 * <p>조회 경로는 {@link ExhibitionViewCounter}에 누산만 하고, 이 메서드가 배치로 옮긴다 —
+	 * {@code our_view_count}는 인덱스가 둘 걸린 인기순 정렬축이라 요청마다 올리면 인기 있는 행일수록 쓰기가 몰린다.
+	 */
+	int increaseViewCounts(Map<Long, Long> deltas);
+
+	/**
 	 * 주어진 id들을 <b>종료일 오름차순(nulls last)·id 오름차순</b>으로 한 페이지 조회한다(관심 전시 "종료 임박순").
 	 * 정렬 키가 전시 컬럼이라 북마크 쪽에서 자를 수 없다 — 정렬·경계·LIMIT을 DB에 맡겨 <b>반환 행만</b> 올린다.
 	 *

@@ -152,7 +152,13 @@ public class Exhibition extends BaseEntity {
 	@Column(name = "service_name", length = 200)
 	private String serviceName;
 
-	/** 우리 앱 내 조회수(인기순 정렬용). 외부 API의 조회수와 별개. */
+	/**
+	 * 우리 앱 내 조회수(인기순 정렬축). 외부 API의 조회수와 별개다.
+	 *
+	 * <p>이 값은 <b>엔티티 메서드로 올리지 않는다</b> — 조회 경로는 {@link ExhibitionViewCounter}에 누산만 하고,
+	 * 6시간마다 배치가 {@link ExhibitionRepository#increaseViewCounts}로 제자리에서 더한다.
+	 * 컬럼에 인덱스가 둘 걸려 있어(인기순) 요청마다 올리면 인기 있는 행일수록 쓰기가 몰리기 때문이다.
+	 */
 	@Column(name = "our_view_count", nullable = false)
 	private long ourViewCount = 0;
 
@@ -237,10 +243,6 @@ public class Exhibition extends BaseEntity {
 		return Optional.of(change);
 	}
 
-	/** 우리 앱 내 조회 1회 발생 시 호출(인기순 정렬용 카운터). */
-	public void increaseView() {
-		this.ourViewCount += 1;
-	}
 
 	/**
 	 * 시작일 — <b>미상이면 null</b>. 센티널은 저장 표현일 뿐이라 여기서 도로 걷어낸다.

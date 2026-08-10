@@ -8,6 +8,7 @@ import modi.backend.application.exhibition.custom.ExhibitionCustomService;
 import modi.backend.application.exhibition.detail.ExhibitionDetailService;
 import modi.backend.application.exhibition.list.ExhibitionBannerService;
 import modi.backend.application.exhibition.list.ExhibitionListService;
+import modi.backend.application.exhibition.view.ExhibitionViewCountService;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -29,6 +30,7 @@ public class ExhibitionFacade {
 	private final ExhibitionBannerService exhibitionBannerService;
 	private final ExhibitionDetailService exhibitionDetailService;
 	private final ExhibitionCustomService exhibitionCustomService;
+	private final ExhibitionViewCountService exhibitionViewCountService;
 
 	/** 지역 필터 그룹 목록(디자인 병합 칩). */
 	public List<ExhibitionResult.RegionGroup> getRegionGroups() {
@@ -68,5 +70,13 @@ public class ExhibitionFacade {
 	/** 개인 전시(CUSTOM) 동반 삭제 — 본인이 등록한 CUSTOM만 soft-delete. 멱등. */
 	public void deleteCustomOwnedBy(Long exhibitionId, Long ownerId) {
 		exhibitionCustomService.deleteCustomOwnedBy(exhibitionId, ownerId);
+	}
+
+	/**
+	 * 누산된 조회수를 정본에 반영한다(6시간 배치 진입점). 사용자 요청이 아니라 스케줄러가 부르지만,
+	 * interfaces가 서비스를 직접 부르지 않도록 진입점은 파사드에 둔다.
+	 */
+	public ExhibitionResult.ViewCountFlush flushViewCounts() {
+		return exhibitionViewCountService.flush();
 	}
 }

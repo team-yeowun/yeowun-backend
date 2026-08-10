@@ -29,6 +29,7 @@ import modi.backend.domain.exhibition.catalog.ExhibitionErrorCode;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlace;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlaceRepository;
 import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
+import modi.backend.domain.exhibition.catalog.ExhibitionViewCounter;
 import modi.backend.infra.record.RecordJpaRepository;
 import modi.backend.support.error.CoreException;
 import modi.backend.support.error.ErrorType;
@@ -47,6 +48,7 @@ class ExhibitionDetailTest {
 	private ExhibitionBookmarkRepository bookmarkRepository;
 	private RecordJpaRepository recordJpaRepository;
 	private ExhibitionPlaceRepository placeRepository;
+	private ExhibitionViewCounter viewCounter;
 	private ExhibitionDetailService detailService;
 
 	@BeforeEach
@@ -56,9 +58,10 @@ class ExhibitionDetailTest {
 		bookmarkRepository = mock(ExhibitionBookmarkRepository.class);
 		recordJpaRepository = mock(RecordJpaRepository.class);
 		placeRepository = mock(ExhibitionPlaceRepository.class);
+		viewCounter = mock(ExhibitionViewCounter.class);
 		detailService = new ExhibitionDetailService(exhibitionRepository, placeRepository, bookmarkRepository,
-				recordJpaRepository);
-		given(exhibitionRepository.save(any(Exhibition.class))).willAnswer(invocation -> invocation.getArgument(0));
+				recordJpaRepository, viewCounter);
+		given(viewCounter.increase(anyLong())).willReturn(1L);
 		given(placeRepository.findById(anyLong())).willReturn(Optional.of(
 				ExhibitionPlace.createFromList("장소", null, null, null, null)));
 		given(placeRepository.findHours(anyLong())).willReturn(Optional.empty());
@@ -85,20 +88,24 @@ class ExhibitionDetailTest {
 		// 트랜잭션 안에서 외부 HTTP를 치지 않는다 — 상세 충전은 수집 파이프라인(FETCH_DETAIL)의 몫이다.
 		verifyNoInteractions(catalogClient);
 		verify(exhibitionRepository, never()).applyDetail(anyLong(), any(), any(), any(), any());
-		assertThat(e.getOurViewCount()).isEqualTo(1);
+		// 조회수는 누산기로만 간다 — 서빙 경로에 DB 쓰기가 남으면 상세 캐시를 얹어도 왕복이 사라지지 않는다.
+		verify(viewCounter).increase(1L);
+		verify(exhibitionRepository, never()).save(any(Exhibition.class));
 	}
 
 	@Test
-	@DisplayName("상세 조회 — 상세행이 없으면 기본 필드로 응답하고 조회수는 증가한다")
+	@DisplayName("상세 조회 — 상세행이 없어도 기본 필드로 응답하고, 조회수는 정본 + 누산분으로 나간다")
 	void 상세조회_상세행없어도_기본필드로_응답() {
 		Exhibition e = catalog("S2", 2L);
 		given(exhibitionRepository.findById(2L)).willReturn(Optional.of(e));
 		given(exhibitionRepository.hasDetail(2L)).willReturn(false);
+		given(viewCounter.increase(2L)).willReturn(7L);   // 아직 반영되지 않은 누산분
 
 		assertThatCode(() -> detailService.getDetail(new ExhibitionCriteria.Detail(2L, null)))
 				.doesNotThrowAnyException();
 
-		assertThat(e.getOurViewCount()).isEqualTo(1);
+		// 정본(0) + 누산분(7). 배치가 옮기기 전에도 사용자가 보는 수는 즉시 오른다.
+		assertThat(detailService.getDetail(new ExhibitionCriteria.Detail(2L, null)).viewCount()).isEqualTo(7);
 	}
 
 	@Test
