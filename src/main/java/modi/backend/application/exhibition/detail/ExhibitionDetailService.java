@@ -16,6 +16,7 @@ import modi.backend.domain.exhibition.catalog.ExhibitionGenre;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlace;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlaceRepository;
 import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
+import modi.backend.domain.exhibition.catalog.ExhibitionViewCounter;
 import modi.backend.domain.exhibition.hours.PlaceHours;
 import modi.backend.infra.record.RecordJpaRepository;
 import modi.backend.support.error.CoreException;
@@ -24,8 +25,9 @@ import modi.backend.support.error.ErrorType;
 /**
  * 전시 <b>상세</b> 유스케이스 — 조각(장소·상세·영업시간·작가·장르)을 두 애그리거트 루트에서 읽어 하나로 모은다.
  *
- * <p>사용자 상세({@link #getDetail})는 조회수를 올리므로 읽기 전용이 아니다. 기록 생성·AI 입력이 쓰는
- * {@link #getForSnapshot}은 조회수·개인화 없이 같은 조립만 한다 — 사용자 행동이 아니기 때문이다.
+ * <p>사용자 상세({@link #getDetail})는 조회수를 올리지만 <b>DB에 쓰지는 않는다</b> — 증가분은
+ * {@link ExhibitionViewCounter}에 누산되고 정본 반영은 배치 몫이다. 응답에는 정본에 누산분을 합쳐 내보낸다.
+ * 기록 생성·AI 입력이 쓰는 {@link #getForSnapshot}은 조회수·개인화 없이 같은 조립만 한다 — 사용자 행동이 아니기 때문이다.
  */
 @Service
 @RequiredArgsConstructor
@@ -35,6 +37,7 @@ public class ExhibitionDetailService {
 	private final ExhibitionPlaceRepository exhibitionPlaceRepository;
 	private final ExhibitionBookmarkRepository exhibitionBookmarkRepository;
 	private final RecordJpaRepository recordJpaRepository;
+	private final ExhibitionViewCounter viewCounter;
 
 	/**
 	 * 상세(5.3). 없으면 404, 타인의 CUSTOM이면 403. place·operatingHours·artists는 요청 시 조인해 조립한다.
@@ -44,22 +47,23 @@ public class ExhibitionDetailService {
 	 * 함께 쓰는 지금(ADR-12) {@code hasDetail()==false}인 CATALOG 전시는 draft 도입 이전 행에만 남는다.
 	 * 상세 충전은 수집 파이프라인(상세 스텝 — DRAFT_STAGED 소비)의 몫이다.
 	 */
-	@Transactional
+	@Transactional(readOnly = true)
 	public ExhibitionResult.Detail getDetail(ExhibitionCriteria.Detail criteria) {
 		Exhibition exhibition = exhibitionRepository.findById(criteria.exhibitionId())
 				.orElseThrow(() -> new CoreException(ExhibitionErrorCode.EXHIBITION_NOT_FOUND));
 		if (!exhibition.isAccessibleBy(criteria.requesterId())) {
 			throw new CoreException(ErrorType.FORBIDDEN, "타인의 개인 전시 접근: " + criteria.exhibitionId());
 		}
-		exhibition.increaseView();
-		exhibitionRepository.save(exhibition);
+		// 조회수는 누산기에만 올린다 — 정본 반영은 배치 몫이라 이 경로에 DB 쓰기가 없다.
+		long pending = viewCounter.increase(exhibition.getId());
 
 		Long requesterId = criteria.requesterId();
 		boolean bookmarked = requesterId != null
 				&& exhibitionBookmarkRepository.existsActive(requesterId, exhibition.getId());
 		boolean recorded = requesterId != null
 				&& recordJpaRepository.existsByUserIdAndExhibitionIdAndDeletedAtIsNull(requesterId, exhibition.getId());
-		return assembleDetail(exhibition, bookmarked, recorded);
+		return assembleDetail(exhibition, bookmarked, recorded)
+				.withViewCount(exhibition.getOurViewCount() + pending);
 	}
 
 	/** 스냅샷/조회용 — 조회수 증가·외부 상세수집·개인화 없이 DB에서만 전시를 읽어 반환한다(기록 생성 등 내부 사용). */

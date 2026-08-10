@@ -130,6 +130,17 @@ public final class ExhibitionResult {
 					// 파생값 · 요청자 기준 개인화 (free는 목록·필터와 같은 출처 = 전시 행의 굳은 판정, V49)
 					artistSummary, exhibition.isFree(), bookmarked, recorded);
 		}
+
+		/**
+		 * 조회수만 갈아 끼운다. 정본은 배치가 6시간마다 반영하므로, 응답에는
+		 * <b>정본 + 아직 반영되지 않은 누산분</b>을 합쳐 내보내야 사용자가 보는 수가 즉시 오른다.
+		 */
+		public Detail withViewCount(long value) {
+			return new Detail(exhibitionId, type, title, posterUrl, startDate, endDate, place, region, category,
+					format, description, operatingHours, price, artists, keywords, serviceName, detailUrl,
+					gpsX, gpsY, address, imgUrl, phone, value, sigungu, placeUrl, artistSummary, free,
+					bookmarked, recorded);
+		}
 	}
 
 	/** 홈 배너 항목(E-10). 배너 이미지는 전시 포스터(posterUrl)를 사용한다. */
@@ -148,6 +159,13 @@ public final class ExhibitionResult {
 		public static Created from(Exhibition exhibition) {
 			return new Created(exhibition.getId(), exhibition.getType().name());
 		}
+	}
+
+	/**
+	 * 조회수 반영 결과(배치). {@code exhibitions}는 갱신된 전시 수, {@code views}는 반영한 조회 횟수 합계다.
+	 * 둘 다 0이면 그 창에 조회가 없었거나 다른 인스턴스가 이미 가져갔다는 뜻이다.
+	 */
+	public record ViewCountFlush(int exhibitions, long views) {
 	}
 
 	private static String name(ExhibitionRegion region) {
