@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import modi.backend.application.exhibition.cache.ExhibitionCache;
+import modi.backend.application.exhibition.cache.ExhibitionCacheWarmer;
 import modi.backend.application.exhibition.cache.ExhibitionListCacheResolver;
 import modi.backend.application.exhibition.custom.ExhibitionCustomService;
 import modi.backend.application.exhibition.detail.ExhibitionDetailService;
@@ -34,6 +35,7 @@ public class ExhibitionFacade {
     private final ExhibitionDetailService exhibitionDetailService;
     private final ExhibitionCustomService exhibitionCustomService;
     private final ExhibitionViewCountService exhibitionViewCountService;
+    private final ExhibitionCacheWarmer exhibitionCacheWarmer;
     private final CacheManager cacheManager;
 
     /**
@@ -92,10 +94,33 @@ public class ExhibitionFacade {
     }
 
     /**
-     * 상세(5.3). 없으면 404, 타인의 CUSTOM이면 403. 조회수를 올린다.
+     * - 상세(5.3). 없으면 404, 타인의 CUSTOM이면 403
+     *
+     * - 캐시에는 CATALOG의 공용 조립부만 담음
+     *   - 캐시 히트가 곧 공개 전시라는 증명이라 히트 경로에서 권한을 다시 보지 않아도 됨
+     *   - CUSTOM은 캐시에 들어간 적이 없어 항상 미스로 떨어지고, 그때 loader가 권한을 판정
+     *
+     * - {@code getOrPut}이 아니라 {@code get} + 조건부 {@code put}을 씀
+     *   - {@code getOrPut}은 loader가 만든 값을 무조건 넣어 CUSTOM까지 담김
+     *   - 여기서만은 "넣을지 말지"를 호출부가 정해야 함
+     *
+     * - 조회수는 PR #155 이후 누산기로만 가므로 이 경로에 DB 쓰기가 없음
+     *   - 익명 CATALOG 상세는 캐시 히트 시 DB를 한 번도 건드리지 않음
      */
     public ExhibitionResult.Detail getDetail(ExhibitionCriteria.Detail criteria) {
-        return exhibitionDetailService.getDetail(criteria);
+        String key = String.valueOf(criteria.exhibitionId());
+        ExhibitionResult.Detail shared = cacheManager.get(
+                ExhibitionCache.ExhibitionDetail.INSTANCE, key, ExhibitionResult.Detail.class);
+
+        if (shared == null) {
+            ExhibitionResult.SharedDetail assembled = exhibitionDetailService.assembleShared(
+                    criteria.exhibitionId(), criteria.requesterId());
+            shared = assembled.detail();
+            if (assembled.cacheable()) {
+                cacheManager.put(ExhibitionCache.ExhibitionDetail.INSTANCE, key, shared);
+            }
+        }
+        return exhibitionDetailService.personalize(shared, criteria.requesterId());
     }
 
     /**
@@ -124,6 +149,17 @@ public class ExhibitionFacade {
      */
     public ExhibitionResult.ViewCountFlush flushViewCounts() {
         return exhibitionViewCountService.flush();
+    }
+
+    /**
+     * - 목록 캐시 7종을 새 값으로 재적재한다(6시간 워밍 진입점)
+     *   - 조회수 반영 30분 뒤에 도는 스케줄러가 부름
+     *
+     * - 조회수 반영과 마찬가지로 사용자 요청이 아니지만 진입점은 파사드에 둠
+     *   - interfaces가 application 내부 컴포넌트를 직접 부르지 않게 하기 위함
+     */
+    public void warmListCaches() {
+        exhibitionCacheWarmer.warmLists();
     }
 
     /**
