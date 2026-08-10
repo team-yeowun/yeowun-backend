@@ -81,6 +81,19 @@ public final class ExhibitionResult {
 					// 파생값(목록은 CATALOG만이라 artistSummary는 원천 미보유 → null)
 					null, exhibition.dDay(today), exhibition.isFree(), bookmarked);
 		}
+
+		/**
+		 * - 캐시에 담긴 익명 항목에 요청자의 관심 여부만 덮어씀
+		 *   - {@code bookmarked} 외의 필드는 요청자와 무관해 그대로 둠
+		 *
+		 * - 캐시에는 익명 결과만 담기 때문에 필요
+		 *   - 캐시에 개인화가 섞이면 남의 관심 상태가 새어 나감
+		 *   - 그래서 요청자별 값은 캐시 밖에서 덮어쓰는 것이 원칙
+		 */
+		public ListItem withBookmarked(boolean value) {
+			return new ListItem(exhibitionId, type, title, posterUrl, startDate, endDate, place, region,
+					category, artistSummary, dDay, free, value);
+		}
 	}
 
 	/**

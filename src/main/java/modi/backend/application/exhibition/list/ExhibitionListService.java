@@ -1,6 +1,7 @@
 package modi.backend.application.exhibition.list;
 
 import modi.backend.application.exhibition.ExhibitionCriteria;
+import modi.backend.application.exhibition.ExhibitionPageSize;
 import modi.backend.application.exhibition.ExhibitionResult;
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -33,9 +34,6 @@ import modi.backend.support.time.AppTime;
 @RequiredArgsConstructor
 public class ExhibitionListService {
 
-	private static final int DEFAULT_SIZE = 20;
-	private static final int MAX_SIZE = 50;
-
 	private final ExhibitionQueryRepository exhibitionQueryRepository;
 	private final ExhibitionSearchQueryFactory queryFactory;
 	private final ExhibitionListAssembler listAssembler;
@@ -50,7 +48,7 @@ public class ExhibitionListService {
 	public ExhibitionResult.ListPage search(ExhibitionCriteria.Search criteria) {
 		LocalDate today = LocalDate.now(AppTime.KST);
 		ExhibitionSort sort = ExhibitionSort.from(criteria.sort());
-		int size = clampSize(criteria.size());
+		int size = ExhibitionPageSize.clamp(criteria.size());
 
 		if (sort == ExhibitionSort.DISTANCE) {
 			return searchByDistance(criteria, today, size, queryFactory.create(criteria, sort, today, null, null));
@@ -72,6 +70,26 @@ public class ExhibitionListService {
 		// 커서가 담긴 같은 query를 넘겨도 "이 필터의 전체 건수"가 나온다.
 		return new ExhibitionResult.ListPage(content, nextCursor, hasNext,
 				exhibitionQueryRepository.count(query));
+	}
+
+	/**
+	 * - 캐시에서 꺼낸 익명 페이지에 요청자 기준 개인화를 덮어씀
+	 *   - 비로그인이거나 내용이 비면 그대로 돌려줌
+	 *
+	 * - 파사드가 조립부({@code ExhibitionListAssembler})를 직접 부르지 않도록 서비스가 창구를 열어 둠
+	 *   - 파사드 → 서비스 규칙 유지
+	 *
+	 * - {@code @Transactional}을 걸지 않음
+	 *   - 걸면 비로그인 요청도 조기 반환 전에 트랜잭션·커넥션을 잡음
+	 *   - 캐시 히트로 DB를 안 가려던 이득이 그 자리에서 사라짐
+	 *   - 실제 조회는 한 건뿐이고 Spring Data 읽기가 자기 트랜잭션을 열어 처리
+	 */
+	public ExhibitionResult.ListPage personalize(ExhibitionResult.ListPage page, Long requesterId) {
+		if (requesterId == null || page.content().isEmpty()) {
+			return page;
+		}
+		return new ExhibitionResult.ListPage(listAssembler.withBookmarks(page.content(), requesterId),
+				page.nextCursor(), page.hasNext(), page.totalCount());
 	}
 
 	/**
@@ -144,12 +162,5 @@ public class ExhibitionListService {
 		double dx = place.getGpsX() - lng;
 		double dy = place.getGpsY() - lat;
 		return dx * dx + dy * dy;
-	}
-
-	private static int clampSize(Integer size) {
-		if (size == null || size < 1) {
-			return DEFAULT_SIZE;
-		}
-		return Math.min(size, MAX_SIZE);
 	}
 }
