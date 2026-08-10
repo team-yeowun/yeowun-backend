@@ -179,4 +179,12 @@ public final class ExhibitionResult {
 	private static String name(ExhibitionFormat format) {
 		return format == null ? null : format.name();
 	}
+
+    /**
+     * 홈 배너 목록(E-10)을 통째로 담는 그릇. 캐시가 {@code Class<T>}로 값을 꺼내는데
+     * {@code List<Banner>}는 제네릭이라 그 타입으로 표현되지 않아, 한 겹 감싼다.
+     * 감싼 김에 "캐시 값은 불변 record만"이라는 규율도 함께 지켜진다.
+     */
+    public record Banners(List<Banner> items) {
+    }
 }

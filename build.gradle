@@ -80,6 +80,13 @@ dependencies {
 	//   compile 클래스패스엔 안 올라와서 명시한다 — 우리가 직접 import하는 API라 명시가 맞다.
 	implementation 'org.springframework.ai:spring-ai-client-chat'
 	// OAuth 후 자체 JWT(access/refresh) 발급용
+
+    // L1 로컬 캐시 — Caffeine. spring-boot-starter-cache는 CaffeineCacheManager(spring-context-support)를 끌어온다.
+    //   @EnableCaching은 쓰지 않는다: @Cacheable 대신 CacheManager 창구로만 캐시를 다루므로
+    //   Boot의 캐시 오토컨피그(CacheAutoConfiguration)를 깨울 이유가 없다.
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+    implementation 'com.github.ben-manes.caffeine:caffeine'
+
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
