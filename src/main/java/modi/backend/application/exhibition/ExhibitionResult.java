@@ -81,6 +81,19 @@ public final class ExhibitionResult {
 					// 파생값(목록은 CATALOG만이라 artistSummary는 원천 미보유 → null)
 					null, exhibition.dDay(today), exhibition.isFree(), bookmarked);
 		}
+
+		/**
+		 * - 캐시에 담긴 익명 항목에 요청자의 관심 여부만 덮어씀
+		 *   - {@code bookmarked} 외의 필드는 요청자와 무관해 그대로 둠
+		 *
+		 * - 캐시에는 익명 결과만 담기 때문에 필요
+		 *   - 캐시에 개인화가 섞이면 남의 관심 상태가 새어 나감
+		 *   - 그래서 요청자별 값은 캐시 밖에서 덮어쓰는 것이 원칙
+		 */
+		public ListItem withBookmarked(boolean value) {
+			return new ListItem(exhibitionId, type, title, posterUrl, startDate, endDate, place, region,
+					category, artistSummary, dDay, free, value);
+		}
 	}
 
 	/**
@@ -132,6 +145,18 @@ public final class ExhibitionResult {
 		}
 
 		/**
+		 * - 캐시에 담긴 공용 상세에 요청자 기준 값을 덮어씀
+		 *   - 캐시에는 개인화를 담지 않으므로 꺼낸 뒤 여기서 얹음
+		 *   - 관심·기록 외의 필드는 요청자와 무관해 그대로 둠
+		 */
+		public Detail withPersonalization(boolean bookmarked, boolean recorded) {
+			return new Detail(exhibitionId, type, title, posterUrl, startDate, endDate, place, region, category,
+					format, description, operatingHours, price, artists, keywords, serviceName, detailUrl,
+					gpsX, gpsY, address, imgUrl, phone, viewCount, sigungu, placeUrl, artistSummary, free,
+					bookmarked, recorded);
+		}
+
+		/**
 		 * 조회수만 갈아 끼운다. 정본은 배치가 6시간마다 반영하므로, 응답에는
 		 * <b>정본 + 아직 반영되지 않은 누산분</b>을 합쳐 내보내야 사용자가 보는 수가 즉시 오른다.
 		 */
@@ -141,6 +166,19 @@ public final class ExhibitionResult {
 					gpsX, gpsY, address, imgUrl, phone, value, sigungu, placeUrl, artistSummary, free,
 					bookmarked, recorded);
 		}
+	}
+
+	/**
+	 * - 캐시에 넣어도 되는지를 함께 들고 다니는 공용 상세
+	 *   - {@code cacheable}은 CATALOG일 때만 참
+	 *   - 호출부는 참일 때만 캐시에 넣음
+	 *
+	 * - 이 한 필드가 권한 판정을 대신함
+	 *   - 캐시에 있다 = CATALOG다 = 공개해도 되는 값
+	 *   - 그래서 히트 경로에서 권한을 다시 보지 않아도 됨
+	 *   - CUSTOM은 캐시에 들어간 적이 없어 항상 미스가 되고, loader가 판정함
+	 */
+	public record SharedDetail(Detail detail, boolean cacheable) {
 	}
 
 	/** 홈 배너 항목(E-10). 배너 이미지는 전시 포스터(posterUrl)를 사용한다. */

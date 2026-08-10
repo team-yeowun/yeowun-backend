@@ -26,6 +26,13 @@ import modi.backend.support.cache.MyCache;
  */
 public final class ExhibitionCache {
 
+    /**
+     * - 엔트리가 하나뿐인 캐시의 키
+     *   - 목록 7종과 배너는 "그 캐시 = 그 값"이라 키로 나눌 것이 없음
+     *   - 전시 상세만 예외로 전시 id를 키로 사용
+     */
+    public static final String ENTRY_KEY = "ALL";
+
     /** 조립(CacheConfig)이 순회할 전체 선언 목록. */
     public static final List<MyCache> ALL = List.of(
             HomeBanners.INSTANCE, HomeEndingSoon.INSTANCE, HomeFree.INSTANCE, HomeNewThisMonth.INSTANCE,

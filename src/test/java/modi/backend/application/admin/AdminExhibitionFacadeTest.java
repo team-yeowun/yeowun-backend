@@ -34,7 +34,8 @@ class AdminExhibitionFacadeTest {
 		ExhibitionDetail already = detail(2L, "이미 깨끗한 설명이에요.");
 		given(exhibitionRepository.findDetailsWithDescription()).willReturn(List.of(markup, already));
 		AdminExhibitionFacade facade = new AdminExhibitionFacade(exhibitionRepository,
-				mock(ExhibitionPlaceRepository.class), mock(ExhibitionHistoryJpaRepository.class));
+				mock(ExhibitionPlaceRepository.class), mock(ExhibitionHistoryJpaRepository.class),
+				mock(org.springframework.context.ApplicationEventPublisher.class));
 
 		AdminExhibitionResult.DescriptionReparse result = facade.reparseDescriptions();
 

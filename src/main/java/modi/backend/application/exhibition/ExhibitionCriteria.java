@@ -28,6 +28,26 @@ public final class ExhibitionCriteria {
 	 */
 	public record Search(String keyword, String section, String period, String region, String category,
 			LocalDate date, String sort, Double lat, Double lng, String cursor, Integer size, Long requesterId) {
+
+		/**
+		 * - 필터도 커서도 없이 섹션·정렬만 남은 기본 크기 첫 페이지인가
+		 *   - 홈·탐색의 첫 화면 요청
+		 *
+		 * - 판정을 이 record가 직접 하는 이유
+		 *   - 필드가 늘어날 때 판정도 함께 늘어나야 함
+		 *   - 바깥에서 필드를 하나씩 꺼내 null인지 세는 방식은 그 보장이 없음
+		 *   - 아홉 번째 필터가 생겨도 그 코드는 아무 말 없이 예전 답을 계속 냄
+		 *
+		 * - 그래서 세는 대신 허용된 필드만 남긴 쌍둥이를 만들어 자기 자신과 비교
+		 *   - record의 {@code equals}는 전 필드를 봄
+		 *   - 새 필터 필드가 추가되면 쌍둥이 쪽은 null이라 값이 실린 요청은 자동으로 걸러짐
+		 *   - 깜빡했을 때 틀린 캐시를 주는 쪽이 아니라 캐시를 안 타는 쪽으로 실패
+		 */
+		public boolean isPlainFirstPage() {
+			return ExhibitionPageSize.isDefault(size)
+					&& equals(new Search(null, section, null, null, null, null, sort, null, null, null, size,
+							requesterId));
+		}
 	}
 
 	/** 전시 상세 조회 입력. requesterId는 CUSTOM 접근 권한 판단 + 개인화(bookmarked/recorded)용. */
