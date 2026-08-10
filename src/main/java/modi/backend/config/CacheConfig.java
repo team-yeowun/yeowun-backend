@@ -17,6 +17,8 @@ import org.springframework.data.redis.serializer.RedisSerializationContext.Seria
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 
+import lombok.extern.slf4j.Slf4j;
+
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 
@@ -38,11 +40,15 @@ import modi.backend.support.cache.MyCache;
  *   - {@code @EnableCaching}을 활성화하면 Spring Boot가 별도의 {@code CacheManager} 빈을 생성하려 할 수 있음
  *   - 따라서 현재 캐시 구조에서는 Spring Cache AOP를 활성화하지 않음
  */
+@Slf4j
 @Configuration
 public class CacheConfig {
 
     /** L1 크기 상한 */
 	private static final long LOCAL_MAX_SIZE = 1_000L;
+
+	/** 구독이 끊겼을 때 컨테이너가 스스로 재구독을 시도하는 간격(ms). */
+	private static final long RECOVERY_INTERVAL_MS = 5_000L;
 
 	/** L2 TTL에 더하는 흩뜨림 상한(분). 다른 키들과 같은 순간에 만료되는 것을 방지 용도 */
 	private static final long JITTER_MAX_MINUTES = 30L;
@@ -99,8 +105,27 @@ public class CacheConfig {
 	@Bean
 	public RedisMessageListenerContainer cacheInvalidationListenerContainer(
 			RedisConnectionFactory factory, RedisMessageListener listener, MeterRegistry meterRegistry) {
-		RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+		RedisMessageListenerContainer container = new RedisMessageListenerContainer() {
+			/**
+			 * - 기동 시 Redis에 못 붙어도 애플리케이션은 떠야 한다
+			 *   - 이 컨테이너는 SmartLifecycle이라 start()가 던지면 컨텍스트 기동이 통째로 실패한다
+			 *   - 그러면 "Redis가 죽으면 서버가 못 뜬다"가 되는데, 캐시는 느려질 뿐 서비스를 멈추면 안 되는 계층이다
+			 *   - 구독만 못 한 상태로 뜨면 그 서버의 L1은 TTL에만 의존한다(틈 ②와 같은 상태)
+			 *
+			 * - 붙을 때까지는 {@code CacheSubscriptionWatchdog}가 다시 시도한다
+			 */
+			@Override
+			public void start() {
+				try {
+					super.start();
+				} catch (RuntimeException e) {
+					log.warn("무효화 채널 구독 실패 — 구독 없이 기동한다(워치독이 재시도). L1은 TTL에만 의존한다", e);
+				}
+			}
+		};
 		container.setConnectionFactory(factory);
+		// 붙은 뒤 끊기는 경우는 컨테이너가 이 간격으로 스스로 재구독한다.
+		container.setRecoveryInterval(RECOVERY_INTERVAL_MS);
 		// 토픽 상수는 RedisPublisher가 단일 출처다 — 발행과 구독이 같은 값을 보는 것이 요점이다.
 		container.addMessageListener(listener, ChannelTopic.of(RedisPublisher.TOPIC));
 		// "서버는 떠 있는데 구독만 끊긴" 상태를 밖에서 보게 하는 유일한 지표(1=구독 중, 0=끊김).
