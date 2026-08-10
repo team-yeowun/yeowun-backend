@@ -10,14 +10,21 @@ import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.cache.RedisCacheManager.RedisCacheManagerBuilder;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.listener.ChannelTopic;
+import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext.SerializationPair;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+
 import tools.jackson.databind.ObjectMapper;
 
 import modi.backend.application.exhibition.cache.ExhibitionCache;
+import modi.backend.infra.cache.RedisMessageListener;
+import modi.backend.infra.cache.RedisPublisher;
 import modi.backend.support.cache.MyCache;
 
 /**
@@ -74,5 +81,32 @@ public class CacheConfig {
 			}
 		}
 		return builder.build();
+	}
+
+	/**
+	 * - 무효화 채널 구독
+	 *   - 전용 커넥션으로 채널 하나를 구독하다가 메시지가 오면 리스너를 부름
+	 *   - 커넥션이 끊기면 컨테이너가 스스로 재구독함(끊긴 동안의 메시지는 복구되지 않음)
+	 *
+	 * - 리스너를 {@code MessageListenerAdapter}로 감싸지 않고 직접 등록함
+	 *   - 컨테이너는 구독 확인 콜백을 등록된 리스너가 {@code SubscriptionListener}일 때만 보냄
+	 *   - 어댑터는 그 인터페이스를 구현하지 않아, 감싸는 순간 재구독 시 L1 전체 삭제가 조용히 죽음
+	 *   - 메시지 수신은 그대로 동작해서 테스트로도 잘 드러나지 않는 함정
+	 *
+	 * - {@code container.start()}를 부르지 않음
+	 *   - 컨테이너가 {@code SmartLifecycle}이라 스프링이 기동 때 알아서 시작함
+	 */
+	@Bean
+	public RedisMessageListenerContainer cacheInvalidationListenerContainer(
+			RedisConnectionFactory factory, RedisMessageListener listener, MeterRegistry meterRegistry) {
+		RedisMessageListenerContainer container = new RedisMessageListenerContainer();
+		container.setConnectionFactory(factory);
+		// 토픽 상수는 RedisPublisher가 단일 출처다 — 발행과 구독이 같은 값을 보는 것이 요점이다.
+		container.addMessageListener(listener, ChannelTopic.of(RedisPublisher.TOPIC));
+		// "서버는 떠 있는데 구독만 끊긴" 상태를 밖에서 보게 하는 유일한 지표(1=구독 중, 0=끊김).
+		Gauge.builder("modi.cache.invalidation.subscribed", container, c -> c.isListening() ? 1 : 0)
+				.description("이 인스턴스가 무효화 채널을 구독 중인가")
+				.register(meterRegistry);
+		return container;
 	}
 }

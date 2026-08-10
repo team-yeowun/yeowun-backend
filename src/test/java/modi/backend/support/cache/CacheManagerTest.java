@@ -38,6 +38,8 @@ class CacheManagerTest {
 	@Mock
 	private RedisPublisher redisPublisher;
 	@Mock
+	private CacheInvalidationMetrics invalidationMetrics;
+	@Mock
 	private Cache localCache;
 	@Mock
 	private Cache redisCache;

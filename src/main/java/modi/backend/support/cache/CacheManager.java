@@ -25,6 +25,7 @@ public class CacheManager {
     private final CaffeineCacheManager localCacheManager; // L1
     private final RedisCacheManager redisCacheManager; // L2
     private final RedisPublisher redisPublisher; // 무효화 방송. refresh/evict에 저장
+    private final CacheInvalidationMetrics invalidationMetrics; // 조용한 실패를 남기지 않기 위한 계측
 
     /**
      * - 조회 → 없으면 {@code loader}로 데이터를 생성하여 캐시를 채움 - 캐시 조회/저장 과정에서 발생하는 실패는 {@code get/put} 내부에서 처리 - 캐시 장애가 발생해도 예외를
@@ -68,20 +69,40 @@ public class CacheManager {
     }
 
     /**
-     * evict = L2 삭제 + 자기 L1 삭제 + 방송.
+     * - evict = L2 삭제 + 자기 L1 삭제 + 방송
+     *   - 셋 중 무엇이 실패해도 예외는 밖으로 나가지 않음
+     *   - 방송 결과만 계측에 남김
      */
     public void evict(MyCache cache, String key) {
         swallowRun(() -> redis(cache).evict(key));
         swallowRun(() -> local(cache).evict(key));
-        swallowRun(() -> redisPublisher.publish(cache.getName() + ":" + key));
+        publish(cache, key);
     }
 
     /**
-     * refresh = L2에 새 값 + 방송(전 서버 L1 evict). 배치 재적재용.
+     * - refresh = L2에 새 값 + 방송(전 서버 L1 evict). 배치 재적재용
      */
     public void refresh(MyCache cache, String key, Object value) {
         swallowRun(() -> redis(cache).put(key, value));
-        swallowRun(() -> redisPublisher.publish(cache.getName() + ":" + key));
+        publish(cache, key);
+    }
+
+    /**
+     * - 방송 한 번 + 그 결과 계측
+     *   - 실패해도 본 요청은 그대로 진행됨
+     *
+     * - 자동 재발행을 하지 않음
+     *   - 워밍·조회수 배치가 6시간 안에 L2를 덮어써 오염이 수렴함
+     *   - 급하면 관리자가 수동 워밍을 당김
+     *   - 대기열을 두지 않은 근거는 이 실패 카운터가 0으로 유지되는지로 검증함
+     */
+    private void publish(MyCache cache, String key) {
+        if (swallowRun(() -> redisPublisher.publish(cache.getName() + ":" + key))) {
+            invalidationMetrics.published();
+            return;
+        }
+        invalidationMetrics.publishFailed();
+        log.warn("무효화 방송 실패: {}:{} — 다음 워밍까지 다른 서버 L1이 옛 값일 수 있다", cache.getName(), key);
     }
 
     public void evictLocal(String cacheName, String key) {
@@ -133,11 +154,19 @@ public class CacheManager {
         }
     }
 
-    private void swallowRun(Runnable runnable) {
+    /**
+     * - 반영 실패를 삼키되, 성공했는지는 돌려준다
+     *   - 삼키는 이유는 캐시 장애로 본 요청이 죽지 않게 하려는 것
+     *   - 하지만 무효화 경로는 실패했다는 사실을 알아야 대기열에 넣을 수 있다
+     *   - 그래서 "예외는 밖으로 안 내보내되 결과는 알려주는" 형태다
+     */
+    private boolean swallowRun(Runnable runnable) {
         try {
             runnable.run();
+            return true;
         } catch (Exception e) {
             log.warn("캐시 반영 실패, 건너뛴다", e);
+            return false;
         }
     }
 
