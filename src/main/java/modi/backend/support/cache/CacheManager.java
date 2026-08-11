@@ -26,6 +26,7 @@ public class CacheManager {
     private final RedisCacheManager redisCacheManager; // L2
     private final RedisPublisher redisPublisher; // 무효화 방송. refresh/evict에 저장
     private final CacheInvalidationMetrics invalidationMetrics; // 조용한 실패를 남기지 않기 위한 계측
+    private final CacheLookupMetrics lookupMetrics; // 계층별 히트/미스 — 관리자 대시보드의 히트율 출처
 
     /**
      * - 조회 → 없으면 {@code loader}로 데이터를 생성하여 캐시를 채움 - 캐시 조회/저장 과정에서 발생하는 실패는 {@code get/put} 내부에서 처리 - 캐시 장애가 발생해도 예외를
@@ -47,16 +48,53 @@ public class CacheManager {
         if (cache.getType() == CacheType.TWO_TIER) {
             T v1 = swallow(() -> local(cache).get(key, clazz));
             if (v1 != null) {
+                lookupMetrics.l1Hit(cache);
                 return v1; // 1. L1 hit
             }
             T v2 = swallow(() -> redis(cache).get(key, clazz));
             if (v2 != null) {
                 swallowRun(() -> local(cache).put(key, v2));    // 2 L2 Hit --→ L1 backfill
+                lookupMetrics.l2Hit(cache);
                 return v2;
             }
+            lookupMetrics.miss(cache);
             return null; // 3. All Miss --→ getOrPut이 loader로
         }
-        return swallow(() -> getByCache(cache).get(key, clazz));
+        T v = swallow(() -> getByCache(cache).get(key, clazz));
+        if (v != null) {
+            lookupMetrics.l2Hit(cache);
+        } else {
+            lookupMetrics.miss(cache);
+        }
+        return v;
+    }
+
+    /**
+     * - L1 통계는 Caffeine이 들고 있는 것을 그대로 읽어 온다
+     *   - {@code recordStats()}가 켜져 있어 히트·미스·축출·엔트리 수를 캐시별로 안다
+     *   - 등록되지 않은 이름이면 빈 통계를 돌려준다
+     */
+    public com.github.benmanes.caffeine.cache.stats.CacheStats localStats(MyCache cache) {
+        Cache c = localCacheManager.getCache(cache.getName());
+        if (c instanceof org.springframework.cache.caffeine.CaffeineCache caffeine) {
+            return caffeine.getNativeCache().stats();
+        }
+        return com.github.benmanes.caffeine.cache.stats.CacheStats.empty();
+    }
+
+    /** 현재 L1에 들어 있는 엔트리 수(추정). */
+    public long localSize(MyCache cache) {
+        Cache c = localCacheManager.getCache(cache.getName());
+        if (c instanceof org.springframework.cache.caffeine.CaffeineCache caffeine) {
+            return caffeine.getNativeCache().estimatedSize();
+        }
+        return 0L;
+    }
+
+    /** L2에 이 키가 실제로 올라가 있는가(워밍·적재 확인용). */
+    public boolean existsInL2(MyCache cache, String key) {
+        Cache c = redis(cache);
+        return c != null && swallow(() -> c.get(key)) != null;
     }
 
     public void put(MyCache cache, String key, Object value) {

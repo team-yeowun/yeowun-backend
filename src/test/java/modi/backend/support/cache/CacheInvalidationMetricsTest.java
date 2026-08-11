@@ -61,7 +61,8 @@ class CacheInvalidationMetricsTest {
 	void setUp() {
 		registry = new SimpleMeterRegistry();
 		metrics = new CacheInvalidationMetrics(registry);
-		cacheManager = new CacheManager(localCacheManager, redisCacheManager, redisPublisher, metrics);
+		cacheManager = new CacheManager(localCacheManager, redisCacheManager, redisPublisher, metrics,
+				new CacheLookupMetrics(registry));
 		lenient().when(localCacheManager.getCache(anyString())).thenReturn(localCache);
 		lenient().when(redisCacheManager.getCache(anyString())).thenReturn(redisCache);
 	}
