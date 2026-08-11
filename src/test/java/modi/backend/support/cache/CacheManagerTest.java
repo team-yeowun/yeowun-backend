@@ -40,6 +40,8 @@ class CacheManagerTest {
 	@Mock
 	private CacheInvalidationMetrics invalidationMetrics;
 	@Mock
+	private CacheLookupMetrics lookupMetrics;
+	@Mock
 	private Cache localCache;
 	@Mock
 	private Cache redisCache;
