@@ -7,6 +7,8 @@ import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import modi.backend.application.exhibition.cache.ExhibitionAdminUpdatedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +40,7 @@ public class AdminExhibitionFacade {
 	private final ExhibitionPlaceRepository exhibitionPlaceRepository;
 	/** 사람 수정 이력(감사) — 실제로 바뀐 필드를 old→new로 남긴다. */
 	private final ExhibitionHistoryJpaRepository exhibitionHistoryRepository;
+	private final ApplicationEventPublisher eventPublisher;
 
 	/**
 	 * 저장된 전시 설명을 재파싱해 남아 있는 HTML/워드프레스 마크업을 벗긴다. 설명은 상세 satellite({@code exhibition_detail})로
@@ -91,6 +94,9 @@ public class AdminExhibitionFacade {
 			exhibitionHistoryRepository.save(ExhibitionHistory.of(exhibitionId, change, editedAt));
 		}
 		log.info("전시 수정: id={} 변경필드 {}개", exhibitionId, changes.size());
+		// 커밋이 확정된 뒤에 상세 캐시를 지운다(무효화는 AFTER_COMMIT 리스너가 수행).
+		// 조기 반환 뒤라서, 값이 그대로면 이벤트도 나가지 않는다(멱등 유지).
+		eventPublisher.publishEvent(new ExhibitionAdminUpdatedEvent(exhibitionId));
 		return new AdminExhibitionResult.Edited(exhibitionId, changes.size());
 	}
 

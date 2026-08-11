@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -21,6 +22,18 @@ public interface ExhibitionJpaRepository
 
 	/** soft delete된 행은 제외하고 원천 식별자로 조회(동기화 upsert용). */
 	Optional<Exhibition> findByExternalIdAndDeletedAtIsNull(String externalId);
+
+	/**
+	 * 누산된 조회수 델타를 더한다(배치 반영). 읽지 않고 <b>제자리에서 더하는</b> 것이 요점이다 —
+	 * 두 인스턴스가 같은 행을 올려도 값이 덮어써지지 않는다.
+	 *
+	 * <p>영속성 컨텍스트를 우회하는 벌크 갱신이라 {@code clearAutomatically}로 1차 캐시를 비운다.
+	 * 그러지 않으면 같은 트랜잭션에서 곧바로 읽은 엔티티가 <b>갱신 전 값</b>을 들고 있다.
+	 */
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query("update Exhibition e set e.ourViewCount = e.ourViewCount + :delta "
+			+ "where e.id = :id and e.deletedAt is null")
+	int increaseViewCount(@Param("id") Long id, @Param("delta") long delta);
 
 	/** 단건 조회(살아있는 행만). 필터를 앱이 아니라 WHERE에 둬 인덱스에 태운다. */
 	Optional<Exhibition> findByIdAndDeletedAtIsNull(Long id);

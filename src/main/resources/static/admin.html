@@ -91,6 +91,7 @@
   .chip{display:inline-block;background:var(--line2);border-radius:999px;padding:2px 9px;font-size:12px;margin:0 5px 5px 0;color:var(--fg)}
   .chip.soft{background:var(--accent-weak);color:var(--accent-fg)}
   .pill{padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+  .ok{color:var(--green)} .warn{color:var(--amber)} .bad{color:var(--red)}
   .s2{background:rgba(22,163,74,.12);color:var(--green)} .s4{background:rgba(217,119,6,.14);color:var(--amber)} .s5{background:rgba(220,38,38,.12);color:var(--red)}
   .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
   input.in{background:var(--card);border:1px solid var(--line);color:var(--fg);border-radius:10px;padding:9px 12px;font:inherit}
@@ -142,6 +143,7 @@
       <button class="tab" data-tab="users">사용자</button>
       <button class="tab" data-tab="apistats">API 통계</button>
       <button class="tab" data-tab="ingestion">수집</button>
+      <button class="tab" data-tab="cache">캐시</button>
     </nav>
     <div class="spacer"></div>
     <div class="whoami"><span class="av" id="avatar">A</span><span id="who"></span></div>
@@ -153,6 +155,7 @@
     <div id="users" class="hidden"></div>
     <div id="apistats" class="hidden"></div>
     <div id="ingestion" class="hidden"></div>
+    <div id="cache" class="hidden"></div>
   </main>
 </div>
 
@@ -196,10 +199,10 @@ $('#logout').onclick=async()=>{try{await fetch('/api-admin/v1/logout',{method:'P
 let current='dashboard';
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('active',x===t));
-  ['dashboard','users','apistats','ingestion'].forEach(id=>$('#'+id).classList.toggle('hidden',id!==t.dataset.tab));
+  ['dashboard','users','apistats','ingestion','cache'].forEach(id=>$('#'+id).classList.toggle('hidden',id!==t.dataset.tab));
   current=t.dataset.tab;render(current);
 });
-function render(tab){setMsg('');tab==='dashboard'?loadDashboard():tab==='users'?loadUsers():tab==='ingestion'?loadIngestion():loadApiStats();}
+function render(tab){setMsg('');tab==='dashboard'?loadDashboard():tab==='users'?loadUsers():tab==='ingestion'?loadIngestion():tab==='cache'?loadCache():loadApiStats();}
 
 /* ── charts ── */
 function areaChart(data,color){
@@ -343,6 +346,81 @@ checkSession();
 /* ── ingestion (수집 파이프라인) ── */
 const ing={pStatus:'',pPage:0,oStatus:'',oPage:0};
 const pillCls=s=>({PENDING:'',ENRICHING:'',COMPLETED:'s2',FAILED:'s5',SUCCEEDED:'s2',FAILED_RETRYABLE:'s4',FAILED_PERMANENT:'s5'}[s]||'');
+/* ── 캐시 ── */
+// 히트율은 -1이 "아직 조회 없음"이다. 0%로 찍으면 "전부 미스"로 읽혀서 오해가 생긴다.
+const pct=v=>(v==null||v<0)?'—':(v*100).toFixed(1)+'%';
+const rateCls=v=>(v==null||v<0)?'':(v>=0.9?'ok':v>=0.6?'warn':'bad');
+const dur=s=>!s?'-':s>=3600?(s/3600)+'시간':s>=60?(s/60)+'분':s+'초';
+
+async function loadCache(){
+  const el=$('#cache');el.innerHTML='<div class="empty">불러오는 중…</div>';
+  try{
+    const d=await api('/api-admin/v1/cache/stats');
+    const iv=d.invalidation;
+    const warn=[];
+    if(!iv.subscribed)warn.push('이 서버가 무효화 채널을 구독하고 있지 않습니다 — 다른 서버의 변경이 반영되지 않습니다.');
+    if(iv.publishFailure>0)warn.push('무효화 발행 실패 '+nf(iv.publishFailure)+'건 — L2에 옛 값이 남아 있을 수 있습니다. 수동 워밍을 검토하세요.');
+    if(iv.receiveFailure>0)warn.push('무효화 수신 실패 '+nf(iv.receiveFailure)+'건 — 메시지 형식이 바뀌었을 수 있습니다.');
+
+    el.innerHTML=`
+      <div class="grid kpis">
+        ${kpi('전체 히트율',pct(d.overallHitRate),'L1 '+nf(d.totalL1Hits)+' · L2 '+nf(d.totalL2Hits)+' · 미스 '+nf(d.totalMisses))}
+        ${kpi('L1 히트',nf(d.totalL1Hits),'로컬에서 끝난 조회')}
+        ${kpi('L2 히트',nf(d.totalL2Hits),'Redis에서 찾아 L1 되채움')}
+        ${kpi('미스',nf(d.totalMisses),'DB까지 내려간 조회',d.totalMisses>0&&d.overallHitRate>=0&&d.overallHitRate<0.6)}
+        ${kpi('구독 상태',iv.subscribed?'구독 중':'끊김','방송 수신 '+nf(iv.receiveSuccess)+'건',!iv.subscribed)}
+        ${kpi('발행 실패',nf(iv.publishFailure),'성공 '+nf(iv.publishSuccess)+'건',iv.publishFailure>0)}
+      </div>
+      ${warn.length?`<div class="card" style="margin-bottom:14px;border-color:var(--amber)"><h3 style="color:var(--amber)">점검이 필요합니다</h3>
+        <ul style="margin:6px 0 0;padding-left:18px">${warn.map(w=>`<li>${esc(w)}</li>`).join('')}</ul></div>`:''}
+      <div class="card" style="margin-bottom:14px">
+        <h3 style="display:flex;gap:10px;align-items:center">캐시 선언별 현황
+          <button class="btn" style="padding:4px 10px;margin-left:auto" id="cacheWarm">목록 캐시 재적재</button>
+          <button class="btn" style="padding:4px 10px" id="cacheReload">새로고침</button></h3>
+        <div class="scroll"><table class="tbl">
+          <thead><tr><th>캐시</th><th>용도</th><th class="r">히트율</th><th class="r">L1</th><th class="r">L2</th><th class="r">미스</th>
+            <th class="r">L1 엔트리</th><th class="r">L1 축출</th><th>L1 TTL</th><th>L2 TTL</th><th>L2 적재</th></tr></thead>
+          <tbody>${d.caches.map(c=>`<tr>
+            <td><b>${esc(c.name)}</b></td>
+            <td class="muted">${esc(c.description)}</td>
+            <td class="r num ${rateCls(c.hitRate)}"><b>${pct(c.hitRate)}</b></td>
+            <td class="r num">${nf(c.l1Hits)}</td>
+            <td class="r num">${nf(c.l2Hits)}</td>
+            <td class="r num">${nf(c.misses)}</td>
+            <td class="r num">${nf(c.l1Size)}</td>
+            <td class="r num">${nf(c.l1Evictions)}</td>
+            <td class="muted">${dur(c.ttlSeconds)}</td>
+            <td class="muted">${dur(c.redisTtlSeconds)}</td>
+            <td>${c.singleEntry?(c.loadedInL2?'<span class="pill s2">적재됨</span>':'<span class="pill">비어 있음</span>'):'<span class="muted">키별</span>'}</td>
+          </tr>`).join('')}</tbody></table></div>
+        <div class="muted" style="margin-top:10px;font-size:12px">
+          히트율 <b>—</b> 는 아직 조회가 없어 판단할 수 없다는 뜻입니다(0%와 다릅니다).
+          L2 히트는 L1이 비어 Redis에서 찾은 경우로, 이때 L1이 되채워집니다.
+          상세 캐시는 전시 id마다 키가 달라 적재 여부를 한 줄로 표시하지 않습니다.
+        </div>
+      </div>
+      <div class="card"><h3>무효화 경로</h3>
+        <div class="scroll"><table class="tbl">
+          <thead><tr><th>항목</th><th class="r">값</th><th>의미</th></tr></thead>
+          <tbody>
+            <tr><td>구독 상태</td><td class="r"><b class="${iv.subscribed?'ok':'bad'}">${iv.subscribed?'구독 중':'끊김'}</b></td><td class="muted">끊기면 이 서버만 옛 값을 최대 L1 TTL 동안 서빙합니다</td></tr>
+            <tr><td>발행 성공 / 실패</td><td class="r num">${nf(iv.publishSuccess)} / <b class="${iv.publishFailure>0?'bad':''}">${nf(iv.publishFailure)}</b></td><td class="muted">실패는 L2 오염 가능성 — 6시간 내 배치가 덮거나 수동 워밍</td></tr>
+            <tr><td>수신 성공 / 실패</td><td class="r num">${nf(iv.receiveSuccess)} / <b class="${iv.receiveFailure>0?'bad':''}">${nf(iv.receiveFailure)}</b></td><td class="muted">수신 실패 시 안전하게 L1 전체를 비웁니다</td></tr>
+            <tr><td>재구독 횟수</td><td class="r num">${nf(iv.resubscribeCount)}</td><td class="muted">계속 오르면 구독이 붙었다 끊겼다 하는 중입니다</td></tr>
+          </tbody></table></div></div>`;
+
+    $('#cacheReload').onclick=loadCache;
+    $('#cacheWarm').onclick=async()=>{
+      setMsg('');
+      try{
+        // 수동 워밍 진입점은 전시 쪽 하나뿐이다(문을 둘로 만들지 않는다).
+        await api('/api-admin/v1/exhibitions/cache/warm',{method:'POST'});
+        loadCache();
+      }catch(e){setMsg(e.message);}
+    };
+  }catch(e){el.innerHTML='';setMsg(e.message);}
+}
+
 async function loadIngestion(){
   const el=$('#ingestion');el.innerHTML='<div class="empty">불러오는 중…</div>';
   try{

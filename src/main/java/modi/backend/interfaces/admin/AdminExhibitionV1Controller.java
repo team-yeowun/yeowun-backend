@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
 import modi.backend.application.admin.AdminExhibitionFacade;
+import modi.backend.application.exhibition.ExhibitionFacade;
 import modi.backend.application.admin.AdminExhibitionResult;
 import modi.backend.interfaces.admin.dto.AdminExhibitionDto;
 import modi.backend.support.response.ApiResponse;
@@ -25,6 +26,7 @@ import modi.backend.support.response.ApiResponse;
 public class AdminExhibitionV1Controller {
 
 	private final AdminExhibitionFacade adminExhibitionFacade;
+	private final ExhibitionFacade exhibitionFacade;
 
 	/** 저장된 전시 설명을 재파싱해 HTML/워드프레스 마크업을 벗긴다(기존 수집분 정리, 멱등). */
 	@PostMapping("/descriptions/reparse")
@@ -39,5 +41,20 @@ public class AdminExhibitionV1Controller {
 			@RequestBody AdminExhibitionDto.EditRequest request) {
 		return ApiResponse.success(adminExhibitionFacade.editExhibition(exhibitionId,
 				request.title(), request.place(), request.price(), request.description()));
+	}
+
+	/**
+	 * - 목록 캐시 즉시 재적재(수동 워밍)
+	 *   - 무효화 방송이 유실됐을 때의 사후 복구 수단
+	 *   - 자동 재발행을 두지 않았으므로 이것이 유일한 즉시 복구 수단
+	 *   - {@code refresh}가 L2 갱신과 방송을 함께 다시 하므로 전 서버의 L1까지 정리됨
+	 *
+	 * - 멱등이라 눌러도 손해가 없음
+	 *   - 덮어쓰기뿐이고 조회 쿼리 7건이 전부
+	 */
+	@PostMapping("/cache/warm")
+	public ApiResponse<Object> warmListCaches() {
+		exhibitionFacade.warmListCaches();
+		return ApiResponse.success();
 	}
 }
