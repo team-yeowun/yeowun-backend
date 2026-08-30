@@ -122,6 +122,19 @@ services:
     ports:
       - '18092:8080'
 
+
+  # 수평 확장 시연 전용. 런 도중에 합류시켰다가 강제 종료하는 대상이라 다른 둘과 갈라 둔다.
+  #   힙만 1g 로 낮춘다 - 호스트 12GB 에 앱 셋(2g x 3)과 MySQL 둘·Redis 상한을 함께 얹으면 예산을 넘는다.
+  #   env_file 의 JAVA_OPTS 를 서비스 environment 가 덮는다(compose 우선순위가 그렇다).
+  app3:
+    <<: *app
+    container_name: outboxlock-app3
+    environment:
+      - 'INGESTION_CONSUMER_NAME=app3'
+      - 'JAVA_OPTS=-Xmx1g -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/tmp'
+    ports:
+      - '18093:8080'
+
   # 운영 구성 재현용. 측정 경로가 아니다 - 부하는 스케줄러가 스스로 만들고 HTTP 로 들어오지 않는다.
   nginx:
     image: 'nginx:alpine'
@@ -131,3 +144,107 @@ services:
       - './nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro'
     ports:
       - '18080:80'
+
+  # ── Redis Cluster 시연 프로파일 (마스터 3 · 복제 0) ────────────────────────
+  # `--profile cluster` 를 주지 않으면 넷 다 뜨지 않는다. 단일 redis 서비스는 그대로 남는다 -
+  #   앱 depends_on 이 그것을 가리켜 클러스터 런에서도 함께 뜨지만 아무도 읽지 않는다(앱은 노드 목록을 환경변수로 받고,
+  #   관측 스크립트는 노드 셋을 직접 친다). 단일 노드가 비어 있다는 사실 자체를 원시에 남겨 그것을 증명한다.
+  # 복제를 두지 않는 이유: 여기서 재는 것은 가용성이 아니라 키의 슬롯 배치와 소비 정상 여부다.
+
+  redis-c1:
+    image: 'redis:7-alpine'
+    container_name: outboxlock-redis-c1
+    profiles: ['cluster']
+    logging: *default-logging
+    command:
+      - redis-server
+      - --cluster-enabled
+      - 'yes'
+      - --cluster-node-timeout
+      - '5000'
+      - --appendonly
+      - 'no'
+      - --save
+      - ''
+      - --maxmemory-policy
+      - noeviction
+    ports:
+      - '16381:6379'
+    mem_limit: 1g
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis-c2:
+    image: 'redis:7-alpine'
+    container_name: outboxlock-redis-c2
+    profiles: ['cluster']
+    logging: *default-logging
+    command:
+      - redis-server
+      - --cluster-enabled
+      - 'yes'
+      - --cluster-node-timeout
+      - '5000'
+      - --appendonly
+      - 'no'
+      - --save
+      - ''
+      - --maxmemory-policy
+      - noeviction
+    ports:
+      - '16382:6379'
+    mem_limit: 1g
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis-c3:
+    image: 'redis:7-alpine'
+    container_name: outboxlock-redis-c3
+    profiles: ['cluster']
+    logging: *default-logging
+    command:
+      - redis-server
+      - --cluster-enabled
+      - 'yes'
+      - --cluster-node-timeout
+      - '5000'
+      - --appendonly
+      - 'no'
+      - --save
+      - ''
+      - --maxmemory-policy
+      - noeviction
+    ports:
+      - '16383:6379'
+    mem_limit: 1g
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis-cluster-init:
+    image: 'redis:7-alpine'
+    container_name: outboxlock-redis-cluster-init
+    profiles: ['cluster']
+    logging: *default-logging
+    depends_on:
+      redis-c1:
+        condition: service_healthy
+      redis-c2:
+        condition: service_healthy
+      redis-c3:
+        condition: service_healthy
+    restart: 'no'
+    # 이미 슬롯이 배정된 노드에 다시 걸면 create 가 거절한다. 재실행을 막지 않으려고 실패를 삼키고,
+    #   실제로 붙었는지는 observe/cluster-status.sh 의 CLUSTER INFO 로 확인한다.
+    command:
+      - sh
+      - -c
+      - 'redis-cli --cluster create redis-c1:6379 redis-c2:6379 redis-c3:6379 --cluster-replicas 0 --cluster-yes || true'
