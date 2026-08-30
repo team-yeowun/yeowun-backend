@@ -75,6 +75,7 @@ class IngestionPipelineFlowTest extends IngestionTestSupport {
 		// then 코어에 전시가 남고 격리는 비어 있다
 		assertThat(jdbcTemplate.queryForObject(
 				"select count(*) from exhibitions where external_id = ?", Integer.class, vendorKey)).isEqualTo(1);
+		assertThat(deadLetterRepository.findAll()).isEmpty();
 
 		// then 미처리 목록이 비어 있다(이 목록이 곧 "아직 끝나지 않은 일"의 사본이다)
 		for (IngestionStream stream : IngestionStream.values()) {

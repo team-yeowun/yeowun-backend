@@ -23,8 +23,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import modi.backend.TestcontainersConfiguration;
 import modi.backend.ingestionv2.collect.domain.CultureCatalogClient;
+import modi.backend.ingestionv2.common.IngestionDeliveryFacade;
 import modi.backend.ingestionv2.common.IngestionProperties;
 import modi.backend.ingestionv2.common.StreamGroupInitializer;
+import modi.backend.ingestionv2.common.deadletter.DeadLetterJpaRepository;
+import modi.backend.ingestionv2.common.deadletter.DeadLetterService;
 import modi.backend.ingestionv2.common.outbox.OutboxAppender;
 import modi.backend.ingestionv2.common.outbox.OutboxDispatcher;
 import modi.backend.ingestionv2.common.outbox.OutboxJpaRepository;
@@ -32,6 +35,7 @@ import modi.backend.ingestionv2.common.outbox.OutboxService;
 import modi.backend.ingestionv2.common.event.IngestionEventType;
 import modi.backend.ingestionv2.common.queue.IngestionEventRouter;
 import modi.backend.ingestionv2.common.queue.IngestionStream;
+import modi.backend.ingestionv2.common.queue.PendingReclaimer;
 import modi.backend.ingestionv2.common.queue.StreamConsumer;
 import modi.backend.ingestionv2.common.queue.StreamTrimmer;
 import modi.backend.ingestionv2.enrich.domain.detail.CultureDetailClient;
@@ -69,15 +73,19 @@ public abstract class IngestionTestSupport {
 	@Autowired protected OutboxAppender outboxAppender;
 	@Autowired protected OutboxService outboxService;
 	@Autowired protected OutboxDispatcher outboxDispatcher;
+	@Autowired protected DeadLetterService deadLetterService;
+	@Autowired protected IngestionDeliveryFacade ingestionDeliveryFacade;
 
 	@Autowired protected IngestionEventRouter eventRouter;
 	@Autowired protected StreamConsumer streamConsumer;
+	@Autowired protected PendingReclaimer pendingReclaimer;
 	@Autowired protected StreamTrimmer streamTrimmer;
 	@Autowired protected StreamGroupInitializer streamGroupInitializer;
 	@Autowired protected StringRedisTemplate redisTemplate;
 	@Autowired protected IngestionProperties properties;
 
 	@Autowired protected OutboxJpaRepository outboxRepository;
+	@Autowired protected DeadLetterJpaRepository deadLetterRepository;
 
 	@Autowired protected JdbcTemplate jdbcTemplate;
 

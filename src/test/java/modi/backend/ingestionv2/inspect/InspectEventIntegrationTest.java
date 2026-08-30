@@ -56,6 +56,7 @@ class InspectEventIntegrationTest extends InspectRunner {
 		rejectOne();
 
 		// then 반려는 벤더 데이터에 대한 판단이지 시스템의 실패가 아니다
+		assertThat(deadLetterRepository.findAll()).isEmpty();
 		for (IngestionStream stream : IngestionStream.values()) {
 			assertThat(pendingOf(stream).isEmpty()).isTrue();
 		}

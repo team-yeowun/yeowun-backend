@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import modi.backend.ingestionv2.common.IngestionErrorCode;
 import modi.backend.ingestionv2.common.event.IngestionEventType;
+import modi.backend.ingestionv2.common.queue.IngestionStream;
 import modi.backend.support.error.CoreException;
 
 @DisplayName("원장 결손")
@@ -22,6 +23,22 @@ class InspectLedgerMissingIntegrationTest extends InspectRunner {
 				.isInstanceOf(CoreException.class)
 				.extracting(failure -> ((CoreException) failure).errorCode())
 				.isEqualTo(IngestionErrorCode.RETRY_EXHAUSTED);
+	}
+
+	@Test
+	@DisplayName("원장이 결손된 건이 격리 테이블에 도달한다")
+	void 원장이_결손된_건이_격리_테이블에_도달한다() {
+		// given 결손 상태에서 사실만 적재한다
+		outboxAppender.append(IngestionEventType.ENRICHED, vendorKey);
+
+		// when 발송과 소비를 실제로 민다
+		drainAll();
+
+		// then 신호를 던지는 것과 격리되는 것은 다른 사실이다
+		assertThat(deadLetterRepository.findAll())
+				.filteredOn(letter -> vendorKey.equals(letter.getAggregateId()))
+				.hasSize(1);
+		assertThat(pendingOf(IngestionStream.DB).isEmpty()).isTrue();
 	}
 
 	@Test

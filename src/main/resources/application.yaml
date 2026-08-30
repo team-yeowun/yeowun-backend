@@ -143,6 +143,17 @@ app:
       dispatch-interval-ms: 1000
       # 아웃박스 발송 한 틱이 집는 행 수.
       dispatch-batch-size: 100
+      # 방치 판정 기준. 마지막 전달 이후 이 시간이 지나면 회수 대상 — 지수 백오프의 base 이기도 하다.
+      reclaim-idle-seconds: 60
+      # 지수로 늘어난 대기의 상한. 낫지 않는 실패가 무한정 멀어지지 않게 여기서 멈춘다.
+      reclaim-max-idle-seconds: 600
+      # 회수 대기 방식. NONE=고정 간격 / EXPONENTIAL=base x 2^(전달횟수-1), 상한까지.
+      reclaim-backoff: EXPONENTIAL
+      # 지터. NONE=없음 / FULL=0과 계산된 지연 사이에서 고른다(단 base 아래로는 내려가지 않는다).
+      #   같은 시각에 실패한 항목들이 같은 시각에 한꺼번에 되돌아오는 것을 흩는다.
+      reclaim-jitter: FULL
+      # 회수 한 틱이 미처리 목록에서 읽어 보는 항목 수(XPENDING count).
+      reclaim-batch-size: 100
       # 스트림 길이 상한. 트리밍이 이 길이로 잘라낸다(처리 확인은 스트림에서 항목을 지우지 않는다).
       stream-max-length: 100000
       # 재시도 상한(최초 1회 + 재시도 2회). 도메인의 소비 재시도와 아웃박스 발행 재시도(FAILED 판정)가 같은 값을 쓴다.

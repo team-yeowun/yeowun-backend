@@ -48,6 +48,7 @@ class EventRoutingTest extends DeliveryTestSupport {
 		drainAll();
 
 		// then 소비자 없음은 오류가 아니라 종결이다. 격리 유입률 알람이 잘못 울리지 않고 아웃박스도 그대로다.
+		assertThat(deadLetterRepository.findAll()).isEmpty();
 		assertThat(outboxRepository.findAll().getFirst().getStatus()).isEqualTo(OutboxStatus.SENT);
 		assertThat(pendingOf(IngestionStream.DB).isEmpty()).isTrue();
 	}
