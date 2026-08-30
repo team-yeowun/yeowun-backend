@@ -1,5 +1,6 @@
 package modi.backend.ingestionv2.enrich.interfaces;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,8 @@ import modi.backend.support.error.CoreException;
  * </ul>
  */
 @Component
+@ConditionalOnProperty(prefix = "app.ingestion.v2", name = "consume-handler",
+		havingValue = "REAL", matchIfMissing = true)
 @RequiredArgsConstructor
 class GenreReadyEventHandler implements IngestionEventHandler {
 
