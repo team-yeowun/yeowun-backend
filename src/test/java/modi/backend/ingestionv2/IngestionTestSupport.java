@@ -18,9 +18,11 @@ import org.springframework.data.redis.core.StreamOperations;
 import org.springframework.data.redis.connection.stream.StreamReadOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import modi.backend.TestcontainersConfiguration;
+import modi.backend.ingestionv2.collect.domain.CultureCatalogClient;
 import modi.backend.ingestionv2.common.IngestionProperties;
 import modi.backend.ingestionv2.common.StreamGroupInitializer;
 import modi.backend.ingestionv2.common.outbox.OutboxAppender;
@@ -32,6 +34,9 @@ import modi.backend.ingestionv2.common.queue.IngestionEventRouter;
 import modi.backend.ingestionv2.common.queue.IngestionStream;
 import modi.backend.ingestionv2.common.queue.StreamConsumer;
 import modi.backend.ingestionv2.common.queue.StreamTrimmer;
+import modi.backend.ingestionv2.enrich.domain.detail.CultureDetailClient;
+import modi.backend.ingestionv2.enrich.domain.genre.GenreClassifier;
+import modi.backend.ingestionv2.enrich.domain.hours.PlaceHoursClient;
 
 /**
  * 수집 V2 통합테스트 공통 토대 - 다섯 폴더가 이 클래스를 상속한다.
@@ -56,6 +61,10 @@ public abstract class IngestionTestSupport {
 	private static final AtomicInteger UNIQUE_KEY = new AtomicInteger();
 
 	/** 밖으로 나가는 포트만 스텁한다. 안쪽은 전부 실물. */
+	@MockitoBean protected CultureCatalogClient catalogClient;
+	@MockitoBean protected CultureDetailClient detailClient;
+	@MockitoBean protected GenreClassifier genreClassifier;
+	@MockitoBean protected PlaceHoursClient placeHoursClient;
 
 	@Autowired protected OutboxAppender outboxAppender;
 	@Autowired protected OutboxService outboxService;
