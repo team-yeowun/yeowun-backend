@@ -28,7 +28,9 @@ import modi.backend.ingestionv2.common.IngestionProperties;
 import modi.backend.ingestionv2.common.interfaces.OutboxDispatchScheduler;
 import modi.backend.ingestionv2.common.interfaces.PendingReclaimScheduler;
 import modi.backend.ingestionv2.common.interfaces.StreamTrimScheduler;
+import modi.backend.ingestionv2.common.outbox.OutboxClaimStrategy;
 import modi.backend.ingestionv2.common.outbox.OutboxDispatcher;
+import modi.backend.ingestionv2.common.outbox.OutboxReadSource;
 import modi.backend.ingestionv2.common.outbox.OutboxService;
 import modi.backend.ingestionv2.enrich.domain.detail.CultureDetailClient;
 import modi.backend.ingestionv2.enrich.domain.genre.GenreClassifier;
@@ -60,6 +62,7 @@ import modi.backend.ingestionv2.enrich.domain.hours.PlaceHoursClient;
 @SpringBootTest(properties = {
 		"app.ingestion.v2.enabled=true",
 		"app.ingestion.v2.auto-delivery=false",
+		"app.ingestion.v2.claim-strategy=SKIP_LOCKED",
 		"app.exhibition.enrich.scheduling-enabled=false",
 		"app.local-seed.enabled=false"
 })
@@ -261,7 +264,7 @@ abstract class OutboxLabSupport {
 	protected double claimViaServiceMillis(int limit) {
 		return transactionTemplate.execute(status -> {
 			long startedAt = System.nanoTime();
-			outboxService.claimPending(limit);
+			outboxService.claimPending(limit, OutboxClaimStrategy.SKIP_LOCKED, OutboxReadSource.MASTER);
 			double elapsed = (System.nanoTime() - startedAt) / 1_000_000d;
 			status.setRollbackOnly();
 			return elapsed;

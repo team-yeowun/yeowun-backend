@@ -202,7 +202,10 @@ class ReclaimBackoffLab extends RetryLabSupport {
 	private IngestionProperties propertiesWith(Variant variant) {
 		return new IngestionProperties(
 				properties.enabled(), properties.autoDelivery(), properties.consumerGroup(),
-				properties.consumerName(), properties.dispatchBatchSize(), properties.externalStreamConsumers(),
+				properties.consumerName(), properties.dispatchBatchSize(), properties.claimStrategy(),
+				properties.outboxRead(), properties.dispatchDrain(), properties.dispatchDrainMaxBatches(),
+				properties.markerTtlMs(), properties.jobLockTtlMs(), properties.consumeEnabled(),
+				properties.outboxPendingGaugeEnabled(), properties.externalStreamConsumers(),
 				properties.dbStreamConsumers(), properties.pollTimeoutMs(), properties.readBatchSize(),
 				properties.reclaimIdleSeconds(), properties.reclaimMaxIdleSeconds(),
 				variant.backoff(), variant.jitter(), properties.reclaimBatchSize(),

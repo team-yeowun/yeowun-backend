@@ -25,6 +25,8 @@ import modi.backend.ingestionv2.common.queue.StreamStatusReader;
  *   <li>슬라이스를 끄면 등록되지 않는다 - 꺼진 슬라이스의 대기열을 스크레이프마다 두드릴 이유가 없다</li>
  *   <li>조회 실패를 삼키고 직전 값을 유지한다 - 계기 하나 때문에 스크레이프 전체가 실패하지 않게</li>
  *   <li>계기는 스크레이프 주기보다 짧은 봉우리를 놓친다 - 순간 최댓값 주장은 카운터 시계열로 한다</li>
+ *   <li>미발행 행 수 계기만 따로 끌 수 있음 - 이 계기 하나가 스크레이프마다 COUNT 질의를 만들어,
+ *       DB 부하 자체가 관측 대상인 부하 실험에서는 관측이 대상을 바꾼다</li>
  * </ul>
  */
 @Slf4j
@@ -38,7 +40,7 @@ public class IngestionMetricsBinder {
 	/** 미발행 아웃박스 행 수. */
 	public static final String OUTBOX_PENDING_GAUGE = "ingestion.outbox.pending";
 
-	/** 읽기 재사용 창. 실험 하네스의 1초 표본에 맞춘 값이다. */
+	/** 게이지 스크레이프가 1초 안에 여러 번 와도 COUNT 질의는 한 번만 나가게 하는 재사용 창. */
 	private static final long CACHE_MILLIS = 1_000L;
 
 	private final StreamStatusReader streamStatusReader;
@@ -50,7 +52,7 @@ public class IngestionMetricsBinder {
 	private volatile long outboxReadAt;
 
 	public IngestionMetricsBinder(StreamStatusReader streamStatusReader, OutboxService outboxService,
-			MeterRegistry meterRegistry) {
+			IngestionProperties properties, MeterRegistry meterRegistry) {
 		this.streamStatusReader = streamStatusReader;
 		this.outboxService = outboxService;
 		for (IngestionStream stream : IngestionStream.values()) {
@@ -58,8 +60,10 @@ public class IngestionMetricsBinder {
 					.tag("stream", stream.key())
 					.register(meterRegistry);
 		}
-		Gauge.builder(OUTBOX_PENDING_GAUGE, this, IngestionMetricsBinder::outboxPending)
-				.register(meterRegistry);
+		if (properties.outboxPendingGaugeEnabled()) {
+			Gauge.builder(OUTBOX_PENDING_GAUGE, this, IngestionMetricsBinder::outboxPending)
+					.register(meterRegistry);
+		}
 	}
 
 	private double pendingOf(String streamKey) {

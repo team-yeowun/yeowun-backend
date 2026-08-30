@@ -6,6 +6,8 @@ import java.util.UUID;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import modi.backend.ingestionv2.common.outbox.OutboxClaimStrategy;
+import modi.backend.ingestionv2.common.outbox.OutboxReadSource;
 import modi.backend.ingestionv2.common.queue.ReclaimBackoff;
 import modi.backend.ingestionv2.common.queue.ReclaimJitter;
 
@@ -17,6 +19,11 @@ import modi.backend.ingestionv2.common.queue.ReclaimJitter;
  *   <li>컨슈머 이름 기본값은 호스트명 - 인스턴스마다 달라야 미처리 목록이 구분됨</li>
  *   <li>enabled는 슬라이스 스위치, autoDelivery는 비동기 배달 스위치 - 둘을 갈라 테스트가 리스너·스케줄러만 끌 수 있게 함</li>
  *   <li>회수 백오프·지터는 정책이라 설정 - 코드에 박으면 운영 중에 되돌릴 수 없고, 되돌릴 수 없는 정책은 배포 사고가 된다</li>
+ *   <li>선점 전략·조회 대상도 설정 - 락 방식은 같은 무대에서 바꿔 가며 재야 고를 수 있는 종류의 판단이다.
+ *       운영 값은 REDIS_MARKER + MASTER 고정이고 나머지 값은 부하 실험 비교용</li>
+ *   <li>배치 상한 0 = 상한 없음 - 음수만 기본값으로 되돌린다. "상한을 두지 않는다"가 실제로 표현 가능해야
+ *       상한이 왜 필요한지를 잴 수 있다</li>
+ *   <li>소비 스위치를 발송과 갈라 둠 - 발송 부하만 재는 동안 컨슈머가 외부 API 를 호출하는 것을 막는 유일한 장치</li>
  * </ul>
  */
 @ConfigurationProperties(prefix = "app.ingestion.v2")
@@ -26,6 +33,14 @@ public record IngestionProperties(
 		String consumerGroup,
 		String consumerName,
 		int dispatchBatchSize,
+		OutboxClaimStrategy claimStrategy,
+		OutboxReadSource outboxRead,
+		boolean dispatchDrain,
+		int dispatchDrainMaxBatches,
+		long markerTtlMs,
+		long jobLockTtlMs,
+		boolean consumeEnabled,
+		boolean outboxPendingGaugeEnabled,
 		int externalStreamConsumers,
 		int dbStreamConsumers,
 		long pollTimeoutMs,
@@ -47,8 +62,23 @@ public record IngestionProperties(
 		if (consumerName == null || consumerName.isBlank()) {
 			consumerName = defaultConsumerName();
 		}
-		if (dispatchBatchSize <= 0) {
+		if (dispatchBatchSize < 0) {
 			dispatchBatchSize = 100;
+		}
+		if (claimStrategy == null) {
+			claimStrategy = OutboxClaimStrategy.REDIS_MARKER;
+		}
+		if (outboxRead == null) {
+			outboxRead = OutboxReadSource.MASTER;
+		}
+		if (dispatchDrainMaxBatches <= 0) {
+			dispatchDrainMaxBatches = 100_000;
+		}
+		if (markerTtlMs <= 0) {
+			markerTtlMs = 300_000;
+		}
+		if (jobLockTtlMs <= 0) {
+			jobLockTtlMs = 300_000;
 		}
 		if (externalStreamConsumers <= 0) {
 			externalStreamConsumers = 2;

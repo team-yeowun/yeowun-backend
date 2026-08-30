@@ -35,10 +35,10 @@ public class OutboxService implements OutboxAppender {
 		outboxRepository.save(Outbox.pending(type, aggregateId));
 	}
 
-	/** 미발행 행 선점 - 반드시 발송 트랜잭션 안에서 호출한다. */
+	/** 미발행 행 선점 - 반드시 발송 트랜잭션 안에서 호출한다. limit 이 0 이면 상한 없이 전부. */
 	@Transactional(propagation = Propagation.MANDATORY)
-	public List<Outbox> claimPending(int limit) {
-		return outboxRepository.claimPending(limit);
+	public List<Outbox> claimPending(int limit, OutboxClaimStrategy strategy, OutboxReadSource readSource) {
+		return outboxRepository.claimPending(limit, strategy, readSource);
 	}
 
 	/** 발행 완료 표시. */
