@@ -2,6 +2,7 @@
 
 측정 커밋 `14323e7` · 측정일 2026-08-30 · 환경 L3(docker compose: Nginx · 앱 2대 · MySQL 8.4.10 master/replica · Redis 7.4.9)
 공통 조건: 미발행 행을 한 번에 적재한 뒤 앱 동시 기동 · 발송 틱 60초 · 한 틱은 배치 소진까지 반복 · 컨슈머 OFF · 힙 `-Xmx2g` · 변형당 1회(N=1)
+원시 파일: `_workspace/03_measurer_raw/<변형>/`(요약 `run-summary.json/md` + `attachments/`). 저장소 `.gitignore`의 `_workspace/` 규칙에 따라 로컬에만 보존하며, 이 문서와 `action/` 5편의 모든 숫자는 그 파일로 역추적됩니다(요청 시 제공).
 
 ## 반드시 봐야 하는 수치
 
