@@ -25,7 +25,8 @@ import org.yaml.snakeyaml.Yaml;
  * 사용자에겐 {@code OAUTH_COMMUNICATION_FAILED}로만 보였다. 같은 날 장르 2차 공급자 키도
  * 동일 유형으로 깨졌다(be6cf67) — <b>재발형 함정</b>이라 테스트로 못 박는다.
  *
- * <p>이 테스트가 깨지면: 새로 추가한 env를 {@code compose.yaml} app 서비스 {@code environment:}에 선언하라.
+ * <p>이 테스트가 깨지면: 새로 추가한 env를 {@code compose.yaml} 앱 서비스(app-1·app-2 공유 앵커)
+ * {@code environment:}에 선언하라.
  */
 class ComposeSecretWiringTest {
 
@@ -39,19 +40,24 @@ class ComposeSecretWiringTest {
 			"NAVER_CLIENT_SECRET",
 			"JWT_SECRET");
 
+	/** 앱 컨테이너는 두 대 — 같은 env 앵커를 공유하지만, 앵커가 풀리는 사고까지 잡도록 각각 검증한다. */
+	private static final List<String> APP_SERVICES = List.of("app-1", "app-2");
+
 	@Test
-	@DisplayName("소셜 로그인 시크릿이 compose.yaml app 서비스로 전달된다")
+	@DisplayName("소셜 로그인 시크릿이 compose.yaml 앱 서비스 두 대로 전달된다")
 	void oauth_secrets_are_passed_through_to_the_container() {
-		List<String> declared = appServiceEnvironment();
+		for (String service : APP_SERVICES) {
+			List<String> declared = appServiceEnvironment(service);
 
-		assertThat(declared)
-				.as(".env에만 있고 compose.yaml에 없으면 컨테이너는 빈 값을 본다(2026-07-19 네이버 로그인 장애)")
-				.allSatisfy(entry -> assertThat(entry).contains("="));
-
-		for (String key : MUST_REACH_CONTAINER) {
 			assertThat(declared)
-					.as("compose.yaml app 서비스 environment에 %s 선언이 없다 → 컨테이너에 주입되지 않는다", key)
-					.anySatisfy(entry -> assertThat(entry).startsWith(key + "="));
+					.as(".env에만 있고 compose.yaml에 없으면 컨테이너는 빈 값을 본다(2026-07-19 네이버 로그인 장애)")
+					.allSatisfy(entry -> assertThat(entry).contains("="));
+
+			for (String key : MUST_REACH_CONTAINER) {
+				assertThat(declared)
+						.as("compose.yaml %s 서비스 environment에 %s 선언이 없다 → 컨테이너에 주입되지 않는다", service, key)
+						.anySatisfy(entry -> assertThat(entry).startsWith(key + "="));
+			}
 		}
 	}
 
@@ -60,7 +66,7 @@ class ComposeSecretWiringTest {
 	void client_id_has_non_empty_compose_default() {
 		// ⚠️ `${NAVER_CLIENT_ID:-}` 처럼 빈 문자열을 넘기면 Spring이 "변수 존재 = 빈값"으로 보고
 		//    application.yaml의 기본값을 덮어써 버린다(compose.yaml 주석 참고). id는 공개값이라 기본값을 박아 둔다.
-		String entry = appServiceEnvironment().stream()
+		String entry = appServiceEnvironment("app-1").stream()
 				.filter(e -> e.startsWith("NAVER_CLIENT_ID="))
 				.findFirst()
 				.orElseThrow(() -> new AssertionError("compose.yaml에 NAVER_CLIENT_ID 선언이 없다"));
@@ -71,18 +77,18 @@ class ComposeSecretWiringTest {
 				.doesNotEndWith(":-'");
 	}
 
-	/** compose.yaml의 {@code services.app.environment} 목록을 읽는다. */
+	/** compose.yaml의 {@code services.<앱>.environment} 목록을 읽는다(YAML 앵커는 SnakeYAML이 해소). */
 	@SuppressWarnings("unchecked")
-	private static List<String> appServiceEnvironment() {
+	private static List<String> appServiceEnvironment(String serviceName) {
 		Path compose = Path.of("compose.yaml");
 		assertThat(compose).as("프로젝트 루트에서 compose.yaml을 찾지 못했다").exists();
 		try {
 			Map<String, Object> root = new Yaml().load(Files.readString(compose));
 			Map<String, Object> services = (Map<String, Object>) root.get("services");
-			Map<String, Object> app = (Map<String, Object>) services.get("app");
+			Map<String, Object> app = (Map<String, Object>) services.get(serviceName);
 			return (List<String>) app.get("environment");
 		} catch (Exception e) {
-			throw new IllegalStateException("compose.yaml의 app 서비스 environment를 읽지 못했다", e);
+			throw new IllegalStateException("compose.yaml의 " + serviceName + " 서비스 environment를 읽지 못했다", e);
 		}
 	}
 }

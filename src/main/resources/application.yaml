@@ -24,10 +24,15 @@ spring:
           default_storage: NORMALIZE
   flyway:
     enabled: true
+  # 읽기 복제본을 붙이려면 환경변수로만 준다(여기에 빈 값으로 선언하면 "속성 있음"으로 잡혀 라우팅이 켜진다).
+  #   APP_DATASOURCE_REPLICA_URL / _USERNAME / _PASSWORD / _MAXIMUM_POOL_SIZE
+  #   → 값이 있을 때만 modi.backend.config.DataSourceConfig 가 등록되고 readOnly 트랜잭션이 복제본으로 간다.
   data:
     redis:
       # AI '질문으로 작성' 임시저장(draft) 캐시. 로컬 bootRun은 spring-boot-docker-compose가 redis 서비스를 자동기동·자동연결.
       # Redis 장애여도 draft는 부가 기능이라 어댑터가 예외를 삼켜 degrade(질문/감상문 생성·저장은 정상).
+      # 클러스터로 띄우려면 노드 목록을 환경변수로만 준다(SPRING_DATA_REDIS_CLUSTER_NODES).
+      #   여기에 cluster.nodes 를 빈 값으로 선언하면 노드 0개짜리 설정이 잡혀 기동이 깨진다 — 복제본 DataSource 와 같은 함정이다.
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
       password: ${SPRING_DATA_REDIS_PASSWORD:}
@@ -119,6 +124,86 @@ app:
       sort-order: REGISTRATION_DESC          # 정렬(필수, 원천 sortStdr=8) — 최근 등록분이 먼저(신규 등록 포착이 수집 목표)
       page-size: 100          # 1회 호출당 행 수(원천 numOfrows) — 결과가 아니라 호출 횟수를 좌우
       max-items: 500          # 한 실행 수집 상한(폭주 방지) — 실측 원천 266건
+
+    # 수집 파이프라인 V2(modi.backend.ingestionv2) — V1과 병행. 배달 계층은 Redis Streams 위에 선다.
+    # 대기열 개수는 코드(IngestionStream)이고 컨슈머 수만 여기 있다 — 전자는 설계 판단, 후자는 운영 판단.
+    v2:
+      # 슬라이스 스위치. 꺼지면 컨슈머 그룹 생성·구독·스케줄러가 전부 미등록.
+      enabled: ${INGESTION_V2_ENABLED:false}
+      # 비동기 배달 스위치. 끄면 리스너 컨테이너와 스케줄러 넷만 내려가고 그룹 생성은 그대로 돈다
+      #   → 통합테스트가 enabled=true로 그룹을 얻은 채 발송기·소비기를 직접 한 틱씩 민다(대기 없는 결정성).
+      auto-delivery: ${INGESTION_V2_AUTO_DELIVERY:true}
+      # 컨슈머 그룹 이름. 네 스트림이 같은 이름을 공유한다.
+      consumer-group: ingestion-v2
+      # 비우면 호스트명. 인스턴스마다 달라야 미처리 목록이 구분된다.
+      consumer-name: ${INGESTION_CONSUMER_NAME:}
+      # 스트림별 컨슈머 수. 외부 호출 스트림은 두껍게, 내부 처리 스트림은 얇게.
+      external-stream-consumers: 2
+      db-stream-consumers: 1
+      # 블로킹 조회 대기 시간. 이 시간 안에 항목이 없으면 한 번 반환하고 곧바로 다시 대기한다.
+      poll-timeout-ms: 2000
+      read-batch-size: 10
+      # 아웃박스 발송 틱의 간격(fixedDelay). 파이프라인 지연의 하한이 이 값 + 선점 쿼리 시간이라
+      #   설계 기준을 코드 기본값(OutboxDispatchScheduler 의 :1000)에만 두지 않고 여기 드러낸다.
+      dispatch-interval-ms: ${INGESTION_DISPATCH_INTERVAL_MS:1000}
+      # 아웃박스 발송 한 틱이 집는 행 수. 0 = 상한 없음(미발행 행 전부를 한 번에 집는다).
+      dispatch-batch-size: ${INGESTION_DISPATCH_BATCH_SIZE:100}
+      # 한 틱이 배치를 소진할 때까지 반복할지. 반복 상한은 순환 발행 방어용이다.
+      dispatch-drain: ${INGESTION_DISPATCH_DRAIN:true}
+      dispatch-drain-max-batches: ${INGESTION_DISPATCH_DRAIN_MAX_BATCHES:100000}
+      # 미발행 행 선점 방식. 운영 값은 REDIS_MARKER 하나다.
+      #   REDIS_MARKER  잠금 없이 읽고 행마다 SET NX PX 로 판정 → 못 잡은 행은 건너뜀(DB 에 잠금이 남지 않는다)
+      #   NONE·PESSIMISTIC·SKIP_LOCKED 는 부하 실험 비교용 값이다. 운영에서 고르지 말 것.
+      claim-strategy: ${INGESTION_CLAIM_STRATEGY:REDIS_MARKER}
+      # 미발행 행 조회를 어디서 할지. 표시(UPDATE)는 언제나 원본이 한다.
+      #   REPLICA 는 부하 실험 비교용 - 조회만 복제본으로 가는 비원자 구성이라 복제 지연이 곧 중복이 된다.
+      outbox-read: ${INGESTION_OUTBOX_READ:MASTER}
+      # 행 마커 TTL. 한 틱의 최대 소요(적체 소진 포함)보다 넉넉해야 처리 중인 행을 다른 인스턴스가 다시 집지 않는다.
+      marker-ttl-ms: ${INGESTION_MARKER_TTL_MS:300000}
+      # 잡 단위 락 TTL(회수·정리·트리밍). 잡 최대 실행 시간보다 넉넉해야 도는 도중에 다른 인스턴스가 끼어들지 않는다.
+      job-lock-ttl-ms: ${INGESTION_JOB_LOCK_TTL_MS:300000}
+      # 컨슈머만 끄는 스위치. 끄면 구독 컨테이너만 내려가고 발송 스케줄러는 계속 돈다.
+      consume-enabled: ${INGESTION_CONSUME_ENABLED:true}
+      # 대기열에서 꺼낸 이벤트를 무엇이 처리할지. 운영 값은 REAL 하나다.
+      #   REAL  도메인 핸들러 여섯이 등록된다.
+      #   STUB  도메인 핸들러를 통째로 내리고 지연만 흉내내는 빈 하나를 대신 등록한다. 부하 실험 비교용 값이라
+      #         운영에서 고르지 말 것 - 고르면 이벤트가 아무 일도 하지 않은 채 확인 처리된다.
+      consume-handler: ${INGESTION_CONSUME_HANDLER:REAL}
+      # 스텁 한 건이 머무는 시간. REAL 에서는 쓰이지 않는다.
+      stub-latency-ms: ${INGESTION_STUB_LATENCY_MS:0}
+      # 미발행 행 수 계기. 스크레이프마다 COUNT 질의가 나가므로 DB 부하 자체를 재는 실험에서는 끈다.
+      outbox-pending-gauge-enabled: ${INGESTION_OUTBOX_PENDING_GAUGE:true}
+      # 방치 판정 기준. 마지막 전달 이후 이 시간이 지나면 회수 대상 — 지수 백오프의 base 이기도 하다.
+      reclaim-idle-seconds: ${INGESTION_RECLAIM_IDLE_SECONDS:60}
+      # 회수 잡의 실행 간격(fixedDelay). PendingReclaimScheduler 가 직접 읽는 값이라 IngestionProperties 에는 없다.
+      reclaim-interval-ms: ${INGESTION_RECLAIM_INTERVAL_MS:30000}
+      # 지수로 늘어난 대기의 상한. 낫지 않는 실패가 무한정 멀어지지 않게 여기서 멈춘다.
+      reclaim-max-idle-seconds: 600
+      # 회수 대기 방식. NONE=고정 간격 / EXPONENTIAL=base x 2^(전달횟수-1), 상한까지.
+      reclaim-backoff: EXPONENTIAL
+      # 지터. NONE=없음 / FULL=0과 계산된 지연 사이에서 고른다(단 base 아래로는 내려가지 않는다).
+      #   같은 시각에 실패한 항목들이 같은 시각에 한꺼번에 되돌아오는 것을 흩는다.
+      reclaim-jitter: FULL
+      # 회수 한 틱이 미처리 목록에서 읽어 보는 항목 수(XPENDING count).
+      reclaim-batch-size: 100
+      # 스트림 길이 상한. 트리밍이 이 길이로 잘라낸다(처리 확인은 스트림에서 항목을 지우지 않는다).
+      stream-max-length: ${INGESTION_STREAM_MAX_LENGTH:100000}
+      # 재시도 상한(최초 1회 + 재시도 2회). 도메인의 소비 재시도와 아웃박스 발행 재시도(FAILED 판정)가 같은 값을 쓴다.
+      max-attempts: 3
+      # 발행 완료(SENT) 기록의 보존 일수와 정리 배치 크기. 기준 시각은 적재 시각이다.
+      retention-days: 7
+      cleanup-batch-size: 500
+      # 아래 셋은 수집 도메인이 소유하는 값이다. IngestionProperties 는 바인딩하지 않는다.
+      # 회차 트리거는 새벽 1시와 12시간 뒤인 13시. 회차 키가 날짜 하나라 13시 기상은 대개 선점에 실패하고 끝나는데,
+      # 그것이 낭비가 아니라 1시에 인스턴스가 재시작 중이라 못 깨어난 날을 메우는 안전장치다.
+      # JVM 기본 타임존을 KST로 고정해 두었으므로 cron 에 zone 을 따로 적지 않는다(코어 스케줄러와 같은 관례).
+      collect-cron: '${INGESTION_COLLECT_CRON:0 0 1,13 * * *}'
+      # 트리밍·정리 시각. 값이 '-' 면 그 잡만 등록되지 않는다(스프링 @Scheduled 의 비활성 표기).
+      trim-cron: '${INGESTION_TRIM_CRON:0 10 * * * *}'
+      cleanup-cron: '${INGESTION_CLEANUP_CRON:0 0 3 * * *}'
+      catalog:
+        page-size: 100
+        max-items: 500
 
   # 공공데이터 전시 API(한눈에보는문화정보조회서비스, data.go.kr 15138937) 접속 설정. (03_전시.md CATALOG 출처)
   # service-key: data.go.kr 일반 인증키. 공공데이터 오픈API 키라 저위험 + 재발급 가능해 yaml에 직접 둔다(팀 참고용).

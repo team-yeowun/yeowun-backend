@@ -1,0 +1,9 @@
+[mysqld]
+server-id=1
+log-bin=mysql-bin
+binlog_format=ROW
+gtid_mode=ON
+enforce_gtid_consistency=ON
+innodb_buffer_pool_size=1G
+max_connections=500
+default-time-zone=+09:00
