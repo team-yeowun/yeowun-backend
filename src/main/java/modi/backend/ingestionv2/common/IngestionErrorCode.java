@@ -20,7 +20,14 @@ public enum IngestionErrorCode implements ErrorCode {
 	OUTBOX_NOT_RETRYABLE(HttpStatus.CONFLICT, "OUTBOX_NOT_RETRYABLE", "발행 실패 상태가 아닌 기록은 다시 시도할 수 없습니다."),
 	EVENT_RECORD_MALFORMED(HttpStatus.INTERNAL_SERVER_ERROR, "EVENT_RECORD_MALFORMED", "배달 레코드를 해석할 수 없습니다."),
 	STREAM_PUBLISH_FAILED(HttpStatus.BAD_GATEWAY, "STREAM_PUBLISH_FAILED", "대기열 발행에 실패했습니다."),
-	STREAM_NOT_ROUTED(HttpStatus.INTERNAL_SERVER_ERROR, "STREAM_NOT_ROUTED", "배정된 대기열이 없는 이벤트입니다.");
+	STREAM_NOT_ROUTED(HttpStatus.INTERNAL_SERVER_ERROR, "STREAM_NOT_ROUTED", "배정된 대기열이 없는 이벤트입니다."),
+	OUTBOX_READ_SOURCE_UNAVAILABLE(HttpStatus.INTERNAL_SERVER_ERROR, "OUTBOX_READ_SOURCE_UNAVAILABLE",
+			"선택한 조회 대상 데이터소스가 없습니다."),
+	DEAD_LETTER_NOT_FOUND(HttpStatus.NOT_FOUND, "DEAD_LETTER_NOT_FOUND", "격리 기록을 찾을 수 없습니다."),
+	DEAD_LETTER_ALREADY_RESOLVED(HttpStatus.CONFLICT, "DEAD_LETTER_ALREADY_RESOLVED", "이미 처리한 격리 기록입니다."),
+	DEAD_LETTER_NOT_REDRIVABLE(HttpStatus.CONFLICT, "DEAD_LETTER_NOT_REDRIVABLE", "되돌려 보낼 수 없는 격리 기록입니다."),
+	DEAD_LETTER_REDRIVE_CONFLICT(HttpStatus.CONFLICT, "DEAD_LETTER_REDRIVE_CONFLICT",
+			"다른 요청이 먼저 이 격리 기록을 되돌려 보냈습니다.");
 
 	private final HttpStatus status;
 	private final String code;

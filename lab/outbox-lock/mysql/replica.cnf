@@ -1,0 +1,12 @@
+# read_only / super_read_only 는 cnf 가 아니라 init-replication.sh 가 건다.
+# cnf 에 박으면 컨테이너 초기화(CREATE DATABASE·CREATE USER)가 자기 자신에게 막혀 기동이 실패한다.
+[mysqld]
+server-id=2
+relay-log=relay-bin
+log-bin=mysql-bin
+binlog_format=ROW
+gtid_mode=ON
+enforce_gtid_consistency=ON
+innodb_buffer_pool_size=1G
+max_connections=500
+default-time-zone=+09:00

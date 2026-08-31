@@ -1,0 +1,2 @@
+# run.sh 가 매 런마다 다시 쓴다(변형 env 합본).
+.runtime.env
