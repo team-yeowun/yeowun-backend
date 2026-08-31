@@ -92,7 +92,8 @@ jobs:
             # client-id·redirect-uri·CORS는 application.yaml prod 기본값(공개 정보).
             cat > .env <<EOF
             SPRING_PROFILES_ACTIVE=prod
-            # 운영은 컨테이너를 호스트 8080으로 노출(공개 주소·아래 헬스체크 localhost:8080과 일치).
+            # 운영 공개 포트(호스트 8080)는 이제 nginx가 잡는다(compose가 nginx를 8080:80으로 매핑).
+            # 앱 2대는 내부망 + 루프백 헬스 포트(18081·18082)만 — 공개 주소·헬스체크(localhost:8080)는 단일 앱 시절 그대로.
             # compose.yaml은 기본 18090이라 이 값이 없으면 8080이 비어 배포 헬스체크가 실패한다.
             APP_HOST_PORT=8080
             KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
@@ -167,21 +168,57 @@ jobs:
 
             # 디스크 정리 — 배포마다 쌓이는 빌드 레이어/구 이미지로 'No space left on device' 재발 방지(run 29329247179).
             # 실행 중 컨테이너의 이미지·사용 중 볼륨(DB)은 prune 대상이 아니다.
+            # (배포 성공 후 한 번 더 돌려 방금 교체로 밀려난 구 앱 이미지까지 정리 — 재빌드가 반복돼도 쌓이지 않는다.)
             sudo docker image prune -af || true
             sudo docker builder prune -af || true
             echo "디스크 상태: $(df -h / | tail -1)"
 
-            sudo docker compose $PROFILES up -d --build
+            # ① 새 앱 이미지를 먼저 빌드 — 구 컨테이너는 구 이미지로 계속 서비스하므로 빌드 동안 무중단.
+            #    app-1·app-2는 같은 이미지 태그(modi-backend-app)를 쓰므로 빌드는 이 한 번뿐이다.
+            sudo docker compose $PROFILES build app-1
 
-            # 배포 후 헬스체크 검증: UP 될 때까지 최대 150초 폴링, 실패 시 로그 출력하고 배포 실패 처리
-            # 운영 호스트 노출 포트 = 8080(.env의 APP_HOST_PORT=8080 → compose가 8080:8080으로 매핑).
-            # 공개 주소(3.35.111.143:8080)와 동일 포트라 헬스체크도 8080. (로컬 도커는 18090이지만 배포는 prod 기준)
-            # 1GB 박스는 부팅(컨텍스트 초기화)이 느려 150초를 넘길 수 있다 → 300초(60회×5초)까지 대기해 오탐 실패 방지.
-            echo "Waiting for app to become healthy..."
-            for i in $(seq 1 60); do
-              if curl -fsS http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
-                echo "✅ Health check passed"
+            # ② 앱·nginx 앞단을 제외한 기반(DB 원본·복제본·Redis·Metabase 등)을 먼저 정합 상태로 올린다.
+            #    --remove-orphans: 단일 앱 시절의 'app' 컨테이너(modi-backend)처럼 정의에서 사라진 컨테이너 정리.
+            #    (그 컨테이너가 호스트 8080을 쥐고 있어 nginx가 이어받으려면 먼저 내려야 한다 — 2대 전환 첫 배포 한 번만 공백.)
+            INFRA=$(sudo docker compose $PROFILES config --services | grep -vE '^(app-1|app-2|nginx|alloy)$' | tr '\n' ' ')
+            sudo docker compose $PROFILES up -d --remove-orphans $INFRA
+
+            # ③ 롤링 교체 — 한 대씩 새 이미지로 올리고 헬스 통과 후 다음 대. 그동안 나머지 한 대가 트래픽을 받는다.
+            #    앱 직통 헬스 포트는 루프백 전용(app-1=18081, app-2=18082) — 외부 공개는 nginx의 8080 하나뿐.
+            for SVC in app-1 app-2; do
+              if [ "$SVC" = "app-1" ]; then PORT=18081; else PORT=18082; fi
+              echo "▶ rolling $SVC ..."
+              sudo docker compose $PROFILES up -d --no-deps $SVC
+              OK=0
+              for i in $(seq 1 60); do
+                if curl -fsS http://localhost:$PORT/actuator/health | grep -q '"status":"UP"'; then OK=1; break; fi
+                echo "  ...$SVC not ready yet ($i/60)"
+                sleep 5
+              done
+              if [ "$OK" != "1" ]; then
+                echo "❌ $SVC health FAILED — 나머지 한 대는 구 버전으로 계속 서비스 중"
                 sudo docker compose $PROFILES ps
+                sudo docker compose $PROFILES logs --tail=80 $SVC
+                exit 1
+              fi
+              # 컨테이너 재생성으로 IP가 바뀌었을 수 있다 — nginx가 떠 있으면 업스트림을 다시 해석시킨다(첫 배포 땐 아직 없어 무시).
+              sudo docker compose $PROFILES exec -T nginx nginx -s reload 2>/dev/null || true
+              echo "✅ $SVC healthy"
+            done
+
+            # ④ 나머지(nginx·alloy 등)까지 전체 정합 — 이미 새 이미지로 뜬 앱은 그대로, 빠진 것만 올린다.
+            sudo docker compose $PROFILES up -d --remove-orphans
+
+            # ⑤ 공개 관문(nginx) 경유 최종 확인 — 외부가 보는 그 주소(8080)가 응답해야 배포 성공.
+            #    운영 호스트 노출 포트 = 8080(.env의 APP_HOST_PORT=8080 → compose가 nginx를 8080:80으로 매핑).
+            echo "Waiting for public gateway (nginx) to become healthy..."
+            for i in $(seq 1 30); do
+              if curl -fsS http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
+                echo "✅ Health check passed (via nginx)"
+                sudo docker compose $PROFILES ps
+                # 교체로 밀려난 구 앱 이미지 정리 — 재빌드마다 이전 이미지가 남지 않게 한다.
+                sudo docker image prune -af || true
+                echo "디스크 상태: $(df -h / | tail -1)"
                 if [ "$QUICK_TUNNEL" = "1" ]; then
                   echo "⏳ quick tunnel URL 대기..."; sleep 12
                   URL=$(sudo docker logs modi-cloudflared-quick 2>&1 | grep -oE 'https://[a-z0-9-]+\.trycloudflare\.com' | tail -1)
@@ -189,10 +226,11 @@ jobs:
                 fi
                 exit 0
               fi
-              echo "  ...not ready yet ($i/60)"
+              echo "  ...nginx not ready yet ($i/30)"
               sleep 5
             done
             echo "❌ Health check FAILED after timeout"
             sudo docker compose $PROFILES ps
-            sudo docker compose --profile app logs --tail=80 app
+            sudo docker compose $PROFILES logs --tail=60 nginx
+            sudo docker compose $PROFILES logs --tail=80 app-1
             exit 1
