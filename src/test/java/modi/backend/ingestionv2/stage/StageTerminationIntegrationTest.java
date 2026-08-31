@@ -1,15 +1,18 @@
 package modi.backend.ingestionv2.stage;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import modi.backend.ingestionv2.common.IngestionErrorCode;
 import modi.backend.ingestionv2.common.event.IngestionEventType;
 import modi.backend.ingestionv2.common.outbox.Outbox;
 import modi.backend.ingestionv2.common.outbox.OutboxStatus;
 import modi.backend.ingestionv2.common.queue.IngestionStream;
 import modi.backend.ingestionv2.stage.domain.StagingStatus;
+import modi.backend.support.error.CoreException;
 
 @DisplayName("종결")
 class StageTerminationIntegrationTest extends StageTestSupport {
@@ -51,5 +54,29 @@ class StageTerminationIntegrationTest extends StageTestSupport {
 				.containsEntry("attempts", 1)
 				.containsEntry("status", StagingStatus.PENDING.name());
 		assertThat(pendingOf(IngestionStream.DB).size()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("ST-E3 상한을 소진하면 격리되고 처리 확인까지 끝난다")
+	void 상한을_소진하면_격리되고_처리_확인까지_끝난다() {
+		// given 조립이 계속 실패하는 상황. 재전달을 실물 배달 경로로 만든다.
+		seedListing(vendorKey, placeName, "2026-08-01", "2026-12-31");
+
+		// when 상한만큼 배달을 되풀이한다(마지막 시도에서 도메인이 격리를 요청한다)
+		for (int attempt = 0; attempt < properties.maxAttempts(); attempt++) {
+			outboxAppender.append(IngestionEventType.INSPECTED, vendorKey);
+			outboxDispatcher.dispatchPending();
+			consumeOnce(properties.consumerName());
+		}
+
+		// then 상태는 FAILED 로 확정되고
+		assertThat(stagingRow(vendorKey)).containsEntry("status", StagingStatus.FAILED.name());
+
+		// then 격리 행이 남고 원본 항목이 미처리 목록에서 빠진다
+		// (이송의 마지막 단계가 처리 확인이 아니면 격리 테이블과 스트림에 같은 항목이 동시에 존재한다)
+		assertThat(deadLetterRepository.findAll())
+				.filteredOn(letter -> vendorKey.equals(letter.getAggregateId()))
+				.hasSize(1);
+		assertThat(pendingOf(IngestionStream.DB).size()).isEqualTo(properties.maxAttempts() - 1);
 	}
 }

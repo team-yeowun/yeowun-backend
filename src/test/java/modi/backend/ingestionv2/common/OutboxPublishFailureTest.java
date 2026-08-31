@@ -1,6 +1,7 @@
 package modi.backend.ingestionv2.common;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.willThrow;
 
@@ -81,5 +82,45 @@ class OutboxPublishFailureTest extends DeliveryTestSupport {
 				.filteredOn(outbox -> outbox.getAggregateId().endsWith("-bad"))
 				.singleElement()
 				.satisfies(outbox -> assertThat(outbox.getStatus()).isEqualTo(OutboxStatus.PENDING));
+	}
+
+	@Test
+	@DisplayName("관리자 목록은 FAILED 행만 담고, 재시도하면 PENDING으로 돌아가 시도 횟수가 0이 된다")
+	void 관리자가_FAILED_행을_되돌린다() {
+		// given FAILED 행 하나와 PENDING 행 하나
+		willThrow(new CoreException(IngestionErrorCode.STREAM_PUBLISH_FAILED)).given(eventDispatcher).dispatch(any());
+		outboxAppender.append(IngestionEventType.COLLECTED, vendorKey);
+		for (int attempt = 0; attempt < properties.maxAttempts(); attempt++) {
+			outboxDispatcher.dispatchPending();
+		}
+		outboxAppender.append(IngestionEventType.COLLECTED, vendorKey + "-pending");
+
+		// when
+		IngestionDeliveryResult.OutboxFailures failures =
+				ingestionDeliveryFacade.findOutboxFailures(IngestionDeliveryCriteria.Listing.of(50));
+		IngestionDeliveryResult.OutboxRetried retried = ingestionDeliveryFacade.retryOutbox(
+				IngestionDeliveryCriteria.OutboxRetry.of(failures.items().getFirst().id()));
+
+		// then
+		assertThat(failures.count()).isEqualTo(1);
+		assertThat(failures.items().getFirst().aggregateId()).isEqualTo(vendorKey);
+		assertThat(retried.aggregateId()).isEqualTo(vendorKey);
+		Outbox outbox = outboxRepository.findById(retried.outboxId()).orElseThrow();
+		assertThat(outbox.getStatus()).isEqualTo(OutboxStatus.PENDING);
+		assertThat(outbox.getRetryCount()).isZero();
+	}
+
+	@Test
+	@DisplayName("FAILED가 아닌 행은 재시도를 거절한다")
+	void FAILED가_아닌_행은_재시도를_거절한다() {
+		// given PENDING 행
+		outboxAppender.append(IngestionEventType.COLLECTED, vendorKey);
+		long outboxId = outboxRepository.findAll().getFirst().getId();
+
+		// when & then
+		assertThatThrownBy(() -> ingestionDeliveryFacade.retryOutbox(IngestionDeliveryCriteria.OutboxRetry.of(outboxId)))
+				.isInstanceOf(CoreException.class)
+				.extracting(failure -> ((CoreException) failure).errorCode())
+				.isEqualTo(IngestionErrorCode.OUTBOX_NOT_RETRYABLE);
 	}
 }
