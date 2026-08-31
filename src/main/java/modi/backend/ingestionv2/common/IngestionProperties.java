@@ -8,6 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import modi.backend.ingestionv2.common.outbox.OutboxClaimStrategy;
 import modi.backend.ingestionv2.common.outbox.OutboxReadSource;
+import modi.backend.ingestionv2.common.queue.ConsumeHandler;
 import modi.backend.ingestionv2.common.queue.ReclaimBackoff;
 import modi.backend.ingestionv2.common.queue.ReclaimJitter;
 
@@ -24,6 +25,8 @@ import modi.backend.ingestionv2.common.queue.ReclaimJitter;
  *   <li>배치 상한 0 = 상한 없음 - 음수만 기본값으로 되돌린다. "상한을 두지 않는다"가 실제로 표현 가능해야
  *       상한이 왜 필요한지를 잴 수 있다</li>
  *   <li>소비 스위치를 발송과 갈라 둠 - 발송 부하만 재는 동안 컨슈머가 외부 API 를 호출하는 것을 막는 유일한 장치</li>
+ *   <li>소비 핸들러 선택도 설정 - 운영 값은 REAL 하나이고 STUB 은 부하 실험 비교용이다.
+ *       소비를 켠 채로 벤더 호출만 없애야 배분과 처리량을 재는 무대가 선다</li>
  * </ul>
  */
 @ConfigurationProperties(prefix = "app.ingestion.v2")
@@ -40,6 +43,8 @@ public record IngestionProperties(
 		long markerTtlMs,
 		long jobLockTtlMs,
 		boolean consumeEnabled,
+		ConsumeHandler consumeHandler,
+		long stubLatencyMs,
 		boolean outboxPendingGaugeEnabled,
 		int externalStreamConsumers,
 		int dbStreamConsumers,
@@ -79,6 +84,12 @@ public record IngestionProperties(
 		}
 		if (jobLockTtlMs <= 0) {
 			jobLockTtlMs = 300_000;
+		}
+		if (consumeHandler == null) {
+			consumeHandler = ConsumeHandler.REAL;
+		}
+		if (stubLatencyMs < 0) {
+			stubLatencyMs = 0;
 		}
 		if (externalStreamConsumers <= 0) {
 			externalStreamConsumers = 2;

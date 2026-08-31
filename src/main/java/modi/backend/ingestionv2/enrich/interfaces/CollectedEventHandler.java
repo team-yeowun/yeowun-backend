@@ -1,5 +1,6 @@
 package modi.backend.ingestionv2.enrich.interfaces;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import modi.backend.ingestionv2.common.event.IngestionEventType;
@@ -16,6 +17,8 @@ import modi.backend.ingestionv2.enrich.domain.EnrichStep;
  * </ul>
  */
 @Component
+@ConditionalOnProperty(prefix = "app.ingestion.v2", name = "consume-handler",
+		havingValue = "REAL", matchIfMissing = true)
 class CollectedEventHandler extends EnrichEventHandler {
 
 	CollectedEventHandler(EnrichFacade enrichFacade) {

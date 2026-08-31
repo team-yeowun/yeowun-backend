@@ -205,6 +205,7 @@ class ReclaimBackoffLab extends RetryLabSupport {
 				properties.consumerName(), properties.dispatchBatchSize(), properties.claimStrategy(),
 				properties.outboxRead(), properties.dispatchDrain(), properties.dispatchDrainMaxBatches(),
 				properties.markerTtlMs(), properties.jobLockTtlMs(), properties.consumeEnabled(),
+				properties.consumeHandler(), properties.stubLatencyMs(),
 				properties.outboxPendingGaugeEnabled(), properties.externalStreamConsumers(),
 				properties.dbStreamConsumers(), properties.pollTimeoutMs(), properties.readBatchSize(),
 				properties.reclaimIdleSeconds(), properties.reclaimMaxIdleSeconds(),
