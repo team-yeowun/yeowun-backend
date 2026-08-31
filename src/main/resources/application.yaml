@@ -120,6 +120,45 @@ app:
       page-size: 100          # 1회 호출당 행 수(원천 numOfrows) — 결과가 아니라 호출 횟수를 좌우
       max-items: 500          # 한 실행 수집 상한(폭주 방지) — 실측 원천 266건
 
+    # 수집 파이프라인 V2(modi.backend.ingestionv2) — V1과 병행. 배달 계층은 Redis Streams 위에 선다.
+    # 대기열 개수는 코드(IngestionStream)이고 컨슈머 수만 여기 있다 — 전자는 설계 판단, 후자는 운영 판단.
+    v2:
+      # 슬라이스 스위치. 꺼지면 컨슈머 그룹 생성·구독·스케줄러가 전부 미등록.
+      enabled: ${INGESTION_V2_ENABLED:false}
+      # 비동기 배달 스위치. 끄면 리스너 컨테이너와 스케줄러 넷만 내려가고 그룹 생성은 그대로 돈다
+      #   → 통합테스트가 enabled=true로 그룹을 얻은 채 발송기·소비기를 직접 한 틱씩 민다(대기 없는 결정성).
+      auto-delivery: ${INGESTION_V2_AUTO_DELIVERY:true}
+      # 컨슈머 그룹 이름. 네 스트림이 같은 이름을 공유한다.
+      consumer-group: ingestion-v2
+      # 비우면 호스트명. 인스턴스마다 달라야 미처리 목록이 구분된다.
+      consumer-name: ${INGESTION_CONSUMER_NAME:}
+      # 스트림별 컨슈머 수. 외부 호출 스트림은 두껍게, 내부 처리 스트림은 얇게.
+      external-stream-consumers: 2
+      db-stream-consumers: 1
+      # 블로킹 조회 대기 시간. 이 시간 안에 항목이 없으면 한 번 반환하고 곧바로 다시 대기한다.
+      poll-timeout-ms: 2000
+      read-batch-size: 10
+      # 아웃박스 발송 틱의 간격(fixedDelay). 파이프라인 지연의 하한이 이 값 + 선점 쿼리 시간이라
+      #   설계 기준을 코드 기본값(OutboxDispatchScheduler 의 :1000)에만 두지 않고 여기 드러낸다.
+      dispatch-interval-ms: 1000
+      # 아웃박스 발송 한 틱이 집는 행 수.
+      dispatch-batch-size: 100
+      # 스트림 길이 상한. 트리밍이 이 길이로 잘라낸다(처리 확인은 스트림에서 항목을 지우지 않는다).
+      stream-max-length: 100000
+      # 재시도 상한(최초 1회 + 재시도 2회). 도메인의 소비 재시도와 아웃박스 발행 재시도(FAILED 판정)가 같은 값을 쓴다.
+      max-attempts: 3
+      # 발행 완료(SENT) 기록의 보존 일수와 정리 배치 크기. 기준 시각은 적재 시각이다.
+      retention-days: 7
+      cleanup-batch-size: 500
+      # 아래 셋은 수집 도메인이 소유하는 값이다. IngestionProperties 는 바인딩하지 않는다.
+      # 회차 트리거는 새벽 1시와 12시간 뒤인 13시. 회차 키가 날짜 하나라 13시 기상은 대개 선점에 실패하고 끝나는데,
+      # 그것이 낭비가 아니라 1시에 인스턴스가 재시작 중이라 못 깨어난 날을 메우는 안전장치다.
+      # JVM 기본 타임존을 KST로 고정해 두었으므로 cron 에 zone 을 따로 적지 않는다(코어 스케줄러와 같은 관례).
+      collect-cron: '0 0 1,13 * * *'
+      catalog:
+        page-size: 100
+        max-items: 500
+
   # 공공데이터 전시 API(한눈에보는문화정보조회서비스, data.go.kr 15138937) 접속 설정. (03_전시.md CATALOG 출처)
   # service-key: data.go.kr 일반 인증키. 공공데이터 오픈API 키라 저위험 + 재발급 가능해 yaml에 직접 둔다(팀 참고용).
   #   env(CULTURE_API_KEY)로 오버라이드 가능. 미설정·무효면 외부 동기화 스킵되고 데모 시드로 동작.
