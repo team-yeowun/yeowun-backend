@@ -27,6 +27,8 @@ import modi.backend.ingestionv2.common.queue.StreamConsumer;
  * <ul>
  *   <li>설정 바인딩은 조건 없이 등록 - 슬라이스를 꺼도 프로퍼티 레코드는 필요하다</li>
  *   <li>구독 등록만 enabled + auto-delivery 두 스위치에 걸림 - 테스트가 비동기 배달만 끌 수 있게 함</li>
+ *   <li>구독 컨테이너에만 소비 스위치가 하나 더 붙음 - 발송 스케줄러는 그대로 돌면서 컨슈머만 내려야
+ *       "발행은 하되 소비는 하지 않는" 상태를 만들 수 있다(발송 부하 측정 중 외부 API 호출 차단)</li>
  *   <li>초기화 컴포넌트를 인자로 받아 컨슈머 그룹 생성 이후에 구독이 등록되게 함</li>
  *   <li>autoAcknowledge(false) - 처리 확인은 소비 어댑터가 직접 한다</li>
  *   <li>cancelOnError(false) - 예외 한 번으로 구독이 끊기지 않게 함</li>
@@ -58,7 +60,8 @@ public class IngestionConfig {
 	 * 초기화 컴포넌트를 인자로 받는 이유는 컨슈머 그룹이 만들어진 뒤에 구독이 시작되도록 순서를 강제하기 위함이다.
 	 */
 	@Bean(destroyMethod = "stop")
-	@ConditionalOnProperty(prefix = "app.ingestion.v2", name = {"enabled", "auto-delivery"}, havingValue = "true")
+	@ConditionalOnProperty(prefix = "app.ingestion.v2",
+			name = {"enabled", "auto-delivery", "consume-enabled"}, havingValue = "true")
 	public StreamMessageListenerContainer<String, MapRecord<String, String, String>> ingestionStreamContainer(
 			RedisConnectionFactory connectionFactory,
 			StreamGroupInitializer streamGroupInitializer,

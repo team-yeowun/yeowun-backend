@@ -2,6 +2,7 @@ package modi.backend.ingestionv2;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +51,10 @@ import modi.backend.ingestionv2.enrich.domain.hours.PlaceHoursClient;
  *   <li>밖으로 나가는 HTTP 포트 넷만 스텁, 그 안쪽(파사드·서비스·엔티티·리포·MySQL·Redis·코어 등록)은 전부 실물</li>
  *   <li>enabled=true 로 컨슈머 그룹은 실물로 만들고 auto-delivery=false 로 리스너·스케줄러만 끈다</li>
  *   <li>컨테이너를 공유하므로 스트림 키 삭제와 그룹 재생성이 매 테스트의 책임</li>
+ *   <li>선점 전략은 운영 기본(REDIS_MARKER)을 그대로 쓴다 - 통합테스트가 실제 발송 경로를 밟게 하려면
+ *       기본값을 테스트용으로 바꾸지 말아야 한다. 대신 잔여 키를 매 테스트가 지운다:
+ *       테이블을 비우면 자동 증가 값이 되돌아 같은 id 가 다시 나오는데, 앞 테스트가 남긴 마커가 남아 있으면
+ *       새 행이 조용히 건너뛰어진다</li>
  * </ul>
  */
 @Import(TestcontainersConfiguration.class)
@@ -100,7 +105,18 @@ public abstract class IngestionTestSupport {
 		vendorKey = "EXH-" + UNIQUE_KEY.incrementAndGet() + "-" + System.nanoTime();
 		clearSliceTables();
 		redisTemplate.delete(List.of(IngestionStream.values()).stream().map(IngestionStream::key).toList());
+		clearLockKeys();
 		streamGroupInitializer.afterPropertiesSet();
+	}
+
+	/** 앞 테스트가 남긴 행 마커·잡 락을 지운다. 지우지 않으면 재사용된 id 의 새 행이 건너뛰어진다. */
+	private void clearLockKeys() {
+		for (String pattern : List.of("outbox:*", "lock:*")) {
+			Set<String> keys = redisTemplate.keys(pattern);
+			if (keys != null && !keys.isEmpty()) {
+				redisTemplate.delete(keys);
+			}
+		}
 	}
 
 	/** 슬라이스 테이블만 비운다. 코어 전시는 건드리지 않으므로 원천 키를 매번 새로 만든다. */

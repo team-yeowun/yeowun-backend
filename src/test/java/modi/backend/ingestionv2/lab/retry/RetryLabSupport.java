@@ -54,6 +54,7 @@ import modi.backend.ingestionv2.enrich.domain.hours.PlaceHoursClient;
 @SpringBootTest(properties = {
 		"app.ingestion.v2.enabled=true",
 		"app.ingestion.v2.auto-delivery=false",
+		"app.ingestion.v2.claim-strategy=SKIP_LOCKED",
 		"app.exhibition.enrich.scheduling-enabled=false",
 		"spring.datasource.hikari.maximum-pool-size=80",
 		"spring.datasource.hikari.connection-timeout=60000"
