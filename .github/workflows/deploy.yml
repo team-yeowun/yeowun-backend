@@ -181,7 +181,10 @@ jobs:
             #    --remove-orphans: 단일 앱 시절의 'app' 컨테이너(modi-backend)처럼 정의에서 사라진 컨테이너 정리.
             #    (그 컨테이너가 호스트 8080을 쥐고 있어 nginx가 이어받으려면 먼저 내려야 한다 — 2대 전환 첫 배포 한 번만 공백.)
             INFRA=$(sudo docker compose $PROFILES config --services | grep -vE '^(app-1|app-2|nginx|alloy)$' | tr '\n' ' ')
-            sudo docker compose $PROFILES up -d --remove-orphans $INFRA
+            # --wait: 헬스체크가 있는 서비스(DB·복제본·Redis)가 healthy가 될 때까지 기다린다.
+            #   특히 GTID 옵션 첫 적용 배포는 mysql 재시작 + 복제본 덤프 시딩이 겹치므로, 여기서 안 기다리면
+            #   앱이 미완성 DB에 붙으려다 부팅에 실패한다.
+            sudo docker compose $PROFILES up -d --wait --remove-orphans $INFRA
 
             # ③ 롤링 교체 — 한 대씩 새 이미지로 올리고 헬스 통과 후 다음 대. 그동안 나머지 한 대가 트래픽을 받는다.
             #    앱 직통 헬스 포트는 루프백 전용(app-1=18081, app-2=18082) — 외부 공개는 nginx의 8080 하나뿐.
