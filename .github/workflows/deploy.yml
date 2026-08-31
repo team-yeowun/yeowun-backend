@@ -84,6 +84,15 @@ jobs:
           script: |
             set -e
             cd ~/modi-backend
+
+            # 스왑 2G(멱등) — t3.small(2GB)에 앱 2대 + DB 원본·복제본이 같이 살면 RAM이 빠듯하다.
+            #   순간 피크(빌드·롤링 중 신구 앱 공존)를 스왑이 받아 OOM 킬을 막는다. 이미 있으면 그대로 지나간다.
+            if [ ! -f /swapfile ]; then
+              echo "💾 스왑 2G 생성(최초 1회)"
+              sudo fallocate -l 2G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048
+              sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+              grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+            fi
             git fetch origin main
             git checkout -B main origin/main
             git reset --hard origin/main
