@@ -4,16 +4,22 @@
 // 실행:  docker compose --profile app --profile obs up -d
 // (Phase 2에서 loki.source.docker / loki.write 를 여기에 추가한다 — docs/observability-setup.md)
 
-// 앱은 도커 내부망에서 8080으로 뜬다(호스트 노출 포트와 무관).
+// 앱은 도커 내부망에서 8080으로 뜬다(호스트 노출 포트와 무관). 두 대(app-1·app-2)를 각각 스크랩하고
+// instance 라벨을 -1/-2로 갈라 같은 시계열 충돌(remote_write 중복/순서 거부)을 막는다.
 prometheus.scrape "modi_backend" {
   targets = [{
-    __address__     = "app:8080",
+    __address__     = "app-1:8080",
     __metrics_path__ = "/actuator/prometheus",
     // 대시보드에서 잡/인스턴스 구분용 라벨.
-    // instance는 환경별로 분리(로컬 vs 운영) — 같은 시계열 충돌(remote_write 중복/순서 거부) 방지.
-    // GC_INSTANCE 미설정이면 "modi-backend-local", 운영 배포는 deploy.yml이 "modi-backend-prod" 주입.
+    // instance는 환경별로 분리(로컬 vs 운영) — GC_INSTANCE 미설정이면 "modi-backend-local",
+    // 운영 배포는 deploy.yml이 "modi-backend-prod" 주입. 여기에 앱 번호를 덧붙인다.
     job             = "modi-backend",
-    instance        = coalesce(sys.env("GC_INSTANCE"), "modi-backend-local"),
+    instance        = coalesce(sys.env("GC_INSTANCE"), "modi-backend-local") + "-1",
+  }, {
+    __address__     = "app-2:8080",
+    __metrics_path__ = "/actuator/prometheus",
+    job             = "modi-backend",
+    instance        = coalesce(sys.env("GC_INSTANCE"), "modi-backend-local") + "-2",
   }]
   forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
   scrape_interval = "15s"
