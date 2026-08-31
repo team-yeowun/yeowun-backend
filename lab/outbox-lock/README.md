@@ -52,6 +52,52 @@ docker compose -f compose.lab.yaml build app1     # 앱 이미지 한 벌(두 �
 미발행 행 계기 OFF · 힙 `-Xmx2g` 고정). 코어 스케줄러(전시 동기화·v1 릴레이·정리·캐시 워밍·조회수 플러시·
 리마인드 백필)도 전부 재운다 — 같은 MySQL·Redis 를 두드려 `Com_select`·`commandstats` 델타를 오염시킨다.
 
+## push 변형 돌리기 (대기열 소비 실험)
+
+02(DB 폴링에서 Redis Streams 푸시로 전환)의 세 런은 `run-push.sh` 가 돌린다. `run.sh` 의 복제본이고
+갈라진 지점은 셋이다 — 소진 판정(발송 카운터 대신 **소비 카운터 정지 3표본 and XPENDING 0**),
+세 번째 앱의 합류·강제 종료 훅, 클러스터 경로. `run.sh` 와 `_base.env` 는 01 의 봉인 자산이라 손대지 않는다.
+
+```bash
+./run-push.sh push-2         # 앱 2대 · 10만 행 DETAIL_READY — 배분과 중복 0
+./run-push.sh push-scale     # 같은 런에서 app3 합류(T+60) → 강제 종료(T+231) → 회수
+./run-push.sh push-cluster   # Redis 마스터 3 · 복제 0 클러스터 프로파일
+./run-push.sh push-2 smoke   # 100행 형식·계기판 확인
+```
+
+**nohup 으로 띄운다.** 한 런이 10분 안팎이라 포그라운드로 돌리면 도구 상한에 걸려 중간에 끊긴다.
+완료는 `run-summary.md` 가 생겼는지로 확인하고, 진행은 로그로 본다. 세 런은 같은 무대를 쓰므로
+**반드시 하나씩 순차로** 돌린다. 봉인만 다시 하려면 `FINALIZE_ONLY=1 ./run-push.sh <변형>`.
+
+```bash
+nohup ./run-push.sh push-2 > /tmp/push-2.log 2>&1 &
+```
+
+| 파일 | 앱 | Redis | 특이 |
+|---|---|---|---|
+| `push-2` | 2 | 단일 | 중복 소비 0 을 요구한다 |
+| `push-scale` | 2→3→2 | 단일 | `LAB_APP3_START_SECONDS` · `LAB_APP3_KILL_SECONDS`. 강제 종료 구간의 재전달은 정상이라 중복 0 을 요구하지 않는다 |
+| `push-cluster` | 2 | 마스터 3 | `SPRING_DATA_REDIS_CLUSTER_NODES` · `LAB_REDIS_PROFILE=cluster` |
+
+공통 무대는 `variants/push-*.env` 가 `_base.env` 를 덮어쓴다(컨슈머 ON · 소비 핸들러 `STUB` 지연 20ms ·
+틱 1초 · 배치 500 · 방치 판정 15초 · 적재는 `DETAIL_READY`/`ENRICHMENT` → `ingestion.culture`).
+유료 API 호출 0건이 절대 조건이라 `before-check.txt` 에 스텁 스위치 · 외부 API 감사 표 · 소비 계기 태그
+세 줄을 남긴다.
+
+클러스터 런 뒤에는 **반드시 되돌린다.**
+
+```bash
+docker compose -f compose.lab.yaml --profile cluster rm -sf redis-c1 redis-c2 redis-c3 redis-cluster-init
+docker exec outboxlock-redis redis-cli INFO cluster | grep cluster_enabled    # → cluster_enabled:0
+./run-push.sh push-2 smoke
+```
+
+전체 `down -v` 는 쓰지 않는다 — 앱·nginx·MySQL 두 대·단일 Redis 까지 내리고 익명 볼륨을 지워
+다른 런의 재현 자산이 사라진다.
+
+원시값 위치: `docs/…/problem/02-DB 폴링에서 Redis Streams 푸시로 전환/_workspace/03_measurer_raw/<variant>/`
+(smoke 는 `…/03_measurer_raw/_smoke/<variant>/`).
+
 ## 중복은 무엇으로 세는가
 
 주 지표는 **대기열에 실제로 실린 것**이다. 런이 끝나면 `observe/dump-stream.sh` 가 `XRANGE` 로 스트림을
@@ -80,8 +126,9 @@ docker compose -f compose.lab.yaml build app1     # 앱 이미지 한 벌(두 �
 | `seed/smoke-gate.sh` | 이미 떠 있는 무대에 100행을 넣어 형식을 확인하는 독립 게이트(`run.sh <v> smoke` 가 같은 확인을 포함한다) |
 | `variants/*.env` | 토글 |
 | `run.sh` | 한 변형 전체 |
+| `run-push.sh` · `seal-push.py` | push 변형 전체(소진 판정·app3 훅·클러스터가 `run.sh` 와 갈라진다) 와 그 봉인 절 |
 | `inject-marker-loss.sh` | 락이 사라진 상태 주입(장애 재현이 아니다) |
-| `observe/*.sh` | 계기판 — 앱 스크랩 · MySQL STATUS · 복제 지연 · Redis INFO · INNODB STATUS · docker stats · 스트림 덤프·중복 집계 |
+| `observe/*.sh` | 계기판 — 앱 스크랩 · MySQL STATUS · 복제 지연 · Redis INFO · INNODB STATUS · docker stats · 스트림 덤프·중복 집계 · 대기열 상태(`stream-status.sh`) · 클러스터 배치(`cluster-status.sh`) |
 
 ## 주의
 
