@@ -1,4 +1,7 @@
+# 시스템 아키텍처
+
 <div align="center">
+<img width="1239" height="512" alt="여운 시스템 아키텍처" src="https://github.com/user-attachments/assets/7fd60e7f-e35f-4055-aa42-f1c08f98388a" />
 
 # 여운 (Yeowun)
 
