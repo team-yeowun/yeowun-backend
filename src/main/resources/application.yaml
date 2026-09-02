@@ -143,14 +143,22 @@ app:
       # 블로킹 조회 대기 시간. 이 시간 안에 항목이 없으면 한 번 반환하고 곧바로 다시 대기한다.
       poll-timeout-ms: 2000
       read-batch-size: 10
-      # 아웃박스 발송 틱의 간격(fixedDelay). 파이프라인 지연의 하한이 이 값 + 선점 쿼리 시간이라
-      #   설계 기준을 코드 기본값(OutboxDispatchScheduler 의 :1000)에만 두지 않고 여기 드러낸다.
-      dispatch-interval-ms: ${INGESTION_DISPATCH_INTERVAL_MS:1000}
+      # 아웃박스 발송 폴백 틱의 간격(fixedDelay). 정상 경로는 커밋 직후 깨우기(dispatch-wake-enabled)가 맡으므로
+      #   이 값은 "깨우기가 놓친 행이 기다리는 최대 시간"이다. 1초 폴링은 유휴 상태에서 하루 172,800회(2대) DB 를 두드렸다(05 실험).
+      dispatch-interval-ms: ${INGESTION_DISPATCH_INTERVAL_MS:60000}
       # 아웃박스 발송 한 틱이 집는 행 수. 0 = 상한 없음(미발행 행 전부를 한 번에 집는다).
       dispatch-batch-size: ${INGESTION_DISPATCH_BATCH_SIZE:100}
       # 한 틱이 배치를 소진할 때까지 반복할지. 반복 상한은 순환 발행 방어용이다.
       dispatch-drain: ${INGESTION_DISPATCH_DRAIN:true}
       dispatch-drain-max-batches: ${INGESTION_DISPATCH_DRAIN_MAX_BATCHES:100000}
+      # 발송 틱을 인스턴스 한 대만 돌릴지. 행 마커가 중복은 이미 막지만, 두 대가 같은 머리 행을 읽고 한쪽이 버리는
+      #   읽기 낭비(push-2 런 27,000행)와 유휴 빈 조회는 마커로 막지 못한다 - 그 둘을 없애는 스위치다. false 는 부하 실험 before 용.
+      dispatch-leader-lock: ${INGESTION_DISPATCH_LEADER_LOCK:true}
+      # 발송 리더 락 TTL. 정상 종료는 해제하므로 강제 종료 때만 이 시간만큼 폴백 발송이 멈춘다. 한 틱(소진 루프 포함)이 이 값을
+      #   넘으면 다른 인스턴스가 겹쳐 들어올 수 있는데 그때는 행 마커가 중복을 막는다.
+      dispatch-lock-ttl-ms: ${INGESTION_DISPATCH_LOCK_TTL_MS:30000}
+      # 도메인 커밋 직후 발송을 깨울지. 끄면 폴백 틱만 남아 발송 지연이 dispatch-interval-ms 까지 늘어난다.
+      dispatch-wake-enabled: ${INGESTION_DISPATCH_WAKE:true}
       # 미발행 행 선점 방식. 운영 값은 REDIS_MARKER 하나다.
       #   REDIS_MARKER  잠금 없이 읽고 행마다 SET NX PX 로 판정 → 못 잡은 행은 건너뜀(DB 에 잠금이 남지 않는다)
       #   NONE·PESSIMISTIC·SKIP_LOCKED 는 부하 실험 비교용 값이다. 운영에서 고르지 말 것.
