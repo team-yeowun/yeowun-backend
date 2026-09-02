@@ -58,6 +58,10 @@ management:
       # (기본은 summary라 _bucket이 없어 percentile 계산 불가) 버킷 상·하한을 두어 카디널리티를 억제한다.
       percentiles-histogram:
         "[http.server.requests]": true
+        # 수집 파이프라인 지연 셋 - p95 를 PromQL 로 내려면 버킷이 있어야 한다(05 실험이 이 값을 개선율의 근거로 쓴다).
+        "[ingestion.event.completion]": true
+        "[ingestion.consume]": true
+        "[ingestion.outbox.dispatch.latency]": true
       minimum-expected-value:
         "[http.server.requests]": 5ms
       maximum-expected-value:

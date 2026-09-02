@@ -3,6 +3,7 @@ package modi.backend.ingestionv2.common.outbox;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,7 +17,7 @@ import modi.backend.support.error.CoreException;
  * 아웃박스 행의 단일 창구.
  *
  * <ul>
- *   <li>append는 REQUIRED - 도메인 반영 트랜잭션에 합류해 함께 커밋</li>
+ *   <li>append는 REQUIRED - 도메인 반영 트랜잭션에 합류해 함께 커밋. 적재 사실 이벤트를 함께 발행해 커밋 직후 발송 깨우기의 입력이 된다</li>
  *   <li>발송 트랜잭션 전용 네 건은 MANDATORY - 단독 호출되면 선점 잠금이 즉시 풀려 다른 인스턴스가 같은 행을 집음</li>
  *   <li>관리자 재시도와 정리는 REQUIRED - 호출 스레드에 트랜잭션이 없어 이 메서드가 경계를 소유</li>
  *   <li>상태 전이 판단은 전부 Outbox 엔티티 메서드에 위임</li>
@@ -27,12 +28,15 @@ import modi.backend.support.error.CoreException;
 public class OutboxService implements OutboxAppender {
 
 	private final OutboxRepository outboxRepository;
+	private final ApplicationEventPublisher eventPublisher;
 
-	/** 적재 - 호출자의 도메인 트랜잭션에 합류한다. */
+	/** 적재 - 호출자의 도메인 트랜잭션에 합류한다. 적재 사실 이벤트는 커밋 뒤에 깨우기가 듣는다. */
 	@Override
 	@Transactional
 	public void append(IngestionEventType type, String aggregateId) {
 		outboxRepository.save(Outbox.pending(type, aggregateId));
+		// 트랜잭션 안에서 발행해도 AFTER_COMMIT 리스너(OutboxDispatchWaker)는 커밋 성공 뒤에만 실행된다.
+		eventPublisher.publishEvent(new OutboxAppended(type, aggregateId));
 	}
 
 	/** 미발행 행 선점 - 반드시 발송 트랜잭션 안에서 호출한다. limit 이 0 이면 상한 없이 전부. */
