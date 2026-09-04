@@ -122,7 +122,7 @@ public abstract class IngestionTestSupport {
 	/** 슬라이스 테이블만 비운다. 코어 전시는 건드리지 않으므로 원천 키를 매번 새로 만든다. */
 	private void clearSliceTables() {
 		for (String table : List.of(
-				"ingestion_outbox", "ingestion_dead_letter",
+				"ingestion_outbox", "ingestion_dead_letter", "ingestion_inbox",
 				"ingestion_staging", "ingestion_inspection",
 				"ingestion_enrichment", "ingestion_enrichment_detail",
 				"ingestion_enrichment_genre", "ingestion_enrichment_hours",
