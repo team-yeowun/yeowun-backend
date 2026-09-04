@@ -58,7 +58,11 @@ public record IngestionProperties(
 		long streamMaxLength,
 		int maxAttempts,
 		int retentionDays,
-		int cleanupBatchSize) {
+		int cleanupBatchSize,
+		long inboxLeaseMs,
+		int inboxRetentionDays,
+		int inboxCleanupBatchSize,
+		int inboxCleanupMaxBatches) {
 
 	public IngestionProperties {
 		if (consumerGroup == null || consumerGroup.isBlank()) {
@@ -129,6 +133,18 @@ public record IngestionProperties(
 		}
 		if (cleanupBatchSize <= 0) {
 			cleanupBatchSize = 500;
+		}
+		if (inboxLeaseMs <= 0) {
+			inboxLeaseMs = 600_000;
+		}
+		if (inboxRetentionDays <= 0) {
+			inboxRetentionDays = 30;
+		}
+		if (inboxCleanupBatchSize <= 0) {
+			inboxCleanupBatchSize = 500;
+		}
+		if (inboxCleanupMaxBatches <= 0) {
+			inboxCleanupMaxBatches = 20;
 		}
 	}
 
