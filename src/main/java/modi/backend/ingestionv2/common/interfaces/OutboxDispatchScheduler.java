@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import modi.backend.ingestionv2.common.IngestionClock;
 import modi.backend.ingestionv2.common.IngestionProperties;
+import modi.backend.ingestionv2.common.inbox.InboxService;
 import modi.backend.ingestionv2.common.lock.IngestionJobLock;
 import modi.backend.ingestionv2.common.outbox.OutboxDispatchOutcome;
 import modi.backend.ingestionv2.common.outbox.OutboxDispatcher;
@@ -46,6 +47,7 @@ public class OutboxDispatchScheduler {
 
 	private final OutboxDispatcher outboxDispatcher;
 	private final OutboxService outboxService;
+	private final InboxService inboxService;
 	private final IngestionJobLock jobLock;
 	private final IngestionProperties properties;
 	private final MeterRegistry meterRegistry;
@@ -70,14 +72,28 @@ public class OutboxDispatchScheduler {
 
 	@Scheduled(cron = "${app.ingestion.v2.cleanup-cron:0 0 3 * * *}")
 	public void cleanup() {
-		jobLock.runIfAcquired(CLEANUP_JOB, this::cleanupSent);
+		jobLock.runIfAcquired(CLEANUP_JOB, this::cleanupDeliveryRecords);
 	}
 
-	private void cleanupSent() {
-		LocalDateTime threshold = IngestionClock.now().minusDays(properties.retentionDays());
-		int deleted = outboxService.cleanupSent(threshold, properties.cleanupBatchSize());
-		if (deleted > 0) {
-			log.info("발행 완료 기록을 정리했습니다. deleted={} threshold={}", deleted, threshold);
+	private void cleanupDeliveryRecords() {
+		LocalDateTime now = IngestionClock.now();
+		LocalDateTime outboxThreshold = now.minusDays(properties.retentionDays());
+		int deletedOutbox = outboxService.cleanupSent(outboxThreshold, properties.cleanupBatchSize());
+		if (deletedOutbox > 0) {
+			log.info("발행 완료 기록을 정리했습니다. deleted={} threshold={}", deletedOutbox, outboxThreshold);
+		}
+
+		LocalDateTime inboxThreshold = now.minusDays(properties.inboxRetentionDays());
+		int deletedInbox = 0;
+		for (int batch = 0; batch < properties.inboxCleanupMaxBatches(); batch++) {
+			int deleted = inboxService.cleanupTerminal(inboxThreshold, properties.inboxCleanupBatchSize());
+			deletedInbox += deleted;
+			if (deleted < properties.inboxCleanupBatchSize()) {
+				break;
+			}
+		}
+		if (deletedInbox > 0) {
+			log.info("Inbox 종결 기록을 정리했습니다. deleted={} threshold={}", deletedInbox, inboxThreshold);
 		}
 	}
 }

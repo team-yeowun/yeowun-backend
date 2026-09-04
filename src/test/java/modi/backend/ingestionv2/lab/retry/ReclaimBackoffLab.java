@@ -211,7 +211,8 @@ class ReclaimBackoffLab extends RetryLabSupport {
 				properties.reclaimIdleSeconds(), properties.reclaimMaxIdleSeconds(),
 				variant.backoff(), variant.jitter(), properties.reclaimBatchSize(),
 				properties.streamMaxLength(), properties.maxAttempts(), properties.retentionDays(),
-				properties.cleanupBatchSize());
+				properties.cleanupBatchSize(), properties.inboxLeaseMs(), properties.inboxRetentionDays(),
+				properties.inboxCleanupBatchSize(), properties.inboxCleanupMaxBatches());
 	}
 
 	private Map<String, Object> conditionOf(Variant variant, FaultInjectingEventHandler.Mode mode) {

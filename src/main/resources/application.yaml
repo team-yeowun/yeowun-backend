@@ -193,6 +193,13 @@ app:
       # 발행 완료(SENT) 기록의 보존 일수와 정리 배치 크기. 기준 시각은 적재 시각이다.
       retention-days: 7
       cleanup-batch-size: 500
+      # stable eventId의 소비 완료를 subscriber별로 기억하는 Inbox. 외부 API 호출은 트랜잭션 밖이라
+      # 처리 시간이 lease보다 길면 중복 진입할 수 있으므로 실제 최장 응답시간보다 넉넉히 둔다.
+      inbox-lease-ms: ${INGESTION_INBOX_LEASE_MS:600000}
+      # Inbox는 무한 멱등 키 저장소가 아니다. 재전달 가능 기간보다 긴 30일만 종결 상태를 보존한다.
+      inbox-retention-days: ${INGESTION_INBOX_RETENTION_DAYS:30}
+      inbox-cleanup-batch-size: ${INGESTION_INBOX_CLEANUP_BATCH_SIZE:500}
+      inbox-cleanup-max-batches: ${INGESTION_INBOX_CLEANUP_MAX_BATCHES:20}
       # 아래 셋은 수집 도메인이 소유하는 값이다. IngestionProperties 는 바인딩하지 않는다.
       # 회차 트리거는 새벽 1시와 12시간 뒤인 13시. 회차 키가 날짜 하나라 13시 기상은 대개 선점에 실패하고 끝나는데,
       # 그것이 낭비가 아니라 1시에 인스턴스가 재시작 중이라 못 깨어난 날을 메우는 안전장치다.

@@ -17,6 +17,8 @@ import modi.backend.ingestionv2.common.IngestionErrorCode;
 import modi.backend.ingestionv2.common.IngestionProperties;
 import modi.backend.ingestionv2.common.deadletter.DeadLetter;
 import modi.backend.ingestionv2.common.deadletter.DeadLetterService;
+import modi.backend.ingestionv2.common.inbox.InboxClaim;
+import modi.backend.ingestionv2.common.inbox.InboxService;
 import modi.backend.support.error.CoreException;
 
 /**
@@ -30,6 +32,10 @@ import modi.backend.support.error.CoreException;
  *   <li>격리 기록의 난 지점은 핸들러 클래스 이름, 해석 실패는 DECODE</li>
  *   <li>처리 시간과 완료 시간을 두 자로 나눠 잰다 - 앞은 핸들러 한 번의 비용, 뒤는 적재부터 확인까지의 파이프라인 지연</li>
  *   <li>완료 시간의 시작점은 이벤트가 난 시각(payload) - 아웃박스 행의 발행 시각이 아니다</li>
+ *   <li>eventId가 있는 레코드는 consumer group+eventId Inbox를 먼저 선점한다. 이미 종결된 중복은 ack만 하고,
+ *       다른 실행이 처리 중인 항목은 ack하지 않아 원 실행 장애 시 lease 뒤 회수할 수 있게 한다</li>
+ *   <li>Inbox SUCCEEDED와 Redis ack 사이 장애는 재전달 시 handler를 건너뛴다. handler 성공과 Inbox SUCCEEDED 사이
+ *       장애는 외부 부작용까지 exactly-once로 만들지 못한다</li>
  * </ul>
  */
 @Slf4j
@@ -45,6 +51,7 @@ public class StreamConsumer implements StreamListener<String, MapRecord<String, 
 
 	private final IngestionEventRouter eventRouter;
 	private final DeadLetterService deadLetterService;
+	private final InboxService inboxService;
 	private final StringRedisTemplate redisTemplate;
 	private final IngestionProperties properties;
 	private final MeterRegistry meterRegistry;
@@ -70,27 +77,67 @@ public class StreamConsumer implements StreamListener<String, MapRecord<String, 
 			return;
 		}
 
-		execute(handler, event, message);
+		if (event.eventId() == null) {
+			// 호환 배포 전에 Redis에 남은 레코드. 새 Outbox payload에는 항상 eventId가 있다.
+			execute(handler, event, message, null);
+			return;
+		}
+
+		InboxClaim claim;
+		try {
+			claim = inboxService.claim(properties.consumerGroup(), event.eventId());
+		} catch (RuntimeException failure) {
+			log.warn("Inbox 처리권 선점에 실패해 미확인으로 남깁니다. eventId={} type={}",
+					event.eventId(), event.type(), failure);
+			return;
+		}
+
+		switch (claim.state()) {
+			case TERMINAL -> {
+				acknowledge(message);
+				log.debug("이미 종결된 이벤트라 handler 실행 없이 확인합니다. eventId={} type={}",
+						event.eventId(), event.type());
+			}
+			case IN_PROGRESS -> log.debug(
+					"다른 실행이 처리 중이라 미확인으로 남깁니다. eventId={} type={}",
+					event.eventId(), event.type());
+			case ACQUIRED -> execute(handler, event, message, claim);
+		}
 	}
 
 	private void execute(IngestionEventHandler handler, EventRecord event,
-			MapRecord<String, String, String> message) {
+			MapRecord<String, String, String> message, InboxClaim claim) {
 		long started = System.nanoTime();
 		try {
 			handler.handle(event.aggregateId());
+			if (claim != null && !inboxService.succeed(claim)) {
+				record(event, "retry", started);
+				log.warn("handler 성공 뒤 Inbox 종결권을 잃어 미확인으로 남깁니다. eventId={} type={}",
+						event.eventId(), event.type());
+				return;
+			}
 			acknowledge(message);
 			record(event, "success", started);
 			recordCompletion(event);
 		} catch (CoreException failure) {
 			if (failure.errorCode() == IngestionErrorCode.RETRY_EXHAUSTED) {
 				isolate(event, message, DeadLetter.Failure.of(failure, handler.getClass().getSimpleName()));
+				if (claim != null && !inboxService.deadLetter(claim)) {
+					record(event, "retry", started);
+					log.warn("격리 뒤 Inbox 종결권을 잃어 미확인으로 남깁니다. eventId={} type={}",
+							event.eventId(), event.type());
+					return;
+				}
+				acknowledge(message);
 				record(event, "exhausted", started);
 				return;
 			}
+			failInbox(claim, failure);
 			record(event, "retry", started);
 			log.warn("이벤트 처리에 실패해 미확인으로 남깁니다. type={} aggregateId={}",
 					event.type(), event.aggregateId(), failure);
 		} catch (RuntimeException failure) {
+			failInbox(claim, failure);
 			record(event, "retry", started);
 			log.warn("이벤트 처리 중 예상하지 못한 오류가 발생했습니다. type={} aggregateId={}",
 					event.type(), event.aggregateId(), failure);
@@ -117,9 +164,22 @@ public class StreamConsumer implements StreamListener<String, MapRecord<String, 
 	private void isolate(EventRecord event, MapRecord<String, String, String> message, DeadLetter.Failure failure) {
 		deadLetterService.isolate(event.payload(), message.getStream(), message.getId().getValue(), failure,
 				properties.maxAttempts());
-		acknowledge(message);
 		log.error("재시도 상한을 넘겨 격리했습니다. type={} aggregateId={} step={}", event.type(), event.aggregateId(),
 				failure.step());
+	}
+
+	private void failInbox(InboxClaim claim, RuntimeException failure) {
+		if (claim == null) {
+			return;
+		}
+		try {
+			if (!inboxService.fail(claim, failure)) {
+				log.warn("실패한 이벤트의 Inbox 상태를 바꾸지 못했습니다. eventId={}", claim.eventId());
+			}
+		} catch (RuntimeException inboxFailure) {
+			// Redis 레코드는 ack하지 않으므로 DB 복구 뒤 다시 전달된다.
+			log.warn("실패한 이벤트의 Inbox 기록 중 오류가 발생했습니다. eventId={}", claim.eventId(), inboxFailure);
+		}
 	}
 
 	private void acknowledge(MapRecord<String, String, String> message) {
