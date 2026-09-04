@@ -11,11 +11,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 중복 실행 판정의 유일한 원시 연산 - {@code SET key owner NX PX ttl}.
+ * 잡 단위 리더 락과 비교 실험용 행 마커의 원시 연산 - {@code SET key owner NX PX ttl}.
  *
  * <ul>
  *   <li>먼저 쓴 쪽만 참을 받는다 - 인스턴스가 몇 대든 같은 키에 대해 한 번만 참이 된다</li>
- *   <li>해제 API 를 두 종류로 나눔 - 행 마커는 해제하지 않고 TTL 에 맡기고, 잡 락만 소유자를 확인해 되돌린다</li>
+ *   <li>운영 Outbox 행 소유권은 MySQL SKIP LOCKED가 맡고, Redis 행 마커는 이전 전략 비교 실험에만 사용</li>
  *   <li>소유자 값을 담는 이유 - 만료 뒤 다른 인스턴스가 같은 키를 잡았을 때 이전 소유자의 해제가 남의 락을 지우지 않게</li>
  *   <li>해제는 Lua 한 덩어리 - 값 비교와 삭제 사이에 만료가 끼면 비원자 해제가 남의 락을 지운다</li>
  *   <li>대기하지 않는다 - 획득 실패는 "다른 인스턴스가 맡았다"는 사실이고 이 슬라이스에서 대기는 곧 락 병목</li>

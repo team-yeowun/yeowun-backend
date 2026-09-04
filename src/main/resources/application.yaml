@@ -163,17 +163,20 @@ app:
       dispatch-lock-ttl-ms: ${INGESTION_DISPATCH_LOCK_TTL_MS:30000}
       # 도메인 커밋 직후 발송을 깨울지. 끄면 폴백 틱만 남아 발송 지연이 dispatch-interval-ms 까지 늘어난다.
       dispatch-wake-enabled: ${INGESTION_DISPATCH_WAKE:true}
-      # 미발행 행 선점 방식. 운영 값은 REDIS_MARKER 하나다.
-      #   REDIS_MARKER  잠금 없이 읽고 행마다 SET NX PX 로 판정 → 못 잡은 행은 건너뜀(DB 에 잠금이 남지 않는다)
-      #   NONE·PESSIMISTIC·SKIP_LOCKED 는 부하 실험 비교용 값이다. 운영에서 고르지 말 것.
-      claim-strategy: ${INGESTION_CLAIM_STRATEGY:REDIS_MARKER}
+      # 미발행 행 선점 방식. 운영 값은 SKIP_LOCKED + MASTER다.
+      #   SKIP_LOCKED  상태의 권위자인 MySQL이 행 소유권도 판정 → 동시 발송기는 잠긴 행을 기다리지 않고 다른 행을 집음
+      #   NONE·PESSIMISTIC·REDIS_MARKER는 부하 실험 비교용이다. REDIS_MARKER는 행마다 Redis SET NX PX가 추가된다.
+      claim-strategy: ${INGESTION_CLAIM_STRATEGY:SKIP_LOCKED}
       # 미발행 행 조회를 어디서 할지. 표시(UPDATE)는 언제나 원본이 한다.
       #   REPLICA 는 부하 실험 비교용 - 조회만 복제본으로 가는 비원자 구성이라 복제 지연이 곧 중복이 된다.
       outbox-read: ${INGESTION_OUTBOX_READ:MASTER}
-      # 행 마커 TTL. 한 틱의 최대 소요(적체 소진 포함)보다 넉넉해야 처리 중인 행을 다른 인스턴스가 다시 집지 않는다.
+      # 비교 실험용 Redis 행 마커 TTL. 운영 기본 SKIP_LOCKED에서는 사용하지 않는다.
       marker-ttl-ms: ${INGESTION_MARKER_TTL_MS:300000}
       # 잡 단위 락 TTL(회수·정리·트리밍). 잡 최대 실행 시간보다 넉넉해야 도는 도중에 다른 인스턴스가 끼어들지 않는다.
       job-lock-ttl-ms: ${INGESTION_JOB_LOCK_TTL_MS:300000}
+      # 수집 회차 실행권 lease. 프로세스가 실패 상태를 남기지 못하고 종료돼도 이 시간이 지나면 같은 날짜를 재선점한다.
+      # 최대 목록 조회·건별 확정 시간보다 길게 두고, 01시 실행 장애를 13시 안전 실행이 회수할 수 있게 한다.
+      collect-lease-ms: ${INGESTION_COLLECT_LEASE_MS:1800000}
       # 컨슈머만 끄는 스위치. 끄면 구독 컨테이너만 내려가고 발송 스케줄러는 계속 돈다.
       consume-enabled: ${INGESTION_CONSUME_ENABLED:true}
       # 대기열에서 꺼낸 이벤트를 무엇이 처리할지. 운영 값은 REAL 하나다.

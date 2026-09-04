@@ -12,6 +12,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import modi.backend.ingestionv2.common.event.IngestionEventType;
 import modi.backend.ingestionv2.common.interfaces.OutboxDispatchScheduler;
+import modi.backend.ingestionv2.common.inbox.InboxService;
 import modi.backend.ingestionv2.common.lock.IngestionJobLock;
 import modi.backend.ingestionv2.common.lock.RedisMarkerLock;
 import modi.backend.ingestionv2.common.outbox.OutboxStatus;
@@ -23,10 +24,12 @@ class DispatchLeaderLockTest extends DeliveryTestSupport {
 	@Autowired private IngestionJobLock jobLock;
 	@Autowired private RedisMarkerLock markerLock;
 	@Autowired private MeterRegistry meterRegistry;
+	@Autowired private InboxService inboxService;
 
 	/** 스케줄러 빈은 auto-delivery=false 에서 등록되지 않으므로 같은 의존성으로 직접 만든다. */
 	private OutboxDispatchScheduler scheduler() {
-		return new OutboxDispatchScheduler(outboxDispatcher, outboxService, jobLock, properties, meterRegistry);
+		return new OutboxDispatchScheduler(outboxDispatcher, outboxService, inboxService, jobLock, properties,
+				meterRegistry);
 	}
 
 	@Test
