@@ -1,11 +1,17 @@
 package modi.backend.ingestionv2.collect.domain;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.Duration;
+import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
+import modi.backend.ingestionv2.common.IngestionClock;
+import modi.backend.ingestionv2.common.IngestionProperties;
 import modi.backend.ingestionv2.common.event.IngestionEventType;
 import modi.backend.ingestionv2.common.outbox.OutboxAppender;
 
@@ -24,18 +30,31 @@ public class CollectService {
 
 	private final CollectRepository collectRepository;
 	private final OutboxAppender outboxAppender;
+	private final IngestionProperties properties;
 
 	/**
 	 * 핵심 트랜잭션 1 회차 선점.
 	 *
 	 * <ul>
 	 *   <li>목록 조회 이전에 단독으로 커밋 (다른 인스턴스에게 즉시 보이게)</li>
-	 *   <li>실패는 예외가 아니라 false (경쟁에서 진 것은 정상 동작)</li>
+	 *   <li>COMPLETED/유효한 RUNNING은 선점하지 않고, FAILED/만료 RUNNING은 새 token으로 재선점</li>
 	 * </ul>
 	 */
 	@Transactional
-	public boolean claimBatch(LocalDate batchDate) {
-		return collectRepository.claimBatchMark(CollectBatchMark.claim(batchDate));
+	public Optional<CollectBatchClaim> claimBatch(LocalDate batchDate) {
+		LocalDateTime claimedAt = IngestionClock.now();
+		LocalDateTime leaseUntil = claimedAt.plus(Duration.ofMillis(properties.collectLeaseMs()));
+		return collectRepository.claimBatch(batchDate, claimedAt, leaseUntil, UUID.randomUUID().toString());
+	}
+
+	@Transactional
+	public boolean completeBatch(CollectBatchClaim claim) {
+		return collectRepository.completeBatch(claim, IngestionClock.now());
+	}
+
+	@Transactional
+	public boolean failBatch(CollectBatchClaim claim, String lastError) {
+		return collectRepository.failBatch(claim, summarize(lastError));
 	}
 
 	/**
@@ -55,5 +74,12 @@ public class CollectService {
 		collectRepository.saveSnapshot(CultureListSnapshot.observe(item));
 		outboxAppender.append(IngestionEventType.COLLECTED, item.vendorKey());
 		return true;
+	}
+
+	private String summarize(String lastError) {
+		if (lastError == null || lastError.isBlank()) {
+			return "unknown failure";
+		}
+		return lastError.length() <= 1000 ? lastError : lastError.substring(0, 1000);
 	}
 }

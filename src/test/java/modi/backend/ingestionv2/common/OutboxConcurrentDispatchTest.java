@@ -12,11 +12,12 @@ import org.junit.jupiter.api.Test;
 
 import modi.backend.ingestionv2.IngestionTestSupport;
 import modi.backend.ingestionv2.common.event.IngestionEventType;
+import modi.backend.ingestionv2.common.outbox.OutboxClaimStrategy;
 import modi.backend.ingestionv2.common.outbox.OutboxStatus;
 import modi.backend.ingestionv2.common.queue.IngestionStream;
 
 /**
- * 운영 기본값(Redis 마커)에서 두 발송기가 같은 미발행 행을 동시에 집었을 때의 결과를 고정한다.
+ * 운영 기본값(SKIP LOCKED)에서 두 발송기가 같은 미발행 행을 동시에 집었을 때의 결과를 고정한다.
  *
  * <ul>
  *   <li>스레드 둘의 실경합 - 인스턴스 두 대가 아니라 같은 컨텍스트의 스레드 둘이므로 "2대"라고 부르지 않는다</li>
@@ -31,6 +32,7 @@ class OutboxConcurrentDispatchTest extends IngestionTestSupport {
 	@DisplayName("두 발송기가 동시에 집어도 이벤트는 행 수만큼만 나간다")
 	void 두_발송기가_동시에_집어도_중복이_없다() throws Exception {
 		// given 미발행 행 스무 개
+		assertThat(properties.claimStrategy()).isEqualTo(OutboxClaimStrategy.SKIP_LOCKED);
 		for (int index = 0; index < ROWS; index++) {
 			outboxAppender.append(IngestionEventType.COLLECTED, vendorKey + "-" + index);
 		}
@@ -42,6 +44,7 @@ class OutboxConcurrentDispatchTest extends IngestionTestSupport {
 		assertThat(lengthOf(IngestionStream.DB)).isEqualTo(ROWS);
 		assertThat(outboxRepository.countByStatus(OutboxStatus.SENT)).isEqualTo(ROWS);
 		assertThat(outboxRepository.countByStatus(OutboxStatus.PENDING)).isZero();
+		assertThat(redisTemplate.keys("outbox:*")).isEmpty();
 	}
 
 	private void dispatchConcurrently() throws Exception {
@@ -53,7 +56,7 @@ class OutboxConcurrentDispatchTest extends IngestionTestSupport {
 				workers.submit(() -> {
 					try {
 						start.await();
-						// 진 쪽은 남은 행을 다음 배치에서 집는다 - 소진 루프가 하는 일을 여기서 손으로 민다.
+						// 각 발송기는 SKIP LOCKED로 다른 행을 집고, 남은 행이 없을 때까지 소진한다.
 						while (outboxDispatcher.dispatchBatch().drainable()) {
 							continue;
 						}

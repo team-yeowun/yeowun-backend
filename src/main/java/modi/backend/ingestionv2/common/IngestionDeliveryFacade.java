@@ -3,6 +3,7 @@ package modi.backend.ingestionv2.common;
 import java.util.List;
 
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import modi.backend.ingestionv2.common.deadletter.DeadLetter;
@@ -18,7 +19,7 @@ import modi.backend.ingestionv2.common.queue.StreamStatusReader;
  * <ul>
  *   <li>관리자 유스케이스에서 두 창구(격리와 아웃박스)를 조율하는 유일한 자리 - 서비스끼리 서로 부르지 않음</li>
  *   <li>상태 판단을 하지 않음 - 재주입 가능 여부는 격리 창구가 판정</li>
- *   <li>재주입은 표시를 먼저 커밋하고 사실을 나중에 적재 - 중복 재주입 가드를 살리기 위함</li>
+ *   <li>재주입은 REPLAYED 상태 전이와 새 Outbox 적재를 한 트랜잭션으로 커밋 - 둘 중 하나만 남는 복구 유실을 차단</li>
  * </ul>
  */
 @Component
@@ -60,7 +61,8 @@ public class IngestionDeliveryFacade {
 		return new IngestionDeliveryResult.Ignored(ignored.getId(), ignored.getStatus().name());
 	}
 
-	/** 재주입 - 표시를 먼저 남기고 사실을 새 행으로 적재한다. */
+	/** 재주입 - REPLAYED 표시와 새 Outbox를 함께 커밋하고, @Version 충돌은 표시 flush에서 판정한다. */
+	@Transactional
 	public IngestionDeliveryResult.Redriven redrive(IngestionDeliveryCriteria.Redrive criteria) {
 		DeadLetter target = deadLetterService.findRedrivable(criteria.deadLetterId());
 		deadLetterService.markReplayed(criteria.deadLetterId());

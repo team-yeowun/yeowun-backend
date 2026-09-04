@@ -3,20 +3,32 @@ package modi.backend.ingestionv2.common;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.event.EventListener;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import modi.backend.ingestionv2.common.deadletter.DeadLetter;
 import modi.backend.ingestionv2.common.deadletter.DeadLetterStatus;
 import modi.backend.ingestionv2.common.event.IngestionEventType;
 import modi.backend.ingestionv2.common.event.OutboxPayload;
 import modi.backend.ingestionv2.common.outbox.Outbox;
+import modi.backend.ingestionv2.common.outbox.OutboxAppended;
 import modi.backend.ingestionv2.common.outbox.OutboxStatus;
 import modi.backend.ingestionv2.common.queue.IngestionStream;
 import modi.backend.support.error.CoreException;
 
 @DisplayName("재주입")
+@Import(DeadLetterRedriveTest.RedriveTransactionProbeConfig.class)
 class DeadLetterRedriveTest extends DeliveryTestSupport {
+
+	@Autowired private RedriveTransactionProbe transactionProbe;
 
 	@Test
 	@DisplayName("재주입하면 시점이 찍히고 새 PENDING 행이 적재된다")
@@ -35,6 +47,26 @@ class DeadLetterRedriveTest extends DeliveryTestSupport {
 		assertThat(appended.getStatus()).isEqualTo(OutboxStatus.PENDING);
 		assertThat(appended.getRetryCount()).isZero();
 		assertThat(appended.getAggregateId()).isEqualTo(vendorKey);
+		assertThat(transactionProbe.wasTransactionActive()).isTrue();
+	}
+
+	@Test
+	@DisplayName("아웃박스 적재 경로가 실패하면 REPLAYED 표시도 함께 롤백된다")
+	void 아웃박스_적재_실패는_REPLAYED_표시도_롤백한다() {
+		// given 격리 행 하나와 OutboxAppended 발행 실패를 주입한다
+		long deadLetterId = isolateOne();
+		transactionProbe.failNextAppend();
+
+		// when 재주입 트랜잭션의 마지막 단계가 실패한다
+		assertThatThrownBy(() ->
+				ingestionDeliveryFacade.redrive(IngestionDeliveryCriteria.Redrive.of(deadLetterId)))
+				.isInstanceOf(IllegalStateException.class)
+				.hasMessage("재주입 아웃박스 실패 주입");
+
+		// then DLQ만 닫히는 부분 성공 없이 둘 다 원래 상태다
+		assertThat(deadLetterRepository.findById(deadLetterId).orElseThrow().getStatus())
+				.isEqualTo(DeadLetterStatus.PENDING);
+		assertThat(outboxRepository.findAll()).isEmpty();
 	}
 
 	@Test
@@ -116,5 +148,36 @@ class DeadLetterRedriveTest extends DeliveryTestSupport {
 		deadLetterService.isolate(OutboxPayload.of(IngestionEventType.COLLECTED, vendorKey, IngestionClock.now()), IngestionStream.DB.key(), "0-1", new DeadLetter.Failure("원인", null, "test"), 3);
 		DeadLetter isolated = deadLetterRepository.findAll().getFirst();
 		return isolated.getId();
+	}
+
+	@TestConfiguration(proxyBeanMethods = false)
+	static class RedriveTransactionProbeConfig {
+
+		@Bean
+		RedriveTransactionProbe redriveTransactionProbe() {
+			return new RedriveTransactionProbe();
+		}
+	}
+
+	static class RedriveTransactionProbe {
+
+		private final AtomicBoolean failNext = new AtomicBoolean();
+		private volatile boolean transactionActive;
+
+		@EventListener
+		public void on(OutboxAppended ignored) {
+			transactionActive = TransactionSynchronizationManager.isActualTransactionActive();
+			if (failNext.getAndSet(false)) {
+				throw new IllegalStateException("재주입 아웃박스 실패 주입");
+			}
+		}
+
+		void failNextAppend() {
+			failNext.set(true);
+		}
+
+		boolean wasTransactionActive() {
+			return transactionActive;
+		}
 	}
 }

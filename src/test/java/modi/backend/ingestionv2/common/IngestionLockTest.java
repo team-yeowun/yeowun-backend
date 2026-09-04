@@ -114,6 +114,25 @@ class IngestionLockTest extends IngestionTestSupport {
 		assertThat(executions.get()).isEqualTo(1);
 	}
 
+	@Test
+	@DisplayName("잡별 TTL 을 준 락은 그 시간이 지나면 다른 인스턴스가 이어받는다")
+	void 잡별_TTL_락은_만료_뒤_이어받는다() {
+		// given 소유자가 해제하지 않고 죽은 것처럼 락만 남긴다
+		String job = "ttl-job-" + System.nanoTime();
+		assertThat(markerLock.tryAcquire("lock:" + job, "dead-app", Duration.ofMillis(300))).isTrue();
+		AtomicInteger executions = new AtomicInteger();
+
+		// when 곧바로는 건너뛰고, TTL 이 지나면 돈다
+		boolean immediate = jobLock.runIfAcquired(job, Duration.ofSeconds(5), executions::incrementAndGet);
+		boolean afterExpiry = Awaitility.await().atMost(Duration.ofSeconds(5)).pollInterval(Duration.ofMillis(100))
+				.until(() -> jobLock.runIfAcquired(job, Duration.ofSeconds(5), executions::incrementAndGet), ran -> ran);
+
+		// then
+		assertThat(immediate).isFalse();
+		assertThat(afterExpiry).isTrue();
+		assertThat(executions.get()).isEqualTo(1);
+	}
+
 	private static void await(CyclicBarrier barrier) {
 		try {
 			barrier.await(30, TimeUnit.SECONDS);
