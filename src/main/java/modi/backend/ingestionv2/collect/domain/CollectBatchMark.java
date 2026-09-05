@@ -60,4 +60,12 @@ public class CollectBatchMark {
 
 	@Column(name = "last_error", length = 1000)
 	private String lastError;
+
+	/** FAILED 이거나 lease 가 지난 RUNNING 만 다른 실행이 다시 가져갈 수 있다. COMPLETED 와 유효한 RUNNING 은 닫혀 있다. */
+	public boolean reclaimableAt(LocalDateTime now) {
+		if (status == CollectBatchStatus.FAILED) {
+			return true;
+		}
+		return status == CollectBatchStatus.RUNNING && leaseUntil != null && !leaseUntil.isAfter(now);
+	}
 }

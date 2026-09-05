@@ -75,6 +75,40 @@ class CollectBatchClaimIntegrationTest extends IngestionTestSupport {
 	}
 
 	@Test
+	@DisplayName("동시 진입이 셋 이상이어도 패자는 예외 없이 물러나고 한 쪽만 회차를 선점한다")
+	void 동시_진입이_셋_이상이어도_데드락_없이_하나만_선점한다() throws Exception {
+		// given 여섯 스레드가 같은 회차로 진입한다. 패자가 둘 이상이면 INSERT IGNORE 의 공유 잠금 위에 UPDATE 가 겹쳐
+		//       데드락(1213)이 나던 경로다
+		LocalDate batchDate = LocalDate.of(2026, 8, 26);
+		AtomicInteger fetchCount = new AtomicInteger();
+		given(catalogClient.fetchCatalog()).willAnswer(invocation -> {
+			fetchCount.incrementAndGet();
+			return List.of(catalogItem(vendorKey));
+		});
+		int entrants = 6;
+		CyclicBarrier startLine = new CyclicBarrier(entrants);
+		ExecutorService executor = Executors.newFixedThreadPool(entrants);
+		List<Callable<CollectResult.Batch>> tasks = new ArrayList<>();
+		for (int index = 0; index < entrants; index++) {
+			tasks.add(collectTask(startLine, batchDate));
+		}
+
+		// when 여섯을 같은 출발선에서 놓아준다
+		List<Future<CollectResult.Batch>> futures = executor.invokeAll(tasks);
+		executor.shutdown();
+
+		// then 어느 스레드도 예외로 끝나지 않고, 선점 한 번·목록 조회 한 번·마크 한 행
+		List<CollectResult.Batch> results = new ArrayList<>();
+		for (Future<CollectResult.Batch> future : futures) {
+			results.add(future.get(20, TimeUnit.SECONDS));
+		}
+		assertThat(results).hasSize(entrants);
+		assertThat(results).filteredOn(CollectResult.Batch::claimed).hasSize(1);
+		assertThat(fetchCount.get()).isEqualTo(1);
+		assertThat(batchMarkRepository.count()).isEqualTo(1);
+	}
+
+	@Test
 	@DisplayName("선점에 실패하면 목록을 조회하지 않고 종료한다")
 	void 선점에_실패하면_목록을_조회하지_않고_종료한다() {
 		// given 같은 회차를 한 번 실행해 마크를 남긴다
