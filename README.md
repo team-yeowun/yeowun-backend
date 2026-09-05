@@ -1,5 +1,8 @@
 # 시스템 아키텍처
-<img width="1239" height="512" alt="여운 시스템 아키텍처" src="https://github.com/user-attachments/assets/53d6aeba-0c38-4437-beb4-27d6a6372d7e" />
+<img width="1239" height="512" alt="여운 시스템 아키텍처" src="https://github.com/user-attachments/assets/b50bf02e-87c5-4988-8669-446148fc235a" />
+
+# 전시 수집 파이프라인 아키텍처
+<img width="2864" height="882" alt="image" src="https://github.com/user-attachments/assets/77fe0ad3-f220-46c6-94cd-e44c64901d4b" />
 
 <div align="center">
 

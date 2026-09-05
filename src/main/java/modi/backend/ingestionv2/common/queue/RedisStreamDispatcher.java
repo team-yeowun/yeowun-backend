@@ -44,8 +44,8 @@ public class RedisStreamDispatcher implements EventDispatcher {
 			throw new CoreException(IngestionErrorCode.STREAM_PUBLISH_FAILED,
 					"대기열 응답이 비어 있습니다. stream=" + stream.key());
 		}
-		log.debug("이벤트를 발행했습니다. stream={} type={} aggregateId={} recordId={}",
-				stream.key(), payload.eventType(), payload.aggregateId(), recordId);
+		log.debug("이벤트를 발행했습니다. stream={} eventId={} type={} aggregateId={} recordId={}",
+				stream.key(), payload.eventId(), payload.eventType(), payload.aggregateId(), recordId);
 	}
 
 	private StreamOperations<String, String, String> streamOperations() {

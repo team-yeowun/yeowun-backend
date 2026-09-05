@@ -72,7 +72,7 @@ public class PendingReclaimer {
 		Duration guard = policy.base();
 		List<RecordId> targets = pending.stream()
 				.filter(message -> policy.eligible(message.getElapsedTimeSinceLastDelivery(),
-						message.getTotalDeliveryCount()))
+						message.getTotalDeliveryCount(), jitterKeyOf(message)))
 				.map(PendingMessage::getId)
 				.toList();
 		if (targets.isEmpty()) {
@@ -90,6 +90,12 @@ public class PendingReclaimer {
 		}
 		log.warn("방치된 항목을 회수했습니다. stream={} count={}", stream.key(), claimed.size());
 		claimed.forEach(streamConsumer::onMessage);
+	}
+
+	/** 지터를 항목마다 고정하는 열쇠 - 레코드 id 는 스트림 안에서 유일하고 재전달에도 바뀌지 않는다. */
+	private static long jitterKeyOf(PendingMessage message) {
+		RecordId id = message.getId();
+		return id == null ? 0L : id.getValue().hashCode();
 	}
 
 	private void count(IngestionStream stream, String result, int amount) {

@@ -42,6 +42,10 @@ public class Outbox {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
+	/** 호환 배포 동안 기존 행은 null일 수 있고, 새 Outbox는 생성자에서 항상 UUID를 기록한다. */
+	@Column(name = "event_id", length = 36)
+	private String eventId;
+
 	@Enumerated(EnumType.STRING)
 	@Column(name = "aggregate_type", nullable = false, length = 100)
 	private IngestionAggregateType aggregateType;
@@ -71,6 +75,7 @@ public class Outbox {
 	private LocalDateTime sentAt;
 
 	private Outbox(OutboxPayload payload) {
+		this.eventId = payload.eventId();
 		this.aggregateType = payload.aggregateType();
 		this.aggregateId = payload.aggregateId();
 		this.eventType = payload.eventType();
@@ -85,9 +90,17 @@ public class Outbox {
 		return new Outbox(OutboxPayload.of(type, aggregateId, IngestionClock.now()));
 	}
 
+	/** 고정 eventId를 가진 payload를 새 Outbox 행으로 보존해야 하는 복구·검증 경로. */
+	public static Outbox pending(OutboxPayload payload) {
+		if (payload.eventId() == null) {
+			throw new IllegalArgumentException("새 Outbox에는 eventId가 필요합니다.");
+		}
+		return new Outbox(payload);
+	}
+
 	/** 컨슈머에게 실어 보낼 이벤트 데이터. */
 	public OutboxPayload toPayload() {
-		return OutboxPayload.fromJson(this.payload);
+		return OutboxPayload.fromJson(this.payload).withEventId(this.eventId);
 	}
 
 	/** 발행 완료 - XADD 응답을 받은 시점의 표시. 이 시도도 한 번으로 센다. */

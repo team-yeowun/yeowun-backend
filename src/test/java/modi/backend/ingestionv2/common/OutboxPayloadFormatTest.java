@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import modi.backend.ingestionv2.common.event.IngestionAggregateType;
 import modi.backend.ingestionv2.common.event.IngestionEventType;
 import modi.backend.ingestionv2.common.event.OutboxPayload;
+import modi.backend.ingestionv2.common.queue.EventRecord;
 
 /**
  * payload 직렬화 형식을 문자열 그대로 고정한다.
@@ -21,19 +22,23 @@ import modi.backend.ingestionv2.common.event.OutboxPayload;
  * </ul>
  */
 class OutboxPayloadFormatTest {
+	private static final String EVENT_ID = "123e4567-e89b-12d3-a456-426614174000";
 
 	@Test
-	@DisplayName("payload JSON은 좌표 네 필드를 이 순서·이 표기로 담는다")
+	@DisplayName("payload JSON은 구버전과 같은 좌표 형식을 유지하고 eventId는 Stream 필드로 운반한다")
 	void payload_JSON_형식이_고정되어_있다() {
 		// given
 		LocalDateTime occurredAt = LocalDateTime.of(2026, 8, 30, 15, 4, 5, 123_456_000);
 
 		// when
-		String json = OutboxPayload.of(IngestionEventType.COLLECTED, "lab-1", occurredAt).toJson();
+		String json = OutboxPayload.of(EVENT_ID, IngestionEventType.COLLECTED, "lab-1", occurredAt).toJson();
 
 		// then
 		assertThat(json).isEqualTo("{\"aggregateType\":\"COLLECTION\",\"aggregateId\":\"lab-1\","
 				+ "\"eventType\":\"COLLECTED\",\"occurredAt\":\"2026-08-30T15:04:05.123456\"}");
+		OutboxPayload restored = EventRecord.from(EventRecord.of(
+				OutboxPayload.of(EVENT_ID, IngestionEventType.COLLECTED, "lab-1", occurredAt)).toFields()).payload();
+		assertThat(restored.eventId()).isEqualTo(EVENT_ID);
 	}
 
 	@Test
@@ -49,6 +54,19 @@ class OutboxPayloadFormatTest {
 		// then
 		assertThat(payload.eventType()).isEqualTo(IngestionEventType.COLLECTED);
 		assertThat(payload.aggregateId()).isEqualTo("lab-42");
+		assertThat(payload.eventId()).isNull();
+	}
+
+	@Test
+	@DisplayName("배포 전에 Redis에 남은 eventId 없는 payload도 해석한다")
+	void 기존_payload는_eventId_없이도_해석한다() {
+		String legacy = "{\"aggregateType\":\"COLLECTION\",\"aggregateId\":\"legacy-1\","
+				+ "\"eventType\":\"COLLECTED\",\"occurredAt\":\"2026-08-30T15:04:05.123456\"}";
+
+		OutboxPayload payload = OutboxPayload.fromJson(legacy);
+
+		assertThat(payload.eventId()).isNull();
+		assertThat(payload.aggregateId()).isEqualTo("legacy-1");
 	}
 
 	@Test
@@ -58,7 +76,7 @@ class OutboxPayloadFormatTest {
 		LocalDateTime occurredAt = LocalDateTime.of(2026, 8, 30, 15, 4, 5, 123_456_000);
 
 		// when
-		String json = OutboxPayload.of(IngestionEventType.DETAIL_READY, "lab-1-1-1", occurredAt).toJson();
+		String json = OutboxPayload.of(EVENT_ID, IngestionEventType.DETAIL_READY, "lab-1-1-1", occurredAt).toJson();
 
 		// then 컬럼과 payload 의 종류가 어긋나면 배정 스트림이 갈라져 발행이 조용히 깨진다
 		assertThat(json).isEqualTo("{\"aggregateType\":\"ENRICHMENT\",\"aggregateId\":\"lab-1-1-1\","

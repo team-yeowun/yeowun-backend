@@ -52,6 +52,9 @@ public class DeadLetter {
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
+	@Column(name = "event_id", length = 36)
+	private String eventId;
+
 	@Enumerated(EnumType.STRING)
 	@Column(name = "aggregate_type", length = 100)
 	private IngestionAggregateType aggregateType;
@@ -100,8 +103,9 @@ public class DeadLetter {
 	@Column(name = "version", nullable = false)
 	private long version;
 
-	private DeadLetter(IngestionAggregateType aggregateType, String aggregateId, IngestionEventType eventType,
+	private DeadLetter(String eventId, IngestionAggregateType aggregateType, String aggregateId, IngestionEventType eventType,
 			String payload, String streamKey, String recordId, Failure failure, int retryCount) {
+		this.eventId = eventId;
 		this.aggregateType = aggregateType;
 		this.aggregateId = aggregateId;
 		this.eventType = eventType;
@@ -119,13 +123,13 @@ public class DeadLetter {
 	/** 재시도 상한을 넘긴 항목의 격리 - 레코드의 payload 좌표를 그대로 옮긴다. */
 	public static DeadLetter of(OutboxPayload payload, String streamKey, String recordId, Failure failure,
 			int retryCount) {
-		return new DeadLetter(payload.aggregateType(), payload.aggregateId(), payload.eventType(), payload.toJson(),
+		return new DeadLetter(payload.eventId(), payload.aggregateType(), payload.aggregateId(), payload.eventType(), payload.toJson(),
 				streamKey, recordId, failure, retryCount);
 	}
 
 	/** 해석할 수 없는 레코드의 격리 - 좌표는 알 수 없고 payload 원문만 남긴다. 시도 횟수는 0. */
 	public static DeadLetter malformed(String streamKey, String recordId, String rawPayload, Failure failure) {
-		return new DeadLetter(null, null, null, rawPayload, streamKey, recordId, failure, 0);
+		return new DeadLetter(null, null, null, null, rawPayload, streamKey, recordId, failure, 0);
 	}
 
 	/** 관리자 재발행 - 되돌려 보낸 사실을 남겨 같은 행이 두 번 흘러가지 않게 한다. */

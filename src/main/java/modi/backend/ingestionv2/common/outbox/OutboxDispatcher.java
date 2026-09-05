@@ -1,6 +1,7 @@
 package modi.backend.ingestionv2.common.outbox;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import modi.backend.ingestionv2.common.IngestionClock;
@@ -46,8 +48,11 @@ public class OutboxDispatcher {
 	/** 발행 재시도 상한을 넘겨 걷어낸 행. */
 	public static final String FAILED_COUNTER = "ingestion.outbox.failed";
 
-	/** 선점 조회 호출 횟수 - 배치 상한이 만드는 왕복 수. */
+	/** 선점 조회 호출 횟수 - 태그 rows 로 빈 조회(empty)와 집은 조회(nonempty)를 가른다. 빈 조회의 비중이 곧 유휴 폴링 비용이다. */
 	public static final String CLAIM_COUNTER = "ingestion.outbox.claim";
+
+	/** 적재(created_at)부터 발송(sent_at)까지 - 발송 단계의 지연. 폴백 틱 간격을 늘려도 이 값이 늘지 않아야 깨우기가 일한 것이다. */
+	public static final String LATENCY_TIMER = "ingestion.outbox.dispatch.latency";
 
 	/** 선점 조회가 집어 온 행 수 합계 - 호출당 평균이 배치 상한에 얼마나 닿는지. */
 	public static final String CLAIM_ROWS_COUNTER = "ingestion.outbox.claim.rows";
@@ -80,7 +85,7 @@ public class OutboxDispatcher {
 		OutboxClaimStrategy strategy = properties.claimStrategy();
 		List<Outbox> claimed = outboxService.claimPending(properties.dispatchBatchSize(), strategy,
 				properties.outboxRead());
-		claimCounter(strategy).increment();
+		claimCounter(strategy, claimed.isEmpty() ? "empty" : "nonempty").increment();
 		claimRowsCounter(strategy).increment(claimed.size());
 
 		boolean marking = strategy.usesMarker();
@@ -114,9 +119,13 @@ public class OutboxDispatcher {
 			return;
 		}
 		try {
+			LocalDateTime now = IngestionClock.now();
 			eventDispatcher.dispatch(outbox.toPayload());
-			outboxService.markSent(outbox, IngestionClock.now());
+			outboxService.markSent(outbox, now);
 			publishCounter("success").increment();
+			Timer.builder(LATENCY_TIMER).tag("event_type", outbox.getEventType().name())
+					.publishPercentileHistogram().register(meterRegistry)
+					.record(Duration.between(outbox.getCreatedAt(), now));
 		} catch (RuntimeException failure) {
 			outboxService.markPublishFailed(outbox, properties.maxAttempts());
 			publishCounter("failure").increment();
@@ -138,8 +147,8 @@ public class OutboxDispatcher {
 		return Counter.builder(PUBLISH_COUNTER).tag("result", result).register(meterRegistry);
 	}
 
-	private Counter claimCounter(OutboxClaimStrategy strategy) {
-		return Counter.builder(CLAIM_COUNTER).tag("strategy", strategy.name()).register(meterRegistry);
+	private Counter claimCounter(OutboxClaimStrategy strategy, String rows) {
+		return Counter.builder(CLAIM_COUNTER).tag("strategy", strategy.name()).tag("rows", rows).register(meterRegistry);
 	}
 
 	private Counter claimRowsCounter(OutboxClaimStrategy strategy) {

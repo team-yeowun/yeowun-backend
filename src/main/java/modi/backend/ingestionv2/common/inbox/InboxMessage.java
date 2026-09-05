@@ -1,6 +1,5 @@
-package modi.backend.ingestionv2.collect.domain;
+package modi.backend.ingestionv2.common.inbox;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
@@ -16,41 +15,33 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/**
- * 수집 회차 실행 상태.
- *
- * <ul>
- *   <li>batch_date UNIQUE = 같은 회차의 동시 실행을 한 행으로 직렬화하는 물리 제약</li>
- *   <li>FAILED 또는 lease가 만료된 RUNNING만 재선점해 13시 복구 실행을 허용</li>
- *   <li>claim token = 이전 실행이 재선점된 실행의 완료·실패 상태를 덮어쓰지 못하게 하는 fence</li>
- * </ul>
- */
-@Entity
-@Table(
-		name = "ingestion_collect_batch_mark",
-		uniqueConstraints = @UniqueConstraint(
-				name = "uk_ingestion_collect_batch_mark_batch_date",
-				columnNames = "batch_date"))
+/** subscriber별 이벤트 처리권과 종결 상태. 상태 전이는 조건부 SQL이 담당한다. */
+@Entity(name = "IngestionV2Inbox")
+@Table(name = "ingestion_inbox", uniqueConstraints = @UniqueConstraint(
+		name = "uk_ingestion_inbox_subscriber_event", columnNames = {"subscriber_key", "event_id"}))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class CollectBatchMark {
+public class InboxMessage {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
 	private Long id;
 
-	@Column(name = "batch_date", nullable = false)
-	private LocalDate batchDate;
+	@Column(name = "subscriber_key", nullable = false, length = 100)
+	private String subscriberKey;
+
+	@Column(name = "event_id", nullable = false, length = 36)
+	private String eventId;
 
 	@Enumerated(EnumType.STRING)
 	@Column(name = "status", nullable = false, length = 20)
-	private CollectBatchStatus status;
+	private InboxStatus status;
 
 	@Column(name = "claim_token", length = 36)
 	private String claimToken;
 
-	@Column(name = "claimed_at", nullable = false)
-	private LocalDateTime claimedAt;
+	@Column(name = "started_at", nullable = false)
+	private LocalDateTime startedAt;
 
 	@Column(name = "lease_until")
 	private LocalDateTime leaseUntil;

@@ -20,18 +20,20 @@ import modi.backend.ingestionv2.common.queue.IngestionStream;
 class StreamDeliveryTest extends DeliveryTestSupport {
 
 	@Test
-	@DisplayName("발송하면 스트림에 payload 필드 하나짜리 레코드가 실린다")
-	void 발송하면_스트림에_payload_필드_하나짜리_레코드가_실린다() {
+	@DisplayName("발송하면 스트림에 기존 payload와 멱등 판정용 event_id가 실린다")
+	void 발송하면_스트림에_payload와_event_id가_실린다() {
 		// given
 		outboxAppender.append(IngestionEventType.COLLECTED, vendorKey);
 
 		// when
 		outboxDispatcher.dispatchPending();
 
-		// then 아웃박스 payload 컬럼이 그대로 실리고, 컨슈머는 이 값만으로 처리 대상을 안다
+		// then payload 필드는 구버전 소비자가 읽던 형식 그대로다. event_id는 payload 밖에 실어
+		// 롤링 배포 중 구버전 소비자가 모르는 필드를 무시하고 계속 동작하게 한다
 		Map<String, String> fields = readAs("peek").getFirst().getValue();
-		assertThat(fields).containsOnlyKeys("payload");
+		assertThat(fields).containsOnlyKeys("payload", "event_id");
 		assertThat(fields.get("payload")).isEqualTo(outboxRepository.findAll().getFirst().getPayload());
+		assertThat(fields.get("event_id")).isEqualTo(outboxRepository.findAll().getFirst().getEventId());
 		OutboxPayload payload = OutboxPayload.fromJson(fields.get("payload"));
 		assertThat(payload.eventType()).isEqualTo(IngestionEventType.COLLECTED);
 		assertThat(payload.aggregateType()).isEqualTo(IngestionAggregateType.COLLECTION);

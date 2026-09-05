@@ -204,14 +204,17 @@ class ReclaimBackoffLab extends RetryLabSupport {
 				properties.enabled(), properties.autoDelivery(), properties.consumerGroup(),
 				properties.consumerName(), properties.dispatchBatchSize(), properties.claimStrategy(),
 				properties.outboxRead(), properties.dispatchDrain(), properties.dispatchDrainMaxBatches(),
-				properties.markerTtlMs(), properties.jobLockTtlMs(), properties.consumeEnabled(),
+				properties.dispatchLeaderLock(), properties.dispatchLockTtlMs(), properties.dispatchWakeEnabled(),
+				properties.markerTtlMs(), properties.jobLockTtlMs(), properties.collectLeaseMs(),
+				properties.consumeEnabled(),
 				properties.consumeHandler(), properties.stubLatencyMs(),
 				properties.outboxPendingGaugeEnabled(), properties.externalStreamConsumers(),
 				properties.dbStreamConsumers(), properties.pollTimeoutMs(), properties.readBatchSize(),
 				properties.reclaimIdleSeconds(), properties.reclaimMaxIdleSeconds(),
 				variant.backoff(), variant.jitter(), properties.reclaimBatchSize(),
 				properties.streamMaxLength(), properties.maxAttempts(), properties.retentionDays(),
-				properties.cleanupBatchSize());
+				properties.cleanupBatchSize(), properties.inboxLeaseMs(), properties.inboxRetentionDays(),
+				properties.inboxCleanupBatchSize(), properties.inboxCleanupMaxBatches());
 	}
 
 	private Map<String, Object> conditionOf(Variant variant, FaultInjectingEventHandler.Mode mode) {

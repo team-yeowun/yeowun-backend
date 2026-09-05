@@ -29,13 +29,14 @@ public final class IngestionDeliveryResult {
 		}
 	}
 
-	public record DeadLetterItem(long id, String aggregateType, String aggregateId, String eventType, String payload,
+	public record DeadLetterItem(long id, String eventId, String aggregateType, String aggregateId, String eventType, String payload,
 			String streamKey, String recordId, String errorMessage, String stackTrace, String failedStep,
 			int retryCount, LocalDateTime failedAt, String status) {
 
 		public static DeadLetterItem from(DeadLetter deadLetter) {
 			return new DeadLetterItem(
 					deadLetter.getId(),
+					deadLetter.getEventId(),
 					deadLetter.getAggregateType() == null ? null : deadLetter.getAggregateType().name(),
 					deadLetter.getAggregateId(),
 					deadLetter.getEventType() == null ? null : deadLetter.getEventType().name(),
@@ -59,12 +60,13 @@ public final class IngestionDeliveryResult {
 		}
 	}
 
-	public record OutboxFailureItem(long id, String aggregateType, String aggregateId, String eventType,
+	public record OutboxFailureItem(long id, String eventId, String aggregateType, String aggregateId, String eventType,
 			String payload, int retryCount, LocalDateTime createdAt) {
 
 		public static OutboxFailureItem from(Outbox outbox) {
 			return new OutboxFailureItem(
 					outbox.getId(),
+					outbox.getEventId(),
 					outbox.getAggregateType().name(),
 					outbox.getAggregateId(),
 					outbox.getEventType().name(),
