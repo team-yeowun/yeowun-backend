@@ -36,7 +36,9 @@ spring:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
       port: ${SPRING_DATA_REDIS_PORT:6379}
       password: ${SPRING_DATA_REDIS_PASSWORD:}
-      timeout: 2s
+      # Lettuce 명령 응답 상한. 스트림 컨슈머의 XREADGROUP BLOCK(app.ingestion.v2.poll-timeout-ms, 2000ms)보다 반드시 커야 한다.
+      # 같으면 유휴 폴링마다 RedisCommandTimeoutException 이 나서 구독당 2초에 한 번 WARN 이 찍힌다(유휴 45초에 37회 실측).
+      timeout: 5s
 
 management:
   endpoints:
