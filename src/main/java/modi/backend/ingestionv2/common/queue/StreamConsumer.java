@@ -85,7 +85,7 @@ public class StreamConsumer implements StreamListener<String, MapRecord<String, 
 
 		InboxClaim claim;
 		try {
-			claim = inboxService.claim(properties.consumerGroup(), event.eventId());
+			claim = inboxService.claim(event.eventId());
 		} catch (RuntimeException failure) {
 			log.warn("Inbox 처리권 선점에 실패해 미확인으로 남깁니다. eventId={} type={}",
 					event.eventId(), event.type(), failure);

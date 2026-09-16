@@ -58,8 +58,8 @@ class StreamConsumerInboxTest {
 	void terminal은_handler_없이_ack한다() {
 		OutboxPayload payload = OutboxPayload.of(IngestionEventType.COLLECTED, "EXH-1", IngestionClock.now());
 		MapRecord<String, String, String> message = message(payload);
-		when(inboxService.claim("ingestion-v2", payload.eventId()))
-				.thenReturn(InboxClaim.terminal("ingestion-v2", payload.eventId()));
+		when(inboxService.claim(payload.eventId()))
+				.thenReturn(InboxClaim.terminal(payload.eventId()));
 
 		consumer.onMessage(message);
 
@@ -72,8 +72,8 @@ class StreamConsumerInboxTest {
 	void processing은_handler도_ack도_하지_않는다() {
 		OutboxPayload payload = OutboxPayload.of(IngestionEventType.COLLECTED, "EXH-1", IngestionClock.now());
 		MapRecord<String, String, String> message = message(payload);
-		when(inboxService.claim("ingestion-v2", payload.eventId()))
-				.thenReturn(InboxClaim.inProgress("ingestion-v2", payload.eventId()));
+		when(inboxService.claim(payload.eventId()))
+				.thenReturn(InboxClaim.inProgress(payload.eventId()));
 
 		consumer.onMessage(message);
 
@@ -87,8 +87,8 @@ class StreamConsumerInboxTest {
 		OutboxPayload payload = OutboxPayload.of(IngestionEventType.COLLECTED, "EXH-1", IngestionClock.now());
 		MapRecord<String, String, String> message = message(payload);
 		InboxClaim claim = InboxClaim.acquired(
-				"ingestion-v2", payload.eventId(), "123e4567-e89b-12d3-a456-426614174001");
-		when(inboxService.claim("ingestion-v2", payload.eventId())).thenReturn(claim);
+				payload.eventId(), "123e4567-e89b-12d3-a456-426614174001");
+		when(inboxService.claim(payload.eventId())).thenReturn(claim);
 		when(inboxService.succeed(claim)).thenReturn(true);
 
 		consumer.onMessage(message);
@@ -104,8 +104,8 @@ class StreamConsumerInboxTest {
 		OutboxPayload payload = OutboxPayload.of(IngestionEventType.COLLECTED, "EXH-1", IngestionClock.now());
 		MapRecord<String, String, String> message = message(payload);
 		InboxClaim claim = InboxClaim.acquired(
-				"ingestion-v2", payload.eventId(), "123e4567-e89b-12d3-a456-426614174001");
-		when(inboxService.claim("ingestion-v2", payload.eventId())).thenReturn(claim);
+				payload.eventId(), "123e4567-e89b-12d3-a456-426614174001");
+		when(inboxService.claim(payload.eventId())).thenReturn(claim);
 		when(inboxService.succeed(claim)).thenReturn(false);
 
 		consumer.onMessage(message);
@@ -120,10 +120,10 @@ class StreamConsumerInboxTest {
 		OutboxPayload payload = OutboxPayload.of(IngestionEventType.COLLECTED, "EXH-1", IngestionClock.now());
 		MapRecord<String, String, String> message = message(payload);
 		InboxClaim claim = InboxClaim.acquired(
-				"ingestion-v2", payload.eventId(), "123e4567-e89b-12d3-a456-426614174001");
+				payload.eventId(), "123e4567-e89b-12d3-a456-426614174001");
 		CoreException failure = new CoreException(IngestionErrorCode.STREAM_PUBLISH_FAILED, "일시 장애");
 		handler.failure = failure;
-		when(inboxService.claim("ingestion-v2", payload.eventId())).thenReturn(claim);
+		when(inboxService.claim(payload.eventId())).thenReturn(claim);
 
 		consumer.onMessage(message);
 

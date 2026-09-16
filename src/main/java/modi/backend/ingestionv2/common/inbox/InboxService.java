@@ -22,10 +22,7 @@ public class InboxService {
 	private final IngestionProperties properties;
 
 	@Transactional
-	public InboxClaim claim(String subscriberKey, String eventId) {
-		if (subscriberKey == null || subscriberKey.isBlank() || subscriberKey.length() > 100) {
-			throw new IllegalArgumentException("Inbox subscriber key는 1~100자여야 합니다.");
-		}
+	public InboxClaim claim(String eventId) {
 		try {
 			UUID.fromString(eventId);
 		} catch (IllegalArgumentException | NullPointerException malformed) {
@@ -33,7 +30,7 @@ public class InboxService {
 		}
 		LocalDateTime startedAt = IngestionClock.now();
 		LocalDateTime leaseUntil = startedAt.plus(Duration.ofMillis(properties.inboxLeaseMs()));
-		return inboxRepository.claim(subscriberKey, eventId, UUID.randomUUID().toString(), startedAt, leaseUntil);
+		return inboxRepository.claim(eventId, UUID.randomUUID().toString(), startedAt, leaseUntil);
 	}
 
 	@Transactional
