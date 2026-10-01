@@ -8,7 +8,7 @@ import modi.backend.application.exhibition.cache.ExhibitionCacheWarmer;
 import modi.backend.application.exhibition.cache.ExhibitionListCacheResolver;
 import modi.backend.application.exhibition.custom.ExhibitionCustomService;
 import modi.backend.application.exhibition.detail.ExhibitionDetailService;
-import modi.backend.application.exhibition.list.ExhibitionBannerService;
+import modi.backend.application.exhibition.ranking.ExhibitionRankingService;
 import modi.backend.application.exhibition.list.ExhibitionListService;
 import modi.backend.application.exhibition.view.ExhibitionViewCountService;
 import modi.backend.support.cache.CacheManager;
@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * 전시 사용자 유스케이스의 <b>단일 진입점</b>(03_전시.md). interfaces는 이 파사드만 호출하고, 실제 조율은 책임별 서비스가 맡는다 —
- * 목록/탐색({@link ExhibitionListService}) · 배너({@link ExhibitionBannerService}) · 상세({@link ExhibitionDetailService}) · 개인
+ * 목록/탐색({@link ExhibitionListService}) · 랭킹·배너({@link ExhibitionRankingService}) · 상세({@link ExhibitionDetailService}) · 개인
  * 전시 등록·삭제({@link ExhibitionCustomService}).
  *
  * <p><b>왜 갈랐나</b>: 한 클래스가 리포지토리 8개를 들고 있었고, 그중 작가·전시관·장르 분류기(AI)는 <b>등록에서만</b>
@@ -31,7 +31,7 @@ import org.springframework.stereotype.Service;
 public class ExhibitionFacade {
 
     private final ExhibitionListService exhibitionListService;
-    private final ExhibitionBannerService exhibitionBannerService;
+    private final ExhibitionRankingService exhibitionRankingService;
     private final ExhibitionDetailService exhibitionDetailService;
     private final ExhibitionCustomService exhibitionCustomService;
     private final ExhibitionViewCountService exhibitionViewCountService;
@@ -83,13 +83,15 @@ public class ExhibitionFacade {
     }
 
     /**
-     * 홈 배너(E-10). 오늘 진행 중인 전시 중 조회수 상위 최대 3개.
+     * - 홈 배너(E-10). 오늘 진행 중인 전시 중 최근 3일 조회수 상위 최대 3개(동점은 개막일 최신순)
+     *   - 응답 형식은 예전 그대로, 고르는 기준만 누적 조회수에서 랭킹 순위판으로 바뀜
+     *   - 캐시는 랭킹 재계산 직후 {@link #rebuildRankings}가 새 값으로 덮어씀
      */
     public List<ExhibitionResult.Banner> banners() {
         return cacheManager.getOrPut(
                         ExhibitionCache.HomeBanners.INSTANCE, ExhibitionCache.ENTRY_KEY,
                         ExhibitionResult.Banners.class,
-                        () -> new ExhibitionResult.Banners(exhibitionBannerService.banners()))
+                        () -> new ExhibitionResult.Banners(exhibitionRankingService.banners()))
                 .items();
     }
 
@@ -106,6 +108,8 @@ public class ExhibitionFacade {
      *
      * - 조회수는 PR #155 이후 누산기로만 가므로 이 경로에 DB 쓰기가 없음
      *   - 익명 CATALOG 상세는 캐시 히트 시 DB를 한 번도 건드리지 않음
+     *
+     * - 랭킹 기록도 Redis에만 감 (캐시 히트 여부와 무관하게 조회 1번 = 기록 1번)
      */
     public ExhibitionResult.Detail getDetail(ExhibitionCriteria.Detail criteria) {
         String key = String.valueOf(criteria.exhibitionId());
@@ -120,7 +124,9 @@ public class ExhibitionFacade {
                 cacheManager.put(ExhibitionCache.ExhibitionDetail.INSTANCE, key, shared);
             }
         }
-        return exhibitionDetailService.personalize(shared, criteria.requesterId());
+        ExhibitionResult.Detail detail = exhibitionDetailService.personalize(shared, criteria.requesterId());
+        exhibitionRankingService.recordView(detail);
+        return detail;
     }
 
     /**
@@ -152,14 +158,27 @@ public class ExhibitionFacade {
     }
 
     /**
-     * - 목록 캐시 7종을 새 값으로 재적재한다(6시간 워밍 진입점)
+     * - 랭킹 순위판을 원본에서 다시 만들고 홈 배너 캐시를 새 순위로 덮어씀(5분 배치 진입점)
+     *   - 두 앱이 각자 불러도 결과가 같아 락을 두지 않음
+     *   - 배너 갱신은 재계산이 끝난 뒤에만 함 (반쯤 만든 순위로 배너를 채우지 않게)
+     */
+    public ExhibitionResult.RankingRebuild rebuildRankings() {
+        ExhibitionResult.RankingRebuild result = exhibitionRankingService.rebuildAll();
+        exhibitionCacheWarmer.warmBanners();
+        return result;
+    }
+
+    /**
+     * - 목록 캐시 7종을 새 값으로 재적재한다(6시간 워밍 · 관리자 수동 워밍 진입점)
      *   - 조회수 반영 30분 뒤에 도는 스케줄러가 부름
+     *   - 배너는 5분 랭킹 재계산이 따로 갱신하지만, 수동 워밍이 "전부 새로"를 뜻하도록 여기서도 함께 채움
      *
      * - 조회수 반영과 마찬가지로 사용자 요청이 아니지만 진입점은 파사드에 둠
      *   - interfaces가 application 내부 컴포넌트를 직접 부르지 않게 하기 위함
      */
     public void warmListCaches() {
         exhibitionCacheWarmer.warmLists();
+        exhibitionCacheWarmer.warmBanners();
     }
 
     /**

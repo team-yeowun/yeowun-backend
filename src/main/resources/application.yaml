@@ -246,6 +246,13 @@ app:
     # 전시 카탈로그 정기 동기화 스케줄. sync.cron 시각에 목록 동기화 + 상세 보강을 수행한다(기본 매일 자정).
     sync:
       cron: ${EXHIBITION_SYNC_CRON:0 0 1 * * *}
+    # 조회수 랭킹(Redis Sorted Set). 원본은 Redis 날짜 버킷이고, 순위판은 5분마다 원본에서 다시 만든다.
+    #   active-types: 기록·재계산할 순위판(RECENT_3D·DAILY·WEEKLY·TRENDING 중). 조회 1번에 순위판 수만큼 ZINCRBY.
+    #   banner-type: 홈 배너가 읽을 순위판(active-types 안에 있어야 함). 알고리즘 교체는 이 값만 바꾼다.
+    ranking:
+      active-types: ${EXHIBITION_RANKING_ACTIVE_TYPES:RECENT_3D}
+      banner-type: ${EXHIBITION_RANKING_BANNER_TYPE:RECENT_3D}
+      rebuild-cron: ${EXHIBITION_RANKING_REBUILD_CRON:0 */5 * * * *}
     # 전시 장르 분류(ADR-11). classifier로 주 분류기를 고른다(구현들 빈 공존, 무중단 교체).
     #   mock(기본, develop·로컬·CI): 제목 해시 결정적 분류 — AI 호출·비용 0, provider=MOCK 계보.
     #   gemini(운영 prod): 폴백 체인 = 1차 Gemini → 2차 OpenAI(각 1회 시도 — 호출 내 재시도·서킷브레이커 없음).

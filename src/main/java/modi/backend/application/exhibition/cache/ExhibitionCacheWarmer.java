@@ -8,13 +8,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import modi.backend.application.exhibition.ExhibitionCriteria;
 import modi.backend.application.exhibition.ExhibitionResult;
-import modi.backend.application.exhibition.list.ExhibitionBannerService;
 import modi.backend.application.exhibition.list.ExhibitionListService;
+import modi.backend.application.exhibition.ranking.ExhibitionRankingService;
 import modi.backend.support.cache.CacheManager;
 import modi.backend.support.cache.MyCache;
 
 /**
- * - 목록 캐시 재적재
+ * - 목록 캐시 재적재(6시간)와 홈 배너 재적재(랭킹 재계산 직후, 5분)
  *   - {@code refresh}가 L2 갱신과 전 서버 L1 무효화 방송을 함께 함
  *   - evict된 L1은 다음 조회가 L2에서 되채움
  *   - 그래서 사용자가 Miss를 체감하는 구간이 없음
@@ -33,14 +33,15 @@ import modi.backend.support.cache.MyCache;
 @RequiredArgsConstructor
 public class ExhibitionCacheWarmer {
 
-	private final ExhibitionBannerService exhibitionBannerService;
+	private final ExhibitionRankingService exhibitionRankingService;
 	private final ExhibitionListService exhibitionListService;
 	private final CacheManager cacheManager;
 
-	/** 목록 7종을 새 값으로 반영한다. */
+	/**
+	 * - 목록 6종을 새 값으로 반영
+	 *   - 홈 배너는 여기서 빠짐: 조회수 6시간 반영이 아니라 랭킹 순위판을 따르므로 {@link #warmBanners}가 따로 채움
+	 */
 	public void warmLists() {
-		warm(ExhibitionCache.HomeBanners.INSTANCE,
-				() -> new ExhibitionResult.Banners(exhibitionBannerService.banners()));
 		warm(ExhibitionCache.HomeEndingSoon.INSTANCE,
 				() -> exhibitionListService.search(query("ending-soon", "latest")));
 		warm(ExhibitionCache.HomeFree.INSTANCE,
@@ -50,6 +51,15 @@ public class ExhibitionCacheWarmer {
 		warm(ExhibitionCache.ExploreLatestP1.INSTANCE, () -> exhibitionListService.search(query(null, "latest")));
 		warm(ExhibitionCache.ExploreEndingP1.INSTANCE, () -> exhibitionListService.search(query(null, "ending")));
 		warm(ExhibitionCache.ExplorePopularP1.INSTANCE, () -> exhibitionListService.search(query(null, "popular")));
+	}
+
+	/**
+	 * - 홈 배너를 랭킹 순위판 상위 3개로 반영
+	 *   - 랭킹 재계산 직후에 불림 → 순위가 바뀌면 최대 5분 안에 전 서버 배너가 바뀜
+	 */
+	public void warmBanners() {
+		warm(ExhibitionCache.HomeBanners.INSTANCE,
+				() -> new ExhibitionResult.Banners(exhibitionRankingService.banners()));
 	}
 
 	/**

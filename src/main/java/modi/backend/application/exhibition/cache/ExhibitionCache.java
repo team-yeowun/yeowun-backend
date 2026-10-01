@@ -45,6 +45,10 @@ public final class ExhibitionCache {
     /**
      * 홈 화면
      */
+    /**
+     * - 홈 배너는 6시간 목록 워밍이 아니라 5분 랭킹 재계산 직후에 새 값으로 덮어씀
+     *   - TTL은 다른 목록과 같게 둠: 재계산이 멈춰도 7시간 동안 직전 배너를 서빙
+     */
     public static final class HomeBanners extends MyCache.TwoTierCache {
         public static final HomeBanners INSTANCE = new HomeBanners();
 

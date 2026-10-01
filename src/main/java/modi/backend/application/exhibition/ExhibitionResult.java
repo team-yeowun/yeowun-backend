@@ -2,6 +2,7 @@ package modi.backend.application.exhibition;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
@@ -12,6 +13,8 @@ import modi.backend.domain.exhibition.catalog.ExhibitionPlace;
 import modi.backend.domain.exhibition.catalog.ExhibitionRegion;
 import modi.backend.domain.exhibition.catalog.ExhibitionRegionGroup;
 import modi.backend.domain.exhibition.hours.PlaceHours;
+import modi.backend.domain.exhibition.ranking.RankingEntry;
+import modi.backend.domain.exhibition.ranking.RankingType;
 
 /**
  * 전시 유스케이스 출력 모음. (Facade는 Result까지만)
@@ -204,6 +207,33 @@ public final class ExhibitionResult {
 	 * 둘 다 0이면 그 창에 조회가 없었거나 다른 인스턴스가 이미 가져갔다는 뜻이다.
 	 */
 	public record ViewCountFlush(int exhibitions, long views) {
+	}
+
+	/**
+	 * - 랭킹 재계산 결과(5분 배치)
+	 *   - {@code candidates}는 오늘 진행 중인 후보 수, {@code boards}는 순위판별로 다시 만든 전시 수
+	 */
+	public record RankingRebuild(int candidates, Map<RankingType, Long> boards) {
+
+		public RankingRebuild {
+			boards = Map.copyOf(boards);
+		}
+	}
+
+	/** 순위판 한 칸(서비스 내부 기능, API 미노출). 순위는 1부터. */
+	public record Ranked(long rank, long exhibitionId, double score) {
+
+		public static Ranked from(RankingEntry entry) {
+			return new Ranked(entry.rank(), entry.exhibitionId(), entry.score());
+		}
+	}
+
+	/**
+	 * - 전시 하나의 순위(서비스 내부 기능, API 미노출)
+	 *   - 순위판에 없으면(종료·CUSTOM·날짜 미상) {@code rank}·{@code score}가 null
+	 *   - {@code total}은 같은 순위판에 오른 전시 수
+	 */
+	public record RankPosition(RankingType type, long exhibitionId, Long rank, Double score, long total) {
 	}
 
 	private static String name(ExhibitionRegion region) {
