@@ -135,7 +135,7 @@ public interface ExhibitionV1ApiSpec {
 
 	@Operation(summary = "홈 배너 조회", description = """
 			홈 상단 캐러셀용 배너를 최대 3개 조회한다(03_전시.md E-10). 공개 API(인증 불필요).
-			현재는 오늘 진행 중인 전시 중 조회수 상위 최대 3개를 노출한다(운영자 지정 기능은 추후).
+			오늘 진행 중인 전시 중 최근 3일 조회수 상위 최대 3개를 노출한다(동점은 개막일 최신순, 5분마다 갱신, 운영자 지정 기능은 추후).
 			진행 중 전시가 없으면 data.banners는 빈 배열이다.
 			홈 화면은 이 배너 1콜과 섹션 조회(GET /exhibitions?section=...) 3콜을 병렬로 호출한다.""")
 	@ApiResponses(@ApiResponse(responseCode = "200", description = "조회 성공", content = @Content(

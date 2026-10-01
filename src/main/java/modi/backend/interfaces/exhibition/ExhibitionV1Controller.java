@@ -89,7 +89,7 @@ public class ExhibitionV1Controller implements ExhibitionV1ApiSpec {
 				ExhibitionDto.CountResponse.from(exhibitionFacade.count(criteria))));
 	}
 
-	/** 홈 배너(E-10). 오늘 진행 중인 전시 중 조회수 상위 최대 3개. 공개(인증 불필요). */
+	/** 홈 배너(E-10). 오늘 진행 중인 전시 중 최근 3일 조회수 상위 최대 3개. 공개(인증 불필요). */
 	@Override
 	@GetMapping("/banners")
 	public ResponseEntity<ApiResponse<ExhibitionDto.BannersResponse>> banners() {

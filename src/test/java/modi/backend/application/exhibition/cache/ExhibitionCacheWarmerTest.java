@@ -22,8 +22,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import modi.backend.application.exhibition.ExhibitionCriteria;
 import modi.backend.application.exhibition.ExhibitionResult;
-import modi.backend.application.exhibition.list.ExhibitionBannerService;
 import modi.backend.application.exhibition.list.ExhibitionListService;
+import modi.backend.application.exhibition.ranking.ExhibitionRankingService;
 import modi.backend.support.cache.CacheManager;
 import modi.backend.support.cache.MyCache;
 
@@ -39,7 +39,7 @@ import modi.backend.support.cache.MyCache;
 class ExhibitionCacheWarmerTest {
 
 	@Mock
-	private ExhibitionBannerService exhibitionBannerService;
+	private ExhibitionRankingService exhibitionRankingService;
 	@Mock
 	private ExhibitionListService exhibitionListService;
 	@Mock
@@ -53,12 +53,13 @@ class ExhibitionCacheWarmerTest {
 	}
 
 	@Test
-	@DisplayName("목록 7종을 모두 재적재한다 — 리졸버가 고르는 선언과 정확히 같은 집합이다")
+	@DisplayName("목록 6종과 배너를 합쳐 선언 7종을 모두 재적재한다 — 리졸버가 고르는 선언과 정확히 같은 집합이다")
 	void warmLists_선언7종_전부재적재() {
 		given(exhibitionListService.search(any())).willReturn(페이지());
-		given(exhibitionBannerService.banners()).willReturn(List.of());
+		given(exhibitionRankingService.banners()).willReturn(List.of());
 
 		warmer.warmLists();
+		warmer.warmBanners();
 
 		ArgumentCaptor<MyCache> 채운캐시 = ArgumentCaptor.forClass(MyCache.class);
 		verify(cacheManager, times(7)).refresh(채운캐시.capture(), anyString(), any());
@@ -73,7 +74,6 @@ class ExhibitionCacheWarmerTest {
 	@DisplayName("워밍 입력에는 요청자·필터·커서가 없다 — 남의 관심 상태가 굳지 않게")
 	void warmLists_익명입력() {
 		given(exhibitionListService.search(any())).willReturn(페이지());
-		given(exhibitionBannerService.banners()).willReturn(List.of());
 
 		warmer.warmLists();
 
@@ -92,7 +92,6 @@ class ExhibitionCacheWarmerTest {
 	@DisplayName("워밍 입력은 전부 조회 캐시 대상이다 — 리졸버가 같은 선언을 고른다")
 	void warmLists_입력이_리졸버판정과_일치() {
 		given(exhibitionListService.search(any())).willReturn(페이지());
-		given(exhibitionBannerService.banners()).willReturn(List.of());
 
 		warmer.warmLists();
 
@@ -106,22 +105,24 @@ class ExhibitionCacheWarmerTest {
 	@Test
 	@DisplayName("하나가 실패해도 나머지는 계속 채운다 — 워밍 실패는 사고가 아니다")
 	void warmLists_일부실패_나머지진행() {
-		given(exhibitionBannerService.banners()).willThrow(new IllegalStateException("배너 조회 실패"));
-		given(exhibitionListService.search(any())).willReturn(페이지());
+		given(exhibitionListService.search(any()))
+				.willThrow(new IllegalStateException("목록 조회 실패"))
+				.willReturn(페이지());
 
 		assertThatCode(() -> warmer.warmLists()).doesNotThrowAnyException();
 
-		// 배너 하나만 빠지고 목록 6종은 그대로 채워진다.
-		verify(cacheManager, times(6)).refresh(any(), anyString(), any());
+		// 첫 목록 하나만 빠지고 나머지 5종은 그대로 채워진다.
+		verify(cacheManager, times(5)).refresh(any(), anyString(), any());
 	}
 
 	@Test
 	@DisplayName("refresh를 쓴다 — L2 갱신과 전 서버 L1 무효화 방송이 함께 나가야 한다")
 	void warmLists_refresh사용() {
 		given(exhibitionListService.search(any())).willReturn(페이지());
-		given(exhibitionBannerService.banners()).willReturn(List.of());
+		given(exhibitionRankingService.banners()).willReturn(List.of());
 
 		warmer.warmLists();
+		warmer.warmBanners();
 
 		// put이면 자기 L1만 갱신돼 다른 서버는 옛 값을 계속 서빙한다.
 		verify(cacheManager, times(7)).refresh(any(), eq(ExhibitionCache.ENTRY_KEY), any());
@@ -132,12 +133,13 @@ class ExhibitionCacheWarmerTest {
 	@DisplayName("워머는 파사드가 아니라 서비스를 부른다 — 파사드면 캐시의 옛 값이 그대로 돌아온다")
 	void warmLists_서비스직접호출() {
 		given(exhibitionListService.search(any())).willReturn(페이지());
-		given(exhibitionBannerService.banners()).willReturn(List.of());
+		given(exhibitionRankingService.banners()).willReturn(List.of());
 
 		warmer.warmLists();
+		warmer.warmBanners();
 
 		// 캐시를 거치지 않고 새 값을 만들어야 워밍이 의미가 있다.
 		verify(exhibitionListService, times(6)).search(any());
-		verify(exhibitionBannerService).banners();
+		verify(exhibitionRankingService).banners();
 	}
 }

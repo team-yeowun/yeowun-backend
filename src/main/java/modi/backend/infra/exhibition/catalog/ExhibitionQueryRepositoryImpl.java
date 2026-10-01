@@ -3,7 +3,6 @@ package modi.backend.infra.exhibition.catalog;
 import java.time.LocalDate;
 import java.util.List;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.EntityManager;
@@ -19,6 +18,7 @@ import modi.backend.domain.exhibition.catalog.ExhibitionQuery;
 import modi.backend.domain.exhibition.catalog.ExhibitionQueryRepository;
 import modi.backend.domain.exhibition.catalog.ExhibitionSort;
 import modi.backend.domain.exhibition.catalog.ExhibitionType;
+import modi.backend.domain.exhibition.ranking.RankingCandidate;
 
 /**
  * {@link ExhibitionQueryRepository} 어댑터 — 서빙 목록/탐색을 Specification + 키셋(커서) 페이지네이션으로 처리한다.
@@ -210,10 +210,9 @@ public class ExhibitionQueryRepositoryImpl implements ExhibitionQueryRepository 
 	}
 
 	@Override
-	public List<Exhibition> findOngoingCatalogTopByViews(LocalDate onDate, int limit) {
-		return jpaRepository.findOngoingCatalogTopByViews(ExhibitionType.CATALOG, onDate,
-				Exhibition.START_DATE_UNKNOWN, Exhibition.END_DATE_UNKNOWN,
-				PageRequest.of(0, Math.max(1, limit)));
+	public List<RankingCandidate> findOngoingCatalogCandidates(LocalDate onDate) {
+		return jpaRepository.findOngoingCatalogCandidates(ExhibitionType.CATALOG, onDate,
+				Exhibition.START_DATE_UNKNOWN, Exhibition.END_DATE_UNKNOWN);
 	}
 
 	/**

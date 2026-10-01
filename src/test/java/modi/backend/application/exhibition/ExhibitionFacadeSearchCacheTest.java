@@ -23,8 +23,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import modi.backend.application.exhibition.cache.ExhibitionCache;
 import modi.backend.application.exhibition.custom.ExhibitionCustomService;
 import modi.backend.application.exhibition.detail.ExhibitionDetailService;
-import modi.backend.application.exhibition.list.ExhibitionBannerService;
 import modi.backend.application.exhibition.list.ExhibitionListService;
+import modi.backend.application.exhibition.ranking.ExhibitionRankingService;
 import modi.backend.application.exhibition.view.ExhibitionViewCountService;
 import modi.backend.support.cache.CacheManager;
 
@@ -43,7 +43,7 @@ class ExhibitionFacadeSearchCacheTest {
 	@Mock
 	private ExhibitionListService exhibitionListService;
 	@Mock
-	private ExhibitionBannerService exhibitionBannerService;
+	private ExhibitionRankingService exhibitionRankingService;
 	@Mock
 	private ExhibitionDetailService exhibitionDetailService;
 	@Mock

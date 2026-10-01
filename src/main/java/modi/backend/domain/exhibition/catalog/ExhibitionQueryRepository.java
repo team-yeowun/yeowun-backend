@@ -3,6 +3,8 @@ package modi.backend.domain.exhibition.catalog;
 import java.time.LocalDate;
 import java.util.List;
 
+import modi.backend.domain.exhibition.ranking.RankingCandidate;
+
 /**
  * 전시 서빙 조회 전용 포트(도메인 소유, 구현은 infra). 쓰기는 {@link ExhibitionRepository}(애그리거트 루트)가 맡고,
  * 목록/탐색/배너처럼 필터·정렬·페이지네이션이 핵심인 읽기 경로만 여기로 분리한다 —
@@ -23,8 +25,9 @@ public interface ExhibitionQueryRepository {
 	List<Exhibition> searchAll(ExhibitionQuery query);
 
 	/**
-	 * 홈 배너용(03_전시.md E-10) — {@code onDate}에 진행 중(startDate ≤ onDate ≤ endDate)인 CATALOG 전시를
-	 * 조회수(ourViewCount) 내림차순으로 최대 {@code limit}건 조회한다(살아있는 행만).
+	 * - 랭킹 후보: {@code onDate}에 진행 중(startDate ≤ onDate ≤ endDate)인 CATALOG 전시의 id와 개막일
+	 *   - 살아있는 행만, 날짜 미상은 뺌 (홈 배너에 언제 열리고 닫히는지 모르는 전시를 올리지 않음)
+	 *   - 조회수는 읽지 않음 (랭킹 조회수의 원본은 Redis)
 	 */
-	List<Exhibition> findOngoingCatalogTopByViews(LocalDate onDate, int limit);
+	List<RankingCandidate> findOngoingCatalogCandidates(LocalDate onDate);
 }
