@@ -1,0 +1,4 @@
+{"mode":"on","cache_enabled":true,"vus":50,"warmup_s":30,"duration_s":120,
+ "label":"v100k","jvm_opts":"-Xms320m -Xmx320m","git":"d7f53bf+dirty",
+ "exhibitions":100160,
+ "started_by":"run-one.sh","finished_at":"2026-10-09T03:42:47+0900"}
