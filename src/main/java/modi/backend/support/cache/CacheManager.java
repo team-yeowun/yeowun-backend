@@ -49,6 +49,11 @@ public class CacheManager {
     @Value("${app.cache.enabled:true}")
     private boolean enabled = true;
 
+    /** 캐시 스위치가 켜져 있는가. 꺼져 있으면 모든 조회가 DB로 간다. */
+    public boolean isEnabled() {
+        return enabled;
+    }
+
     /**
      * - 조회 → 없으면 {@code block}으로 원본을 읽어 캐시를 채움
      *   - 캐시 장애는 {@code get/put} 안에서 삼켜져 자연스럽게 원본 조회로 폴백

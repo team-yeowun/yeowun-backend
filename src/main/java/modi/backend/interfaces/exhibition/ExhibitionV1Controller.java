@@ -59,12 +59,25 @@ public class ExhibitionV1Controller implements ExhibitionV1ApiSpec {
 				blankToNull(keyword), blankToNull(section), blankToNull(period), blankToNull(region),
 				blankToNull(category), parseDate(date), sort, lat, lng, blankToNull(cursor), size,
 				requesterId(loginUser));
-		ExhibitionResult.ListPage result = exhibitionFacade.search(criteria);
 
-		CursorResponse<ExhibitionDto.ListItemResponse> data = CursorResponse.of(result.content().stream()
-                        .map(ExhibitionDto.ListItemResponse::from)
-                        .toList(), result.nextCursor(), result.hasNext(), result.totalCount());
+		CursorResponse<ExhibitionDto.ListItemResponse> data = ExhibitionDto.ListCut.of(size)
+				.flatMap(cut -> cutFromCachedFirstPage(criteria, cut))
+				.orElseGet(() -> ExhibitionDto.listPage(exhibitionFacade.search(criteria)));
 		return ResponseEntity.ok(ApiResponse.success(data));
+	}
+
+	/**
+	 * - 작은 첫 페이지를 캐시된 기본 크기 페이지에서 잘라 준다(홈 섹션 size=2·5 등)
+	 *   - 같은 조회를 기본 크기로 바꿨을 때 캐시가 서빙하는 경우에만 함 — 그 판정은 파사드(캐시 리졸버)가 한다
+	 *   - 캐시 대상이 아니거나 자를 수 없으면 빈 값 → 원래 크기로 그대로 읽는다
+	 */
+	private Optional<CursorResponse<ExhibitionDto.ListItemResponse>> cutFromCachedFirstPage(
+			ExhibitionCriteria.Search criteria, ExhibitionDto.ListCut cut) {
+		ExhibitionCriteria.Search defaultPage = criteria.withSize(null);
+		if (!exhibitionFacade.servesFromCache(defaultPage)) {
+			return Optional.empty();
+		}
+		return cut.cut(exhibitionFacade.search(defaultPage));
 	}
 
 	/**
