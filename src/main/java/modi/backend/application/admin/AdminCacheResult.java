@@ -28,12 +28,11 @@ public final class AdminCacheResult {
 	}
 
 	/**
-	 * - 무효화 경로의 건강 상태
-	 *   - {@code subscribed}가 0이면 이 서버는 방송을 못 받는 중(요청은 200이라 밖에서는 안 보인다)
-	 *   - {@code publishFailure}가 0이 아니면 L2 오염이 남아 있을 수 있음 → 수동 워밍 검토
+	 * - 무효화(삭제) 경로의 건강 상태
+	 *   - 다른 서버에 알리는 방송이 없어, 볼 것은 Redis 삭제가 성공했는가 하나
+	 *   - {@code evictFailure}가 0이 아니면 그 키가 Redis TTL 동안 옛 값일 수 있음 → 수동 비우기 검토
 	 */
-	public record InvalidationHealth(boolean subscribed, double publishSuccess, double publishFailure,
-			double receiveSuccess, double receiveFailure, double resubscribeCount) {
+	public record InvalidationHealth(double evictSuccess, double evictFailure) {
 	}
 
 	/** 캐시 탭 한 판. */

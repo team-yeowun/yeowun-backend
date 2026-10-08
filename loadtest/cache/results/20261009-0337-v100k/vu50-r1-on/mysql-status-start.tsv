@@ -1,0 +1,10 @@
+Com_begin	0
+Com_commit	69168
+Com_rollback	0
+Com_select	104930
+Com_set_option	276771
+Innodb_buffer_pool_read_requests	209160226
+Innodb_buffer_pool_reads	4581
+Innodb_rows_read	1725162795
+Questions	450970
+Threads_connected	11
