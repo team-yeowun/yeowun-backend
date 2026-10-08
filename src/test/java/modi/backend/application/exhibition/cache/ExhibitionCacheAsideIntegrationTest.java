@@ -15,6 +15,8 @@ import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
+import io.micrometer.core.instrument.MeterRegistry;
+
 import modi.backend.TestcontainersConfiguration;
 import modi.backend.application.admin.AdminExhibitionFacade;
 import modi.backend.application.exhibition.ExhibitionCriteria;
@@ -37,6 +39,11 @@ import modi.backend.support.cache.MyCache;
  *   - 수집 등록 커밋 뒤 Redis의 목록이 지워짐
  *
  * - 목 단위 테스트로는 AFTER_COMMIT 리스너가 실제로 붙는지까지는 못 봄 — 그래서 실물로 확인
+ *
+ * - 단언은 이 컨텍스트 안에서 관찰되는 것으로만 한다
+ *   - 스위트 전체가 Redis 컨테이너 하나를 나눠 쓰고, 캐시된 다른 컨텍스트의 잔여 작업(수집 소비자의 등록 → 목록 삭제 등)이
+ *     같은 yeowun:* 키를 건드릴 수 있다 — 키 유무를 단언하면 실행 순서에 따라 흔들린다
+ *   - 그래서 "이 컨텍스트의 리스너가 Redis 삭제에 성공한 횟수"(계측), 이 서버의 L1, 그리고 사용자가 보는 값으로 본다
  */
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest(properties = "app.exhibition.enrich.scheduling-enabled=false")
@@ -56,6 +63,8 @@ class ExhibitionCacheAsideIntegrationTest {
 	private StringRedisTemplate redis;
 	@Autowired
 	private CaffeineCacheManager localCacheManager;
+	@Autowired
+	private MeterRegistry meterRegistry;
 
 	private static final ExhibitionCriteria.Search 탐색첫페이지 = new ExhibitionCriteria.Search(
 			null, null, null, null, null, null, "latest", null, null, null, null, null);
@@ -71,6 +80,16 @@ class ExhibitionCacheAsideIntegrationTest {
 		for (MyCache list : ExhibitionCache.LISTS) {
 			localCacheManager.getCache(list.getName()).clear();
 		}
+	}
+
+	/** 이 컨텍스트의 리스너·창구가 Redis 삭제에 성공한 누계. */
+	private double evictSuccess() {
+		return meterRegistry.counter("modi.cache.invalidation.evict", "result", "success").count();
+	}
+
+	private Object l1(MyCache cache) {
+		var wrapper = localCacheManager.getCache(cache.getName()).get(ExhibitionCache.ENTRY_KEY);
+		return wrapper == null ? null : wrapper.get();
 	}
 
 	private static String key(MyCache cache, Object entry) {
@@ -99,21 +118,21 @@ class ExhibitionCacheAsideIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("관리자 수정 커밋 뒤 Redis의 목록과 이 서버의 L1 목록이 지워지고, 상세는 옛 값을 서빙하지 않는다")
+	@DisplayName("관리자 수정 커밋 뒤 Redis의 상세·목록 삭제가 일어나고 이 서버의 L1 목록이 비며, 상세는 옛 값을 서빙하지 않는다")
 	void 관리자수정_커밋뒤_삭제() {
 		Long id = 진행중전시();
 		exhibitionFacade.search(탐색첫페이지);
 		exhibitionFacade.getDetail(new ExhibitionCriteria.Detail(id, null));
-		String listKey = key(ExhibitionCache.ExploreLatestP1.INSTANCE, ExhibitionCache.ENTRY_KEY);
-		assertThat(redis.hasKey(listKey)).isTrue();
-		assertThat(localCacheManager.getCache("ExploreLatestP1").get(ExhibitionCache.ENTRY_KEY)).isNotNull();
+		assertThat(l1(ExhibitionCache.ExploreLatestP1.INSTANCE)).as("조회가 L1 목록을 채움").isNotNull();
 
+		double before = evictSuccess();
 		adminExhibitionFacade.editExhibition(id, "고친 제목", null, null, null);
+		double evicted = evictSuccess() - before;
 
-		assertThat(redis.hasKey(listKey)).isFalse();
-		assertThat(localCacheManager.getCache("ExploreLatestP1").get(ExhibitionCache.ENTRY_KEY)).isNull();
-		// 상세는 "키가 없다"가 아니라 "옛 값을 서빙하지 않는다"로 본다. 스위트 전체가 Redis 컨테이너 하나를 나눠 써서
-		// 키 유무는 다른 컨텍스트의 잔여 작업에 흔들릴 수 있지만, 삭제가 빠졌다면 아래 조회는 반드시 옛 제목을 돌려준다.
+		// 커밋 뒤 리스너가 Redis의 상세 1 + 목록 7을 지웠고, 이 서버의 L1 목록도 비웠다
+		assertThat(evicted).isGreaterThanOrEqualTo(8);
+		assertThat(l1(ExhibitionCache.ExploreLatestP1.INSTANCE)).isNull();
+		// 사용자가 보는 상세는 새 제목이다 — 삭제가 빠졌다면 옛 제목이 캐시에서 나온다
 		String detailKey = key(ExhibitionCache.ExhibitionDetail.INSTANCE, id);
 		assertThat(exhibitionFacade.getDetail(new ExhibitionCriteria.Detail(id, null)).title())
 				.as("상세 캐시 ttl=%s", redis.getExpire(detailKey))
@@ -121,19 +140,22 @@ class ExhibitionCacheAsideIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("수집 등록 커밋 뒤 Redis의 목록이 지워지고, 다음 조회가 새 전시를 담아 다시 적재한다")
+	@DisplayName("수집 등록 커밋 뒤 Redis 목록 삭제가 일어나고 이 서버의 L1 목록이 빈다")
 	void 수집등록_커밋뒤_목록삭제() {
 		exhibitionFacade.search(탐색첫페이지);
-		String listKey = key(ExhibitionCache.ExploreLatestP1.INSTANCE, ExhibitionCache.ENTRY_KEY);
-		assertThat(redis.hasKey(listKey)).isTrue();
+		assertThat(l1(ExhibitionCache.ExploreLatestP1.INSTANCE)).as("조회가 L1 목록을 채움").isNotNull();
 
+		double before = evictSuccess();
 		LocalDate today = LocalDate.now();
-		exhibitionRegistrar.register(new ExhibitionRegistration("CACHE-IT-REG-" + UUID.randomUUID(), "새로 들어온 전시",
+		String title = "새로 들어온 전시 " + UUID.randomUUID();
+		exhibitionRegistrar.register(new ExhibitionRegistration("CACHE-IT-REG-" + UUID.randomUUID(), title,
 				"캐시IT등록장소-" + UUID.randomUUID(), ExhibitionRegion.SEOUL, "종로구", 127.0, 37.5,
-				today.minusDays(1), today.plusDays(30), ExhibitionCategory.PAINTING, "poster", "detail", "기관",
+				today, today.plusDays(30), ExhibitionCategory.PAINTING, "poster", "detail", "기관",
 				"무료", "설명", "img", null, null, null, "회화", GenreProvider.MOCK, "mock"),
 				LocalDateTime.now());
 
-		assertThat(redis.hasKey(listKey)).isFalse();
+		// 커밋 뒤 리스너가 Redis 목록 7종을 지웠고, 이 서버의 L1 목록도 비었다
+		assertThat(evictSuccess() - before).isGreaterThanOrEqualTo(7);
+		assertThat(l1(ExhibitionCache.ExploreLatestP1.INSTANCE)).isNull();
 	}
 }
