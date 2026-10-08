@@ -22,7 +22,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import modi.backend.application.exhibition.cache.ExhibitionCache;
-import modi.backend.application.exhibition.cache.ExhibitionCacheWarmer;
 import modi.backend.application.exhibition.custom.ExhibitionCustomService;
 import modi.backend.application.exhibition.detail.ExhibitionDetailService;
 import modi.backend.application.exhibition.list.ExhibitionListService;
@@ -38,7 +37,7 @@ import modi.backend.support.error.ErrorType;
  *   - 즉 타인의 개인 전시가 열림 — 성능이 아니라 보안 문제
  *
  * - 캐시 히트 경로가 조립을 건너뛰는지도 함께 봄
- *   - 익명 CATALOG 상세는 캐시 히트 시 DB를 건드리지 않는 것이 이 STEP의 목적
+ *   - 익명 CATALOG 상세는 캐시 히트 시 조립 쿼리(SELECT)를 내지 않는 것이 이 STEP의 목적
  */
 @ExtendWith(MockitoExtension.class)
 class ExhibitionFacadeDetailCacheTest {
@@ -53,8 +52,6 @@ class ExhibitionFacadeDetailCacheTest {
 	private ExhibitionCustomService exhibitionCustomService;
 	@Mock
 	private ExhibitionViewCountService exhibitionViewCountService;
-	@Mock
-	private ExhibitionCacheWarmer exhibitionCacheWarmer;
 	@Mock
 	private CacheManager cacheManager;
 
@@ -95,7 +92,7 @@ class ExhibitionFacadeDetailCacheTest {
 	}
 
 	@Test
-	@DisplayName("캐시 히트면 조립을 건너뛰고 개인화만 한다 — 익명 CATALOG는 DB 0회")
+	@DisplayName("캐시 히트면 조립을 건너뛰고 개인화만 한다 — 익명 CATALOG는 조립 쿼리 0회")
 	void getDetail_캐시히트_조립건너뜀() {
 		given(cacheManager.get(any(), anyString(), any())).willReturn(상세(1L));
 		given(exhibitionDetailService.personalize(any(), isNull())).willReturn(상세(1L));

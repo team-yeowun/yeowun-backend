@@ -59,9 +59,9 @@ public class ExhibitionViewCountService {
 	 * - 지울 대상은 이번 창에 실제로 조회된 전시뿐
 	 *   - 수거 결과의 키가 그대로 목록이 됨
 	 *
-	 * - 이 경로는 방송량 관찰 대상
-	 *   - 6시간에 한 번, 그 사이 조회된 전시 수만큼 evict와 방송이 나감
-	 *   - 수가 커지면 키별 evict 대신 "상세 캐시 전체 비우기" 하나로 바꾸는 편이 쌈
+	 * - 상세 캐시는 Redis 하나뿐이라 Redis 키 삭제만으로 두 서버가 함께 새 값을 봄
+	 *   - 6시간에 한 번, 그 사이 조회된 전시 수만큼 Redis DEL이 나감
+	 *   - 수가 커지면 키별 삭제 대신 "상세 캐시 전체 비우기" 하나로 바꾸는 편이 쌈
 	 */
 	private void evictDetailCaches(Set<Long> exhibitionIds) {
 		exhibitionIds.forEach(exhibitionId ->

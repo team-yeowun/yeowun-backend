@@ -19,7 +19,7 @@ import modi.backend.support.cache.MyCache;
 /**
  * - 관리자 콘솔의 캐시 현황
  *   - 선언 목록({@link ExhibitionCache#ALL})을 순회해 캐시별 히트율과 적재 상태를 모은다
- *   - 무효화 경로의 건강 상태(구독·발행 실패)도 같은 화면에서 본다
+ *   - 무효화(삭제) 경로의 건강 상태(Redis 삭제 실패)도 같은 화면에서 본다
  *
  * - 히트율의 출처가 두 곳인 것이 요점
  *   - 계층별 히트/미스는 창구가 센 값({@link CacheLookupMetrics})
@@ -53,12 +53,13 @@ public class AdminCacheFacade {
 
 		// 엔트리가 하나뿐인 캐시만 "지금 L2에 올라가 있나"가 의미를 갖는다.
 		// 상세는 전시 id마다 키가 달라 대표 키라는 것이 없으므로 확인하지 않는다.
+		// 상세는 L1이 없어 L1 통계·엔트리 수가 늘 비어 있다(L1 TTL 칸은 0으로 내보낸다).
 		boolean singleEntry = cache != ExhibitionCache.ExhibitionDetail.INSTANCE;
 		boolean loaded = singleEntry && cacheManager.existsInL2(cache, ExhibitionCache.ENTRY_KEY);
 
 		return new AdminCacheResult.CacheStat(
 				cache.getName(), cache.getDescription(), cache.getType().name(),
-				cache.getTtl().toSeconds(), redisTtlOf(cache),
+				cache.getType() == CacheType.REDIS ? 0L : cache.getTtl().toSeconds(), redisTtlOf(cache),
 				counts.l1Hits(), counts.l2Hits(), counts.misses(), counts.hitRate(),
 				l1.requestCount() == 0 ? -1 : l1.hitRate(),
 				cacheManager.localSize(cache), l1.evictionCount(),
@@ -72,12 +73,8 @@ public class AdminCacheFacade {
 
 	private AdminCacheResult.InvalidationHealth invalidationHealth() {
 		return new AdminCacheResult.InvalidationHealth(
-				gauge("modi.cache.invalidation.subscribed") > 0,
-				counter("modi.cache.invalidation.publish", "success"),
-				counter("modi.cache.invalidation.publish", "failure"),
-				counter("modi.cache.invalidation.receive", "success"),
-				counter("modi.cache.invalidation.receive", "failure"),
-				counter("modi.cache.invalidation.resubscribe", null));
+				counter("modi.cache.invalidation.evict", "success"),
+				counter("modi.cache.invalidation.evict", "failure"));
 	}
 
 	private double counter(String name, String result) {
@@ -86,10 +83,5 @@ public class AdminCacheFacade {
 			search = search.tag("result", result);
 		}
 		return Optional.ofNullable(search.counter()).map(io.micrometer.core.instrument.Counter::count).orElse(0d);
-	}
-
-	private double gauge(String name) {
-		return Optional.ofNullable(meterRegistry.find(name).gauge())
-				.map(io.micrometer.core.instrument.Gauge::value).orElse(0d);
 	}
 }

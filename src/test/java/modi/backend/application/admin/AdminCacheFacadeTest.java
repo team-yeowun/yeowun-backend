@@ -105,15 +105,26 @@ class AdminCacheFacadeTest {
 	}
 
 	@Test
-	@DisplayName("무효화 건강 상태는 지표에서 읽는다 — 구독이 끊기면 화면이 그것을 드러낸다")
-	void overview_무효화상태() {
-		assertThat(facade.overview().invalidation().subscribed()).isFalse();
+	@DisplayName("상세는 L1이 없어 타입은 REDIS, L1 TTL은 0, Redis TTL은 30분으로 나온다")
+	void overview_상세_Redis단독() {
+		AdminCacheResult.CacheStat detail = facade.overview().caches().stream()
+				.filter(c -> c.name().equals("ExhibitionDetail")).findFirst().orElseThrow();
 
-		registry.gauge("modi.cache.invalidation.subscribed", 1);
-		registry.counter("modi.cache.invalidation.publish", "result", "failure").increment(3);
+		assertThat(detail.type()).isEqualTo("REDIS");
+		assertThat(detail.ttlSeconds()).isZero();
+		assertThat(detail.redisTtlSeconds()).isEqualTo(30 * 60);
+	}
+
+	@Test
+	@DisplayName("무효화 건강 상태는 Redis 삭제 지표에서 읽는다 — 실패가 쌓이면 화면이 그것을 드러낸다")
+	void overview_무효화상태() {
+		assertThat(facade.overview().invalidation().evictFailure()).isZero();
+
+		registry.counter("modi.cache.invalidation.evict", "result", "success").increment(5);
+		registry.counter("modi.cache.invalidation.evict", "result", "failure").increment(3);
 
 		AdminCacheResult.InvalidationHealth h = facade.overview().invalidation();
-		assertThat(h.subscribed()).isTrue();
-		assertThat(h.publishFailure()).isEqualTo(3);
+		assertThat(h.evictSuccess()).isEqualTo(5);
+		assertThat(h.evictFailure()).isEqualTo(3);
 	}
 }
