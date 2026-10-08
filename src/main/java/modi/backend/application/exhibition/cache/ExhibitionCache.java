@@ -30,14 +30,27 @@ import modi.backend.support.cache.MyCache;
  */
 public final class ExhibitionCache {
 
-    /** 목록 캐시의 로컬(L1) TTL. 다른 서버의 L1이 삭제 없이 낡을 수 있는 최대 시간이다. */
-    public static final Duration LIST_LOCAL_TTL = Duration.ofMinutes(10);
+    /**
+     * - TTL 값 묶음
+     *   - 바깥 클래스가 아니라 따로 둔 홀더에 있는 이유: 클래스 초기화 순환을 끊기 위함
+     *   - 중첩 선언(예: {@code ExploreLatestP1})이 바깥보다 먼저 초기화되면, 생성자가 바깥 상수를 읽는 순간 바깥 초기화가 돌고
+     *     바깥의 {@link #LISTS}·{@link #ALL}이 아직 null인 그 선언의 {@code INSTANCE}를 담다가 NPE가 난다
+     *   - 홀더는 다른 선언을 참조하지 않아 어느 쪽이 먼저 초기화돼도 안전함
+     */
+    public static final class Ttl {
 
-    /** 목록 캐시의 Redis(L2) TTL. 삭제가 누락된 키가 남아 있을 수 있는 최대 시간이다. */
-    public static final Duration LIST_REDIS_TTL = Duration.ofMinutes(30);
+        /** 목록 캐시의 로컬(L1) TTL. 다른 서버의 L1이 삭제 없이 낡을 수 있는 최대 시간이다. */
+        public static final Duration LIST_LOCAL = Duration.ofMinutes(10);
 
-    /** 상세 캐시의 Redis TTL. 상세에는 L1이 없어 이 값 하나뿐이다. */
-    public static final Duration DETAIL_REDIS_TTL = Duration.ofMinutes(30);
+        /** 목록 캐시의 Redis(L2) TTL. 삭제가 누락된 키가 남아 있을 수 있는 최대 시간이다. */
+        public static final Duration LIST_REDIS = Duration.ofMinutes(30);
+
+        /** 상세 캐시의 Redis TTL. 상세에는 L1이 없어 이 값 하나뿐이다. */
+        public static final Duration DETAIL_REDIS = Duration.ofMinutes(30);
+
+        private Ttl() {
+        }
+    }
 
     /**
      * - 엔트리가 하나뿐인 캐시의 키
@@ -76,7 +89,7 @@ public final class ExhibitionCache {
         public static final HomeBanners INSTANCE = new HomeBanners();
 
         private HomeBanners() {
-            super("홈 배너 목록", LIST_LOCAL_TTL, LIST_REDIS_TTL, ExhibitionResult.Banners.class);
+            super("홈 배너 목록", Ttl.LIST_LOCAL, Ttl.LIST_REDIS, ExhibitionResult.Banners.class);
         }
     }
 
@@ -84,7 +97,7 @@ public final class ExhibitionCache {
         public static final HomeEndingSoon INSTANCE = new HomeEndingSoon();
 
         private HomeEndingSoon() {
-            super("곧 끝나는 전시", LIST_LOCAL_TTL, LIST_REDIS_TTL, ExhibitionResult.ListPage.class);
+            super("곧 끝나는 전시", Ttl.LIST_LOCAL, Ttl.LIST_REDIS, ExhibitionResult.ListPage.class);
         }
     }
 
@@ -92,7 +105,7 @@ public final class ExhibitionCache {
         public static final HomeNewThisMonth INSTANCE = new HomeNewThisMonth();
 
         private HomeNewThisMonth() {
-            super("이번달 신규 전시", LIST_LOCAL_TTL, LIST_REDIS_TTL, ExhibitionResult.ListPage.class);
+            super("이번달 신규 전시", Ttl.LIST_LOCAL, Ttl.LIST_REDIS, ExhibitionResult.ListPage.class);
         }
     }
 
@@ -100,7 +113,7 @@ public final class ExhibitionCache {
         public static final HomeFree INSTANCE = new HomeFree();
 
         private HomeFree() {
-            super("무료 전시", LIST_LOCAL_TTL, LIST_REDIS_TTL, ExhibitionResult.ListPage.class);
+            super("무료 전시", Ttl.LIST_LOCAL, Ttl.LIST_REDIS, ExhibitionResult.ListPage.class);
         }
     }
 
@@ -112,7 +125,7 @@ public final class ExhibitionCache {
         public static final ExploreLatestP1 INSTANCE = new ExploreLatestP1();
 
         private ExploreLatestP1() {
-            super("최신순 1페이지", LIST_LOCAL_TTL, LIST_REDIS_TTL, ExhibitionResult.ListPage.class);
+            super("최신순 1페이지", Ttl.LIST_LOCAL, Ttl.LIST_REDIS, ExhibitionResult.ListPage.class);
         }
     }
 
@@ -120,7 +133,7 @@ public final class ExhibitionCache {
         public static final ExploreEndingP1 INSTANCE = new ExploreEndingP1();
 
         private ExploreEndingP1() {
-            super("종료순 1페이지", LIST_LOCAL_TTL, LIST_REDIS_TTL, ExhibitionResult.ListPage.class);
+            super("종료순 1페이지", Ttl.LIST_LOCAL, Ttl.LIST_REDIS, ExhibitionResult.ListPage.class);
         }
     }
 
@@ -128,7 +141,7 @@ public final class ExhibitionCache {
         public static final ExplorePopularP1 INSTANCE = new ExplorePopularP1();
 
         private ExplorePopularP1() {
-            super("인기순 1페이지", LIST_LOCAL_TTL, LIST_REDIS_TTL, ExhibitionResult.ListPage.class);
+            super("인기순 1페이지", Ttl.LIST_LOCAL, Ttl.LIST_REDIS, ExhibitionResult.ListPage.class);
         }
     }
 
@@ -142,7 +155,7 @@ public final class ExhibitionCache {
         public static final ExhibitionDetail INSTANCE = new ExhibitionDetail();
 
         private ExhibitionDetail() {
-            super("전시 상세", DETAIL_REDIS_TTL, ExhibitionResult.Detail.class);
+            super("전시 상세", Ttl.DETAIL_REDIS, ExhibitionResult.Detail.class);
         }
     }
 
