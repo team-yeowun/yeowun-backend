@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.Cache;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * - 창구가 선언 타입대로 계층을 고르는지 고정
@@ -152,5 +153,17 @@ class CacheManagerTest {
 
 		verify(redisCache).evict("42");
 		verifyNoInteractions(localCacheManager);
+	}
+
+	@Test
+	@DisplayName("스위치를 끄면 조회는 항상 미스이고 아무것도 적재하지 않는다")
+	void 스위치off_항상미스_적재없음() {
+		ReflectionTestUtils.setField(cacheManager, "enabled", false);
+
+		String result = cacheManager.getOrPut(TwoTier.INSTANCE, "ALL", String.class, () -> "DB 목록");
+
+		assertThat(result).isEqualTo("DB 목록");
+		verifyNoInteractions(localCacheManager, redisCacheManager, lookupMetrics);
+		verify(invalidationMetrics, never()).evicted();
 	}
 }

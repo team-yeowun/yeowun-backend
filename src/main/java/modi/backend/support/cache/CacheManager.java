@@ -4,6 +4,7 @@ package modi.backend.support.cache;
 import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.Cache;
 import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.data.redis.cache.RedisCacheManager;
@@ -39,6 +40,16 @@ public class CacheManager {
     private final CacheLookupMetrics lookupMetrics; // 계층별 히트/미스 — 관리자 대시보드의 히트율 출처
 
     /**
+     * - 캐시 전체 스위치(부하 실험용). 기본 true = 운영 동작 그대로
+     *   - false면 조회는 항상 미스(L1·L2를 보지 않음)이고 적재도 하지 않음
+     *   - 그래서 모든 조회가 loader(DB)로 내려감 — 캐시가 없을 때와 같은 비교군
+     *   - 조회 계측도 남기지 않아, 꺼진 런에서는 lookup 카운터가 0인 것으로 우회를 확인할 수 있음
+     * - 생성자 인자가 아니라 필드 주입이라, 테스트가 직접 생성하면 기본값(true)으로 동작함
+     */
+    @Value("${app.cache.enabled:true}")
+    private boolean enabled = true;
+
+    /**
      * - 조회 → 없으면 {@code block}으로 원본을 읽어 캐시를 채움
      *   - 캐시 장애는 {@code get/put} 안에서 삼켜져 자연스럽게 원본 조회로 폴백
      *   - 원본(DB) 예외만 밖으로 나감
@@ -56,6 +67,9 @@ public class CacheManager {
     }
 
     public <T> T get(MyCache cache, String key, Class<T> clazz) {
+        if (!enabled) {
+            return null; // 스위치 off — 항상 미스
+        }
         return switch (cache.getType()) {
             case TWO_TIER -> getTwoTier(cache, key, clazz);
             case REDIS -> count(cache, swallow(() -> redis(cache).get(key, clazz)), false);
@@ -92,6 +106,9 @@ public class CacheManager {
     }
 
     public void put(MyCache cache, String key, Object value) {
+        if (!enabled) {
+            return; // 스위치 off — 적재하지 않음
+        }
         switch (cache.getType()) {
             case TWO_TIER -> {
                 swallowRun(() -> redis(cache).put(key, value)); // L2 먼저 — 두 서버가 함께 보는 값
