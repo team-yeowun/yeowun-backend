@@ -161,6 +161,56 @@ class ExhibitionV1ControllerTest {
 				.andExpect(jsonPath("$.meta.errorCode").value("INVALID_INPUT"));
 	}
 
+	@Test
+	@DisplayName("빈 문자열 필터(keyword=·region=·category= 등)는 보내지 않은 것과 같다 — 프론트 탐색 화면이 keyword=를 붙여 보낸다")
+	void 목록_빈문자열_필터는_null로_옮긴다() throws Exception {
+		given(exhibitionFacade.search(any(ExhibitionCriteria.Search.class)))
+				.willReturn(new ExhibitionResult.ListPage(List.of(), null, false, 0L));
+
+		mockMvc.perform(get("/api/v1/exhibitions")
+						.param("keyword", "")
+						.param("section", " ")
+						.param("period", "")
+						.param("region", "")
+						.param("category", "")
+						.param("date", "")
+						.param("cursor", "")
+						.param("sort", "latest")
+						.param("size", "20"))
+				.andExpect(status().isOk());
+
+		ArgumentCaptor<ExhibitionCriteria.Search> captor = ArgumentCaptor.forClass(ExhibitionCriteria.Search.class);
+		then(exhibitionFacade).should().search(captor.capture());
+		ExhibitionCriteria.Search criteria = captor.getValue();
+		assertThat(criteria.keyword()).isNull();
+		assertThat(criteria.section()).isNull();
+		assertThat(criteria.period()).isNull();
+		assertThat(criteria.region()).isNull();
+		assertThat(criteria.category()).isNull();
+		assertThat(criteria.date()).isNull();
+		assertThat(criteria.cursor()).isNull();
+		// 빈 값을 걷어내면 프론트 탐색 첫 화면이 캐시 대상 모양이 된다.
+		assertThat(criteria.isPlainFirstPage()).isTrue();
+	}
+
+	@Test
+	@DisplayName("count도 빈 문자열 필터를 보내지 않은 것으로 옮긴다")
+	void count_빈문자열_필터는_null로_옮긴다() throws Exception {
+		given(exhibitionFacade.count(any(ExhibitionCriteria.Search.class)))
+				.willReturn(new ExhibitionResult.Count(7L, true));
+
+		mockMvc.perform(get("/api/v1/exhibitions/count")
+						.param("keyword", "").param("region", "").param("category", "").param("section", ""))
+				.andExpect(status().isOk());
+
+		ArgumentCaptor<ExhibitionCriteria.Search> captor = ArgumentCaptor.forClass(ExhibitionCriteria.Search.class);
+		then(exhibitionFacade).should().count(captor.capture());
+		assertThat(captor.getValue().keyword()).isNull();
+		assertThat(captor.getValue().region()).isNull();
+		assertThat(captor.getValue().category()).isNull();
+		assertThat(captor.getValue().section()).isNull();
+	}
+
 	private static ExhibitionResult.ListItem listItem() {
 		return new ExhibitionResult.ListItem(51L, "CATALOG", "모네: 빛을 그리다", "https://cdn/poster.jpg",
 				LocalDate.of(2026, 6, 1), LocalDate.of(2026, 8, 31), "예술의전당", "SEOUL", "PAINTING",
