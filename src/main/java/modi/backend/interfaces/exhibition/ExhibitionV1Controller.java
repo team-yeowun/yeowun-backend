@@ -56,15 +56,28 @@ public class ExhibitionV1Controller implements ExhibitionV1ApiSpec {
 			@OptionalAuthentication Optional<LoginUser> loginUser
     ) {
 		ExhibitionCriteria.Search criteria = new ExhibitionCriteria.Search(
-				keyword, section, period, region, category, parseDate(date), sort, lat, lng, cursor, size,
-				requesterId(loginUser)
-        );
-		ExhibitionResult.ListPage result = exhibitionFacade.search(criteria);
+				blankToNull(keyword), blankToNull(section), blankToNull(period), blankToNull(region),
+				blankToNull(category), parseDate(date), sort, lat, lng, blankToNull(cursor), size,
+				requesterId(loginUser));
 
-		CursorResponse<ExhibitionDto.ListItemResponse> data = CursorResponse.of(result.content().stream()
-                        .map(ExhibitionDto.ListItemResponse::from)
-                        .toList(), result.nextCursor(), result.hasNext(), result.totalCount());
+		CursorResponse<ExhibitionDto.ListItemResponse> data = ExhibitionDto.ListCut.of(size)
+				.flatMap(cut -> cutFromCachedFirstPage(criteria, cut))
+				.orElseGet(() -> ExhibitionDto.listPage(exhibitionFacade.search(criteria)));
 		return ResponseEntity.ok(ApiResponse.success(data));
+	}
+
+	/**
+	 * - 작은 첫 페이지를 캐시된 기본 크기 페이지에서 잘라 준다(홈 섹션 size=2·5 등)
+	 *   - 같은 조회를 기본 크기로 바꿨을 때 캐시가 서빙하는 경우에만 함 — 그 판정은 파사드(캐시 리졸버)가 한다
+	 *   - 캐시 대상이 아니거나 자를 수 없으면 빈 값 → 원래 크기로 그대로 읽는다
+	 */
+	private Optional<CursorResponse<ExhibitionDto.ListItemResponse>> cutFromCachedFirstPage(
+			ExhibitionCriteria.Search criteria, ExhibitionDto.ListCut cut) {
+		ExhibitionCriteria.Search defaultPage = criteria.withSize(null);
+		if (!exhibitionFacade.servesFromCache(defaultPage)) {
+			return Optional.empty();
+		}
+		return cut.cut(exhibitionFacade.search(defaultPage));
 	}
 
 	/**
@@ -83,7 +96,8 @@ public class ExhibitionV1Controller implements ExhibitionV1ApiSpec {
 			@OptionalAuthentication Optional<LoginUser> loginUser) {
 		// 목록과 같은 Criteria를 쓴다 — 파라미터 목록을 복사하지 않아야 두 경로의 필터가 어긋나지 않는다.
 		ExhibitionCriteria.Search criteria = new ExhibitionCriteria.Search(
-				keyword, section, period, region, category, parseDate(date), null, null, null, null, null,
+				blankToNull(keyword), blankToNull(section), blankToNull(period), blankToNull(region),
+				blankToNull(category), parseDate(date), null, null, null, null, null,
 				requesterId(loginUser));
 		return ResponseEntity.ok(ApiResponse.success(
 				ExhibitionDto.CountResponse.from(exhibitionFacade.count(criteria))));
@@ -127,6 +141,16 @@ public class ExhibitionV1Controller implements ExhibitionV1ApiSpec {
 				parseDate(request.endDate()), request.region(), request.category(), request.format(),
 				request.artist(), request.posterUrl(), request.genreKeyword()));
 		return ResponseEntity.ok(ApiResponse.success(ExhibitionDto.CreatedResponse.from(result)));
+	}
+
+	/**
+	 * - 빈 문자열 파라미터를 "보내지 않음"으로 바꾼다
+	 *   - 프론트 탐색 화면은 검색어가 비어 있어도 {@code keyword=}를 붙여 보낸다(axios는 null·undefined만 뺀다)
+	 *   - 조회 조건으로는 이미 빈 값 = 없음이지만, 캐시 판정({@code isPlainFirstPage})은 {@code ""}를 필터로 봐 캐시를 건너뛴다
+	 *   - 그래서 Criteria에 싣기 전에 여기서 맞춘다. 1글자 검색어처럼 내용이 있는 값의 검증은 그대로 뒤에서 한다
+	 */
+	private static String blankToNull(String value) {
+		return value == null || value.isBlank() ? null : value;
 	}
 
 	private static Long requesterId(Optional<LoginUser> loginUser) {

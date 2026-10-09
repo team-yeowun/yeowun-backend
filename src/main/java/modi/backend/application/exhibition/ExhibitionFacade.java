@@ -74,6 +74,15 @@ public class ExhibitionFacade {
     }
 
     /**
+     * - 이 조회를 캐시가 서빙하는가(캐시 스위치가 켜져 있고, 캐시 대상 모양인가)
+     *   - 화면 쪽이 "작은 첫 페이지를 캐시된 기본 크기 페이지에서 잘라 줄지"를 정할 때 묻는다
+     *   - 어떤 모양이 캐시 대상인지는 {@link ExhibitionListCacheResolver} 하나가 알고, 여기는 그 답을 옮기기만 함
+     */
+    public boolean servesFromCache(ExhibitionCriteria.Search criteria) {
+        return cacheManager.isEnabled() && ExhibitionListCacheResolver.resolve(criteria).isPresent();
+    }
+
+    /**
      * 같은 필터의 총 건수. 목록과 같은 입력·같은 조건 조립 경로를 공유한다(필터가 어긋날 여지를 없앤다).
      */
     public ExhibitionResult.Count count(ExhibitionCriteria.Search criteria) {

@@ -2,14 +2,17 @@ package modi.backend.interfaces.exhibition;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.stream.LongStream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -159,6 +162,146 @@ class ExhibitionV1ControllerTest {
 		mockMvc.perform(get("/api/v1/exhibitions/count").param("date", "2026/06/30"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.meta.errorCode").value("INVALID_INPUT"));
+	}
+
+	@Test
+	@DisplayName("빈 문자열 필터(keyword=·region=·category= 등)는 보내지 않은 것과 같다 — 프론트 탐색 화면이 keyword=를 붙여 보낸다")
+	void 목록_빈문자열_필터는_null로_옮긴다() throws Exception {
+		given(exhibitionFacade.search(any(ExhibitionCriteria.Search.class)))
+				.willReturn(new ExhibitionResult.ListPage(List.of(), null, false, 0L));
+
+		mockMvc.perform(get("/api/v1/exhibitions")
+						.param("keyword", "")
+						.param("section", " ")
+						.param("period", "")
+						.param("region", "")
+						.param("category", "")
+						.param("date", "")
+						.param("cursor", "")
+						.param("sort", "latest")
+						.param("size", "20"))
+				.andExpect(status().isOk());
+
+		ArgumentCaptor<ExhibitionCriteria.Search> captor = ArgumentCaptor.forClass(ExhibitionCriteria.Search.class);
+		then(exhibitionFacade).should().search(captor.capture());
+		ExhibitionCriteria.Search criteria = captor.getValue();
+		assertThat(criteria.keyword()).isNull();
+		assertThat(criteria.section()).isNull();
+		assertThat(criteria.period()).isNull();
+		assertThat(criteria.region()).isNull();
+		assertThat(criteria.category()).isNull();
+		assertThat(criteria.date()).isNull();
+		assertThat(criteria.cursor()).isNull();
+		// 빈 값을 걷어내면 프론트 탐색 첫 화면이 캐시 대상 모양이 된다.
+		assertThat(criteria.isPlainFirstPage()).isTrue();
+	}
+
+	@Test
+	@DisplayName("count도 빈 문자열 필터를 보내지 않은 것으로 옮긴다")
+	void count_빈문자열_필터는_null로_옮긴다() throws Exception {
+		given(exhibitionFacade.count(any(ExhibitionCriteria.Search.class)))
+				.willReturn(new ExhibitionResult.Count(7L, true));
+
+		mockMvc.perform(get("/api/v1/exhibitions/count")
+						.param("keyword", "").param("region", "").param("category", "").param("section", ""))
+				.andExpect(status().isOk());
+
+		ArgumentCaptor<ExhibitionCriteria.Search> captor = ArgumentCaptor.forClass(ExhibitionCriteria.Search.class);
+		then(exhibitionFacade).should().count(captor.capture());
+		assertThat(captor.getValue().keyword()).isNull();
+		assertThat(captor.getValue().region()).isNull();
+		assertThat(captor.getValue().category()).isNull();
+		assertThat(captor.getValue().section()).isNull();
+	}
+
+	@Test
+	@DisplayName("작은 첫 페이지(size=2)는 캐시된 기본 크기 페이지를 받아 응답 DTO가 자른다 — 다음 커서는 자른 마지막 항목의 커서")
+	void 작은첫페이지_기본페이지에서_자른다() throws Exception {
+		given(exhibitionFacade.servesFromCache(any(ExhibitionCriteria.Search.class))).willReturn(true);
+		given(exhibitionFacade.search(argThat(c -> c != null && c.size() == null)))
+				.willReturn(page(5, true, 30L, true));
+
+		mockMvc.perform(get("/api/v1/exhibitions").param("section", "free").param("size", "2"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.content.length()").value(2))
+				.andExpect(jsonPath("$.data.content[0].exhibitionId").value(1))
+				.andExpect(jsonPath("$.data.content[1].exhibitionId").value(2))
+				.andExpect(jsonPath("$.data.nextCursor").value("cursor-after-2"))
+				.andExpect(jsonPath("$.data.hasNext").value(true))
+				.andExpect(jsonPath("$.data.totalCount").value(30));
+
+		then(exhibitionFacade).should(never()).search(argThat(c -> c != null && c.size() != null));
+	}
+
+	@Test
+	@DisplayName("기본 페이지가 요청 크기보다 짧으면 자르지 않고 그대로 준다 — 그 페이지가 곧 전부라 hasNext=false")
+	void 작은첫페이지_짧으면_그대로() throws Exception {
+		given(exhibitionFacade.servesFromCache(any(ExhibitionCriteria.Search.class))).willReturn(true);
+		given(exhibitionFacade.search(argThat(c -> c != null && c.size() == null)))
+				.willReturn(page(1, false, 1L, true));
+
+		mockMvc.perform(get("/api/v1/exhibitions").param("section", "free").param("size", "2"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.content.length()").value(1))
+				.andExpect(jsonPath("$.data.nextCursor").doesNotExist())
+				.andExpect(jsonPath("$.data.hasNext").value(false))
+				.andExpect(jsonPath("$.data.totalCount").value(1));
+	}
+
+	@Test
+	@DisplayName("캐시된 페이지에 항목별 커서가 없으면(배포 전에 담긴 값) 자르지 않고 원래 크기로 다시 읽는다")
+	void 작은첫페이지_항목커서없으면_원래크기로() throws Exception {
+		given(exhibitionFacade.servesFromCache(any(ExhibitionCriteria.Search.class))).willReturn(true);
+		given(exhibitionFacade.search(argThat(c -> c != null && c.size() == null)))
+				.willReturn(page(5, true, 30L, false));
+		given(exhibitionFacade.search(argThat(c -> c != null && Integer.valueOf(2).equals(c.size()))))
+				.willReturn(new ExhibitionResult.ListPage(List.of(item(1), item(2)), "db-cursor", true, 30L));
+
+		mockMvc.perform(get("/api/v1/exhibitions").param("section", "free").param("size", "2"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.content.length()").value(2))
+				.andExpect(jsonPath("$.data.nextCursor").value("db-cursor"));
+	}
+
+	@Test
+	@DisplayName("캐시 대상이 아닌 모양(필터·커서·캐시 꺼짐)은 요청 크기 그대로 읽는다")
+	void 작은첫페이지_캐시대상아니면_그대로() throws Exception {
+		given(exhibitionFacade.servesFromCache(any(ExhibitionCriteria.Search.class))).willReturn(false);
+		given(exhibitionFacade.search(any(ExhibitionCriteria.Search.class)))
+				.willReturn(new ExhibitionResult.ListPage(List.of(item(1)), null, false, 1L));
+
+		mockMvc.perform(get("/api/v1/exhibitions").param("section", "free").param("size", "2"))
+				.andExpect(status().isOk());
+
+		then(exhibitionFacade).should().search(argThat(c -> c != null && Integer.valueOf(2).equals(c.size())));
+		then(exhibitionFacade).should(never()).search(argThat(c -> c != null && c.size() == null));
+	}
+
+	@Test
+	@DisplayName("기본 크기 이상(size=20·30)은 자르지 않는다")
+	void 기본크기이상_자르지않는다() throws Exception {
+		given(exhibitionFacade.search(any(ExhibitionCriteria.Search.class)))
+				.willReturn(new ExhibitionResult.ListPage(List.of(), null, false, 0L));
+
+		mockMvc.perform(get("/api/v1/exhibitions").param("size", "30")).andExpect(status().isOk());
+
+		then(exhibitionFacade).should(never()).servesFromCache(any(ExhibitionCriteria.Search.class));
+		then(exhibitionFacade).should().search(argThat(c -> c != null && Integer.valueOf(30).equals(c.size())));
+	}
+
+	/** id 1..n 항목과 항목별 커서("cursor-after-i")를 가진 페이지. */
+	private static ExhibitionResult.ListPage page(int n, boolean hasNext, long total, boolean withItemCursors) {
+		List<ExhibitionResult.ListItem> items = LongStream.rangeClosed(1, n).mapToObj(i -> item((int) i)).toList();
+		List<String> cursors = withItemCursors
+				? LongStream.rangeClosed(1, n).mapToObj(i -> "cursor-after-" + i).toList()
+				: List.of();
+		return new ExhibitionResult.ListPage(items, hasNext ? "cursor-after-" + n : null, hasNext, total, cursors);
+	}
+
+	private static ExhibitionResult.ListItem item(int id) {
+		return new ExhibitionResult.ListItem((long) id, "CATALOG", "전시" + id, null,
+				LocalDate.of(2026, 6, 1), LocalDate.of(2026, 8, 31), "전시장", "SEOUL", "PAINTING",
+				null, 5, false, false);
 	}
 
 	private static ExhibitionResult.ListItem listItem() {
