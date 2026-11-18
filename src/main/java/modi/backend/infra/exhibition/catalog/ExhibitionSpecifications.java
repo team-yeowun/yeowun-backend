@@ -134,7 +134,7 @@ final class ExhibitionSpecifications {
 		return switch (query.sort()) {
 			case ENDING -> endingBoundary(root, cb, key, id);
 			case POPULAR -> {
-				// 인기 점수(소수 한 자리). V61 전에 발급된 커서(정수 조회수)도 오류 없이 읽히지만 뜻이 달라,
+				// 인기 점수(소수 한 자리). V62 전에 발급된 커서(정수 조회수)도 오류 없이 읽히지만 뜻이 달라,
 				// 그 커서로 넘긴 다음 페이지 한 번은 순서가 어긋날 수 있다(새로 첫 페이지를 받으면 맞는다).
 				// OR 형식을 유지한다 — 행 생성자 (score, id) < (k, i)는 인덱스 범위 스캔을 타지 못한다(랩 측정).
 				BigDecimal score = new BigDecimal(key);

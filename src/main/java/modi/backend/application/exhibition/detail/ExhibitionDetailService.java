@@ -26,7 +26,7 @@ import modi.backend.support.error.ErrorType;
  *
  * <p>사용자 상세는 <b>캐시에 담을 공용부({@link #assembleShared})</b>와 <b>요청자마다 달라지는 부분
  * ({@link #personalize})</b>으로 갈려 있다. 파사드가 그 사이에 캐시를 끼우기 때문이다. 조회수는
- * {@link #personalize}가 조회마다 DB 안에서 바로 더한다(인기 점수의 한 축, V61).
+ * {@link #personalize}가 조회마다 DB 안에서 바로 더한다(인기 점수의 한 축, V62).
  * 기록 생성·AI 입력이 쓰는 {@link #getForSnapshot}은 조회수·개인화 없이 같은 조립만 한다 — 사용자 행동이 아니기 때문이다.
  */
 @Service
@@ -72,7 +72,7 @@ public class ExhibitionDetailService {
 	 * - 조회수는 조회마다 DB 안에서 +1 하고, 더한 뒤의 값을 응답에 실음
 	 *   - 캐시 히트여도 이 메서드는 매번 지나므로 조회가 빠지지 않음
 	 *   - 캐시된 공용 상세의 조회수는 담길 때의 값이라 쓰지 않음
-	 *   - 예전엔 Redis에 모았다가 6시간마다 반영했다(V61에서 걷어냄 — 인기 점수가 바로 움직이게)
+	 *   - 예전엔 Redis에 모았다가 6시간마다 반영했다(V62에서 걷어냄 — 인기 점수가 바로 움직이게)
 	 */
 	@Transactional
 	public ExhibitionResult.Detail personalize(ExhibitionResult.Detail shared, Long requesterId) {

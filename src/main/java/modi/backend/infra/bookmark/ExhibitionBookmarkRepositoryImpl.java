@@ -16,7 +16,7 @@ import modi.backend.domain.bookmark.ExhibitionBookmarkRepository;
 /**
  * {@link ExhibitionBookmarkRepository} 어댑터(DIP). 토글은 (user, exhibition) 단건을 <b>잠가서</b> 로드해
  * Entity의 restore/delete로 멱등 처리한다 — soft-delete 행이 유니크 제약을 유지한 채 재활성된다.
- * 잠그는 이유는 "실제로 바뀌었는가"를 북마크 수(V61)가 믿기 때문이다. 잠그지 않으면 같은 해제 행을 동시에
+ * 잠그는 이유는 "실제로 바뀌었는가"를 북마크 수(V62)가 믿기 때문이다. 잠그지 않으면 같은 해제 행을 동시에
  * 되살리는 요청들이 모두 "해제 상태"를 읽고 모두 "바뀌었다"고 답해 수가 여러 번 오른다
  * (잠금을 빼면 {@code ExhibitionPopularityTest}의 8동시 재등록이 3번 모두 실패했다).
  */

@@ -33,7 +33,7 @@ public class ExhibitionQueryRepositoryImpl implements ExhibitionQueryRepository 
 	/**
 	 * <b>지역이 정확히 1개일 때만</b> 목록이 타야 하는 인덱스(V51) — 정렬 축별로 하나씩.
 	 * 슬라이스 SQL에 {@code USE INDEX (…)}로 실린다. 그 밖의 경우엔 힌트를 아예 붙이지 않는다.
-	 * 인기순은 V61부터 조회수 대신 인기 점수 인덱스 {@code (region, popularity_score DESC, id DESC)}를 지목한다.
+	 * 인기순은 V62부터 조회수 대신 인기 점수 인덱스 {@code (region, popularity_score DESC, id DESC)}를 지목한다.
 	 *
 	 * <p><b>왜 지역에만 힌트가 필요한가</b>: V49가 region을 이 테이블로 비정규화한 뒤 지역 술어는
 	 * 정렬 인덱스 스캔의 <b>잔여 필터</b>가 됐다. 그러면 정렬 순서대로 걸어가며 21건이 찰 때까지

@@ -113,7 +113,7 @@ public class ExhibitionFacade {
      *
      * - 상세 캐시는 Redis 하나뿐(로컬 복사본 없음) — 조회 순서는 Redis → DB
      *
-     * - 조회수는 V61부터 {@code personalize}가 조회마다 DB에서 +1 함(인기 점수의 한 축)
+     * - 조회수는 V62부터 {@code personalize}가 조회마다 DB에서 +1 함(인기 점수의 한 축)
      *   - 히트 시 조립 쿼리(SELECT)는 나가지 않지만, 조회수 UPDATE 한 문장은 히트여도 나감
      *   - 쓰기 트랜잭션이라 읽기 복제본이 아니라 원본으로 감
      *

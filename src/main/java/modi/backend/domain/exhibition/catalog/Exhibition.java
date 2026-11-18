@@ -164,7 +164,7 @@ public class Exhibition extends BaseEntity {
 	private long ourViewCount = 0;
 
 	/**
-	 * 인기 점수 = 북마크 수 × 0.7 + 조회수 × 0.3(인기순 정렬축, V61).
+	 * 인기 점수 = 북마크 수 × 0.7 + 조회수 × 0.3(인기순 정렬축, V62).
 	 *
 	 * <p>MySQL이 {@code bookmark_count}와 {@code our_view_count}에서 계산하는 <b>생성 컬럼</b>이라 앱은 읽기만 한다.
 	 * 북마크 수는 매핑하지 않는다 — 북마크 등록/해제 때 {@link ExhibitionRepository#changeBookmarkCount}가

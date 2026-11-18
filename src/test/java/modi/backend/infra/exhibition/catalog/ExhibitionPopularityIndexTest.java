@@ -14,7 +14,7 @@ import modi.backend.TestcontainersConfiguration;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
 
 /**
- * V61 인기 점수 인덱스의 <b>모양</b>을 고정한다.
+ * V62 인기 점수 인덱스의 <b>모양</b>을 고정한다.
  *
  * <p>인기순은 {@code popularity_score DESC, id DESC}로만 읽는다. 인덱스를 같은 방향(내림차순)으로 만들어
  * 역순 스캔 없이 정순으로 읽게 한다.

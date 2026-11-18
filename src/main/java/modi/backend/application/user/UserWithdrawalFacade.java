@@ -64,7 +64,7 @@ public class UserWithdrawalFacade {
 				.orElseThrow(() -> new CoreException(UserErrorCode.USER_NOT_FOUND));
 
 		softDeleteAll(recordJpaRepository, recordJpaRepository.findByUserIdAndDeletedAtIsNull(userId));
-		// 북마크는 해제한 만큼 전시의 북마크 수(인기 점수, V61)에서도 뺀다 — 같은 트랜잭션이라 함께 커밋된다.
+		// 북마크는 해제한 만큼 전시의 북마크 수(인기 점수, V62)에서도 뺀다 — 같은 트랜잭션이라 함께 커밋된다.
 		exhibitionBookmarkRepository.removeAllOf(userId)
 				.forEach(exhibitionId -> exhibitionRepository.changeBookmarkCount(exhibitionId, -1));
 		softDeleteAll(remindJpaRepository, remindJpaRepository.findByUserIdAndDeletedAtIsNull(userId));

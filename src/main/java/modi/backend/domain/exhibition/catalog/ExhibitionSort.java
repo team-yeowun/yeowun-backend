@@ -16,7 +16,7 @@ public enum ExhibitionSort {
 	LATEST("latest", "startDate", false),
 	/** 종료 임박순 — 종료일 오름차순. */
 	ENDING("ending", "endDate", true),
-	/** 인기순 — 인기 점수(북마크 수 × 0.7 + 조회수 × 0.3, V61 생성 컬럼) 내림차순. */
+	/** 인기순 — 인기 점수(북마크 수 × 0.7 + 조회수 × 0.3, V62 생성 컬럼) 내림차순. */
 	POPULAR("popular", "popularityScore", false),
 	/** 거리순 — DB 정렬 아님(좌표는 전시장에 있어 앱에서 계산·정렬한다). */
 	DISTANCE("distance", null, false);

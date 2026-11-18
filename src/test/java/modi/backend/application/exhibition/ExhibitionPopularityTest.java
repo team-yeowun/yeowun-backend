@@ -34,7 +34,7 @@ import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
 import modi.backend.support.time.AppTime;
 
 /**
- * 인기순 반정규화(V61): 인기 점수 = 북마크 수 × 0.7 + 조회수 × 0.3.
+ * 인기순 반정규화(V62): 인기 점수 = 북마크 수 × 0.7 + 조회수 × 0.3.
  *
  * <p>조회수와 북마크 수는 전시 행에 있고, 앱이 원장 쓰기(상세 조회, 북마크 행)와 <b>같은 요청에서 DB 안에서 바로</b>
  * 더한다(count = count + 1). 점수는 MySQL이 두 수에서 계산하는 생성 컬럼이라 앱이 쓰지 않는다.
