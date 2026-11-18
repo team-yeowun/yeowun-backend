@@ -24,7 +24,7 @@ import modi.backend.support.cache.MyCache;
  * - 히트율의 출처가 두 곳인 것이 요점
  *   - 계층별 히트/미스는 창구가 센 값({@link CacheLookupMetrics})
  *   - Redis의 {@code keyspace_hits}를 쓰지 않는 이유는 그 값이 인스턴스 전체 것이라
- *     랭킹 기록·AI 임시저장까지 섞여 캐시 히트율이 아니게 되기 때문
+ *     랭킹 기록과 AI 임시저장까지 섞여 캐시 히트율이 아니게 되기 때문
  *   - L1 축출·엔트리 수만 Caffeine 자체 통계에서 읽는다
  */
 @Service

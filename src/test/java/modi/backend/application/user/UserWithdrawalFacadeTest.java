@@ -85,7 +85,7 @@ class UserWithdrawalFacadeTest {
 	}
 
 	@Test
-	@DisplayName("탈퇴: 사용자가 만든 기록·리마인드·알림도 함께 soft-delete")
+	@DisplayName("탈퇴: 사용자가 만든 기록, 리마인드, 알림도 함께 soft-delete")
 	void 탈퇴_콘텐츠_cascade() {
 		given(userRepository.findById(1L)).willReturn(Optional.of(User.createGuest()));
 		Record record = mock(Record.class);
