@@ -27,7 +27,6 @@ import modi.backend.domain.exhibition.catalog.ExhibitionErrorCode;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlace;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlaceRepository;
 import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
-import modi.backend.domain.exhibition.catalog.ExhibitionViewCounter;
 import modi.backend.infra.record.RecordJpaRepository;
 import modi.backend.support.error.CoreException;
 import modi.backend.support.error.ErrorType;
@@ -49,7 +48,6 @@ class ExhibitionDetailTest {
 	private ExhibitionBookmarkRepository bookmarkRepository;
 	private RecordJpaRepository recordJpaRepository;
 	private ExhibitionPlaceRepository placeRepository;
-	private ExhibitionViewCounter viewCounter;
 	private ExhibitionDetailService detailService;
 
 	@BeforeEach
@@ -59,9 +57,8 @@ class ExhibitionDetailTest {
 		bookmarkRepository = mock(ExhibitionBookmarkRepository.class);
 		recordJpaRepository = mock(RecordJpaRepository.class);
 		placeRepository = mock(ExhibitionPlaceRepository.class);
-		viewCounter = mock(ExhibitionViewCounter.class);
 		detailService = new ExhibitionDetailService(exhibitionRepository, placeRepository, bookmarkRepository,
-				recordJpaRepository, viewCounter);
+				recordJpaRepository);
 		given(placeRepository.findById(anyLong())).willReturn(Optional.of(
 				ExhibitionPlace.createFromList("장소", null, null, null, null)));
 		given(placeRepository.findHours(anyLong())).willReturn(Optional.empty());
@@ -99,7 +96,7 @@ class ExhibitionDetailTest {
 		detailService.assembleShared(1L, null);
 
 		// 조회수는 personalize의 몫이다. 여기서 올리면 캐시 히트 경로가 조립을 건너뛰므로 조회가 세어지지 않는다.
-		verifyNoInteractions(viewCounter);
+		verify(exhibitionRepository, never()).increaseViewCount(anyLong());
 	}
 
 	@Test
@@ -129,16 +126,16 @@ class ExhibitionDetailTest {
 	}
 
 	@Test
-	@DisplayName("개인화 — 조회수는 정본 + 누산분으로 나간다")
-	void 개인화_조회수_정본더하기누산분() {
+	@DisplayName("개인화 — 조회수는 캐시된 값이 아니라 이번 조회를 더한 DB 값으로 나간다")
+	void 개인화_조회수_더한뒤의_DB값() {
 		Exhibition e = catalog("S2", 2L);
 		given(exhibitionRepository.findById(2L)).willReturn(Optional.of(e));
-		given(viewCounter.increase(2L)).willReturn(7L);   // 아직 반영되지 않은 누산분
+		given(exhibitionRepository.increaseViewCount(2L)).willReturn(7L);   // 이번 조회까지 더한 DB 값
 
 		ExhibitionResult.Detail shared = detailService.assembleShared(2L, null).detail();
 
 		assertThatCode(() -> detailService.personalize(shared, null)).doesNotThrowAnyException();
-		// 정본(0) + 누산분(7). 배치가 옮기기 전에도 사용자가 보는 수는 즉시 오른다.
+		// 공용 상세는 담길 때의 값(0)을 들고 있다. 응답은 DB에서 더한 뒤의 값이다.
 		assertThat(detailService.personalize(shared, null).viewCount()).isEqualTo(7);
 	}
 
@@ -181,7 +178,7 @@ class ExhibitionDetailTest {
 		detailService.personalize(shared, null);
 		detailService.personalize(shared, null);
 
-		verify(viewCounter, org.mockito.Mockito.times(2)).increase(2L);
+		verify(exhibitionRepository, org.mockito.Mockito.times(2)).increaseViewCount(2L);
 	}
 
 	@Test

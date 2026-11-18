@@ -4,7 +4,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import modi.backend.domain.exhibition.genre.GenreResult;
@@ -44,13 +43,17 @@ public interface ExhibitionRepository {
 	long countActiveByIds(Collection<Long> ids);
 
 	/**
-	 * 누산된 조회수 델타(전시 id → 증가량)를 일괄 반영한다. 반환은 실제로 갱신된 행 수
-	 * (그 사이 삭제된 전시는 빠지므로 입력 크기보다 작을 수 있다).
-	 *
-	 * <p>조회 경로는 {@link ExhibitionViewCounter}에 누산만 하고, 이 메서드가 배치로 옮긴다 —
-	 * {@code our_view_count}는 인덱스가 둘 걸린 인기순 정렬축이라 요청마다 올리면 인기 있는 행일수록 쓰기가 몰린다.
+	 * 조회 1회를 DB 안에서 제자리에서 더하고(count = count + 1) <b>더한 뒤의 조회수</b>를 돌려준다.
+	 * 읽어서 더해 저장하지 않는다 — 동시 조회끼리 값을 덮어쓰지 않게 하는 것이 요점이다.
+	 * 인기 점수(생성 컬럼)는 MySQL이 같은 문장에서 다시 계산한다.
 	 */
-	int increaseViewCounts(Map<Long, Long> deltas);
+	long increaseViewCount(Long exhibitionId);
+
+	/**
+	 * 북마크 수를 DB 안에서 제자리에서 {@code delta}만큼 바꾼다(등록 +1, 해제 -1). 북마크 행이 <b>실제로</b>
+	 * 등록/해제된 트랜잭션 안에서만 부른다 — 이미 등록인데 또 등록하는 요청은 수를 바꾸지 않는다.
+	 */
+	void changeBookmarkCount(Long exhibitionId, long delta);
 
 	/**
 	 * 주어진 id들을 <b>종료일 오름차순(nulls last)·id 오름차순</b>으로 한 페이지 조회한다(관심 전시 "종료 임박순").

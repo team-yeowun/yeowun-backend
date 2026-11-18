@@ -25,16 +25,25 @@ public interface ExhibitionJpaRepository
 	Optional<Exhibition> findByExternalIdAndDeletedAtIsNull(String externalId);
 
 	/**
-	 * 누산된 조회수 델타를 더한다(배치 반영). 읽지 않고 <b>제자리에서 더하는</b> 것이 요점이다 —
-	 * 두 인스턴스가 같은 행을 올려도 값이 덮어써지지 않는다.
+	 * 조회 1회를 더한다. 읽지 않고 <b>제자리에서 더하는</b> 것이 요점이다 — 동시 조회가 같은 행을 올려도
+	 * 값이 덮어써지지 않는다. 엔티티는 이 컬럼을 쓰지 않으므로(updatable = false) 네이티브 문장으로 더한다.
 	 *
 	 * <p>영속성 컨텍스트를 우회하는 벌크 갱신이라 {@code clearAutomatically}로 1차 캐시를 비운다.
 	 * 그러지 않으면 같은 트랜잭션에서 곧바로 읽은 엔티티가 <b>갱신 전 값</b>을 들고 있다.
 	 */
 	@Modifying(clearAutomatically = true, flushAutomatically = true)
-	@Query("update Exhibition e set e.ourViewCount = e.ourViewCount + :delta "
-			+ "where e.id = :id and e.deletedAt is null")
-	int increaseViewCount(@Param("id") Long id, @Param("delta") long delta);
+	@Query(value = "update exhibitions set our_view_count = our_view_count + 1 where id = :id", nativeQuery = true)
+	int increaseViewCount(@Param("id") Long id);
+
+	/** 조회수 한 값(방금 더한 값을 같은 트랜잭션에서 돌려줄 때). */
+	@Query(value = "select our_view_count from exhibitions where id = :id", nativeQuery = true)
+	Optional<Long> findViewCount(@Param("id") Long id);
+
+	/** 북마크 수를 제자리에서 바꾼다(엔티티는 이 컬럼을 매핑하지 않는다 — 점수로만 본다). */
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query(value = "update exhibitions set bookmark_count = bookmark_count + :delta where id = :id",
+			nativeQuery = true)
+	int changeBookmarkCount(@Param("id") Long id, @Param("delta") long delta);
 
 	/** 단건 조회(살아있는 행만). 필터를 앱이 아니라 WHERE에 둬 인덱스에 태운다. */
 	Optional<Exhibition> findByIdAndDeletedAtIsNull(Long id);

@@ -25,8 +25,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -74,7 +73,7 @@ class ExhibitionListCacheHitIntegrationTest {
 	@Autowired
 	private ExhibitionPlaceRepository exhibitionPlaceRepository;
 	@Autowired
-	private PlatformTransactionManager transactionManager;
+	private JdbcTemplate jdbc;
 
 	/**
 	 * - 세 홈 섹션(곧 종료·무료·이번 달 신규)과 탐색 첫 페이지에 동시에 걸리는 진행 중 전시 25건
@@ -96,8 +95,8 @@ class ExhibitionListCacheHitIntegrationTest {
 			Exhibition saved = exhibitionRepository.save(e);
 			views.put(saved.getId(), 100_000L + (i % 7) * 10);
 		}
-		new TransactionTemplate(transactionManager).executeWithoutResult(
-				status -> exhibitionRepository.increaseViewCounts(views));
+		// 인기순 축(점수 = 조회 × 0.3)이 실제로 갈리도록 조회수를 직접 넣는다. 앱은 이 컬럼을 상세 조회마다 +1만 한다.
+		views.forEach((id, count) -> jdbc.update("update exhibitions set our_view_count = ? where id = ?", count, id));
 		비우기();
 	}
 

@@ -9,7 +9,6 @@ import modi.backend.application.exhibition.custom.ExhibitionCustomService;
 import modi.backend.application.exhibition.detail.ExhibitionDetailService;
 import modi.backend.application.exhibition.ranking.ExhibitionRankingService;
 import modi.backend.application.exhibition.list.ExhibitionListService;
-import modi.backend.application.exhibition.view.ExhibitionViewCountService;
 import modi.backend.support.cache.CacheManager;
 import modi.backend.support.cache.MyCache;
 import org.springframework.stereotype.Service;
@@ -33,7 +32,6 @@ public class ExhibitionFacade {
     private final ExhibitionRankingService exhibitionRankingService;
     private final ExhibitionDetailService exhibitionDetailService;
     private final ExhibitionCustomService exhibitionCustomService;
-    private final ExhibitionViewCountService exhibitionViewCountService;
     private final CacheManager cacheManager;
 
     /**
@@ -115,10 +113,9 @@ public class ExhibitionFacade {
      *
      * - 상세 캐시는 Redis 하나뿐(로컬 복사본 없음) — 조회 순서는 Redis → DB
      *
-     * - 조회수는 PR #155 이후 누산기로만 가므로 이 경로에 DB 쓰기가 없음
-     *   - 히트 시 조립 쿼리(SELECT)는 나가지 않음
-     *   - 다만 {@code personalize}가 읽기 트랜잭션이라, 복제본 라우팅(지연 커넥션)이 없는 구성에서는
-     *     히트여도 커넥션을 잡고 트랜잭션 문장(SET·COMMIT)이 나감
+     * - 조회수는 V62부터 {@code personalize}가 조회마다 DB에서 +1 함(인기 점수의 한 축)
+     *   - 히트 시 조립 쿼리(SELECT)는 나가지 않지만, 조회수 UPDATE 한 문장은 히트여도 나감
+     *   - 쓰기 트랜잭션이라 읽기 복제본이 아니라 원본으로 감
      *
      * - 랭킹 기록도 Redis에만 감 (캐시 히트 여부와 무관하게 조회 1번 = 기록 1번)
      */
@@ -159,13 +156,6 @@ public class ExhibitionFacade {
      */
     public void deleteCustomOwnedBy(Long exhibitionId, Long ownerId) {
         exhibitionCustomService.deleteCustomOwnedBy(exhibitionId, ownerId);
-    }
-
-    /**
-     * 누산된 조회수를 정본에 반영한다(6시간 배치 진입점). 사용자 요청이 아니라 스케줄러가 부르지만, interfaces가 서비스를 직접 부르지 않도록 진입점은 파사드에 둔다.
-     */
-    public ExhibitionResult.ViewCountFlush flushViewCounts() {
-        return exhibitionViewCountService.flush();
     }
 
     /**

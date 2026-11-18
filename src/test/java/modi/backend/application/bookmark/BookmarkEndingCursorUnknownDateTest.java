@@ -16,7 +16,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import modi.backend.TestcontainersConfiguration;
 import modi.backend.application.exhibition.ExhibitionResult;
-import modi.backend.domain.bookmark.ExhibitionBookmarkRepository;
 import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlaceRepository;
@@ -49,8 +48,6 @@ class BookmarkEndingCursorUnknownDateTest {
 	@Autowired
 	BookmarkFacade bookmarkFacade;
 	@Autowired
-	ExhibitionBookmarkRepository bookmarkRepository;
-	@Autowired
 	ExhibitionRepository exhibitionRepository;
 	@Autowired
 	ExhibitionPlaceRepository exhibitionPlaceRepository;
@@ -72,7 +69,8 @@ class BookmarkEndingCursorUnknownDateTest {
 		Long 미상B = 전시(today.minusDays(2), null);
 		Long 미상C = 전시(null, null);
 
-		List.of(endsIn12, 미상B, endsIn1, 미상C, endsIn5, 미상A).forEach(id -> bookmarkRepository.add(userId, id));
+		List.of(endsIn12, 미상B, endsIn1, 미상C, endsIn5, 미상A).forEach(
+				id -> bookmarkFacade.add(new BookmarkCriteria.Toggle(userId, id)));
 
 		List<Long> 순회 = 전페이지(userId, "ending", 2);
 
@@ -96,7 +94,8 @@ class BookmarkEndingCursorUnknownDateTest {
 		Long 미상A = 전시(today.minusDays(3), null);
 		Long 미상B = 전시(today.minusDays(2), null);
 		Long 미상C = 전시(null, null);
-		List.of(endsIn1, 미상A, 미상B, 미상C).forEach(id -> bookmarkRepository.add(userId, id));
+		List.of(endsIn1, 미상A, 미상B, 미상C).forEach(
+				id -> bookmarkFacade.add(new BookmarkCriteria.Toggle(userId, id)));
 
 		List<Long> 전체 = 전페이지(userId, "ending", 2);
 		List<Long> 미상블록 = 전체.subList(1, 4);

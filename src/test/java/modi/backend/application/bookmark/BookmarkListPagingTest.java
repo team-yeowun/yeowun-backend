@@ -16,7 +16,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import modi.backend.TestcontainersConfiguration;
 import modi.backend.application.exhibition.ExhibitionResult;
-import modi.backend.domain.bookmark.ExhibitionBookmarkRepository;
 import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlaceRepository;
@@ -45,8 +44,6 @@ class BookmarkListPagingTest {
 	@Autowired
 	BookmarkFacade bookmarkFacade;
 	@Autowired
-	ExhibitionBookmarkRepository bookmarkRepository;
-	@Autowired
 	ExhibitionRepository exhibitionRepository;
 	@Autowired
 	ExhibitionPlaceRepository exhibitionPlaceRepository;
@@ -62,7 +59,7 @@ class BookmarkListPagingTest {
 		List<Long> registered = new ArrayList<>();
 		for (int i = 0; i < 7; i++) {
 			Long id = 전시(today.minusDays(i), today.plusDays(30 - i));
-			bookmarkRepository.add(userId, id);
+			bookmarkFacade.add(new BookmarkCriteria.Toggle(userId, id));
 			registered.add(id);
 		}
 		// 등록 최신순 = 마지막에 담은 것이 맨 앞
@@ -84,7 +81,8 @@ class BookmarkListPagingTest {
 		Long endsIn12 = 전시(today.minusDays(1), today.plusDays(12));
 		Long endsIn1 = 전시(today.minusDays(1), today.plusDays(1));
 		Long endsIn30 = 전시(today.minusDays(1), today.plusDays(30));
-		List.of(endsIn20, endsIn5, endsIn12, endsIn1, endsIn30).forEach(id -> bookmarkRepository.add(userId, id));
+		List.of(endsIn20, endsIn5, endsIn12, endsIn1, endsIn30).forEach(
+				id -> bookmarkFacade.add(new BookmarkCriteria.Toggle(userId, id)));
 
 		List<Long> actual = 전페이지(userId, "ending", 2);
 
@@ -98,8 +96,8 @@ class BookmarkListPagingTest {
 		LocalDate today = LocalDate.now(AppTime.KST);
 		Long alive = 전시(today.minusDays(1), today.plusDays(10));
 		Long removed = 전시(today.minusDays(1), today.plusDays(10));
-		bookmarkRepository.add(userId, alive);
-		bookmarkRepository.add(userId, removed);
+		bookmarkFacade.add(new BookmarkCriteria.Toggle(userId, alive));
+		bookmarkFacade.add(new BookmarkCriteria.Toggle(userId, removed));
 		exhibitionRepository.findById(removed).ifPresent(e -> {
 			e.delete();
 			exhibitionRepository.save(e);

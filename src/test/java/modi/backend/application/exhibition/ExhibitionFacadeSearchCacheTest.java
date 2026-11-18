@@ -25,7 +25,6 @@ import modi.backend.application.exhibition.custom.ExhibitionCustomService;
 import modi.backend.application.exhibition.detail.ExhibitionDetailService;
 import modi.backend.application.exhibition.list.ExhibitionListService;
 import modi.backend.application.exhibition.ranking.ExhibitionRankingService;
-import modi.backend.application.exhibition.view.ExhibitionViewCountService;
 import modi.backend.support.cache.CacheManager;
 
 /**
@@ -48,8 +47,6 @@ class ExhibitionFacadeSearchCacheTest {
 	private ExhibitionDetailService exhibitionDetailService;
 	@Mock
 	private ExhibitionCustomService exhibitionCustomService;
-	@Mock
-	private ExhibitionViewCountService exhibitionViewCountService;
 	@Mock
 	private CacheManager cacheManager;
 
@@ -155,7 +152,7 @@ class ExhibitionFacadeSearchCacheTest {
 		facade.search(new ExhibitionCriteria.Search(null, null, null, null, null, null, "popular", null, null,
 				null, null, 100L));
 
-		verify(cacheManager).getOrPut(org.mockito.ArgumentMatchers.eq(ExhibitionCache.ExplorePopularP1.INSTANCE),
+		verify(cacheManager).getOrPut(org.mockito.ArgumentMatchers.eq(ExhibitionCache.ExplorePopularScoreP1.INSTANCE),
 				org.mockito.ArgumentMatchers.eq(ExhibitionCache.ENTRY_KEY), any(), any());
 	}
 }

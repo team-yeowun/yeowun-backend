@@ -38,19 +38,27 @@ public class BookmarkFacade {
 	private final ExhibitionRepository exhibitionRepository;
 	private final ExhibitionPlaceRepository exhibitionPlaceRepository;
 
-	/** 관심 등록(6.1, 멱등). 없는 전시면 404. 반환은 항상 bookmarked=true. */
+	/**
+	 * 관심 등록(6.1, 멱등). 없는 전시면 404. 반환은 항상 bookmarked=true.
+	 * 북마크 행이 <b>실제로</b> 등록됐을 때만 전시의 북마크 수를 +1 한다(인기 점수, V62). 두 쓰기는 한 트랜잭션이라
+	 * 함께 커밋되거나 함께 롤백된다.
+	 */
 	@Transactional
 	public BookmarkResult.Toggle add(BookmarkCriteria.Toggle criteria) {
 		ensureExhibitionExists(criteria.exhibitionId());
-		exhibitionBookmarkRepository.add(criteria.userId(), criteria.exhibitionId());
+		if (exhibitionBookmarkRepository.add(criteria.userId(), criteria.exhibitionId())) {
+			exhibitionRepository.changeBookmarkCount(criteria.exhibitionId(), 1);
+		}
 		return new BookmarkResult.Toggle(criteria.exhibitionId(), true);
 	}
 
-	/** 관심 해제(6.2, 멱등). 없는 전시면 404. 반환은 항상 bookmarked=false. */
+	/** 관심 해제(6.2, 멱등). 없는 전시면 404. 반환은 항상 bookmarked=false. 실제로 해제됐을 때만 수를 -1 한다. */
 	@Transactional
 	public BookmarkResult.Toggle remove(BookmarkCriteria.Toggle criteria) {
 		ensureExhibitionExists(criteria.exhibitionId());
-		exhibitionBookmarkRepository.remove(criteria.userId(), criteria.exhibitionId());
+		if (exhibitionBookmarkRepository.remove(criteria.userId(), criteria.exhibitionId())) {
+			exhibitionRepository.changeBookmarkCount(criteria.exhibitionId(), -1);
+		}
 		return new BookmarkResult.Toggle(criteria.exhibitionId(), false);
 	}
 

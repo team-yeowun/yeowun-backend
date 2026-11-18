@@ -7,8 +7,11 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import jakarta.persistence.LockModeType;
 
 import modi.backend.domain.bookmark.ExhibitionBookmark;
 
@@ -52,6 +55,13 @@ public interface ExhibitionBookmarkJpaRepository extends JpaRepository<Exhibitio
 			+ "where b.userId in :userIds and b.deletedAt is null group by b.userId")
 	List<Object[]> countByUserIds(@Param("userIds") List<Long> userIds);
 
-	/** 탈퇴 cascade용: 사용자의 살아있는 북마크 전부. */
-	List<ExhibitionBookmark> findByUserIdAndDeletedAtIsNull(Long userId);
+	/** 토글 판정용 단건 — 행을 잠근다(SELECT … FOR UPDATE). 행이 없으면 그 자리의 간격을 잠근다. */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select b from ExhibitionBookmark b where b.userId = :userId and b.exhibitionId = :exhibitionId")
+	Optional<ExhibitionBookmark> findForUpdate(@Param("userId") Long userId, @Param("exhibitionId") Long exhibitionId);
+
+	/** 회원 탈퇴용 — 사용자의 활성 북마크를 잠가서 읽는다(같은 순간의 해제와 겹쳐 수를 두 번 빼지 않게). */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select b from ExhibitionBookmark b where b.userId = :userId and b.deletedAt is null")
+	List<ExhibitionBookmark> findActiveByUserIdForUpdate(@Param("userId") Long userId);
 }

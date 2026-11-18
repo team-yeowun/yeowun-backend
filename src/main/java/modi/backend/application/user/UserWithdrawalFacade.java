@@ -8,11 +8,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import modi.backend.domain.auth.RefreshTokenStore;
+import modi.backend.domain.bookmark.ExhibitionBookmarkRepository;
+import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
 import modi.backend.domain.user.SocialAccount;
 import modi.backend.domain.user.User;
 import modi.backend.domain.user.UserErrorCode;
 import modi.backend.domain.user.UserRepository;
-import modi.backend.infra.bookmark.ExhibitionBookmarkJpaRepository;
 import modi.backend.infra.notification.NotificationJpaRepository;
 import modi.backend.infra.record.RecordJpaRepository;
 import modi.backend.infra.remind.RemindJpaRepository;
@@ -47,7 +48,8 @@ public class UserWithdrawalFacade {
 	private final UserRepository userRepository;
 	private final SocialAccountJpaRepository socialAccountJpaRepository;
 	private final RecordJpaRepository recordJpaRepository;
-	private final ExhibitionBookmarkJpaRepository exhibitionBookmarkJpaRepository;
+	private final ExhibitionBookmarkRepository exhibitionBookmarkRepository;
+	private final ExhibitionRepository exhibitionRepository;
 	private final RemindJpaRepository remindJpaRepository;
 	private final NotificationJpaRepository notificationJpaRepository;
 	private final RefreshTokenStore refreshTokenStore;
@@ -62,8 +64,9 @@ public class UserWithdrawalFacade {
 				.orElseThrow(() -> new CoreException(UserErrorCode.USER_NOT_FOUND));
 
 		softDeleteAll(recordJpaRepository, recordJpaRepository.findByUserIdAndDeletedAtIsNull(userId));
-		softDeleteAll(exhibitionBookmarkJpaRepository,
-				exhibitionBookmarkJpaRepository.findByUserIdAndDeletedAtIsNull(userId));
+		// 북마크는 해제한 만큼 전시의 북마크 수(인기 점수, V62)에서도 뺀다 — 같은 트랜잭션이라 함께 커밋된다.
+		exhibitionBookmarkRepository.removeAllOf(userId)
+				.forEach(exhibitionId -> exhibitionRepository.changeBookmarkCount(exhibitionId, -1));
 		softDeleteAll(remindJpaRepository, remindJpaRepository.findByUserIdAndDeletedAtIsNull(userId));
 		softDeleteAll(notificationJpaRepository,
 				notificationJpaRepository.findByUserIdAndDeletedAtIsNull(userId));

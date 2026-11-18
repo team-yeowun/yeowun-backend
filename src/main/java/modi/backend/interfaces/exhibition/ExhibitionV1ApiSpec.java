@@ -83,7 +83,7 @@ public interface ExhibitionV1ApiSpec {
 			@Parameter(description = "카테고리 코드 콤마 다중(PAINTING·PHOTO·MEDIA·SCULPTURE·DESIGN·CRAFT·"
 					+ "ARCHITECTURE·PERFORMANCE·ETC)", example = "PHOTO,MEDIA") String category,
 			@Parameter(description = "해당 날짜에 진행 중인 전시(YYYY-MM-DD)", example = "2026-06-30") String date,
-			@Parameter(description = "정렬 코드. latest=시작일 최신순(기본), ending=종료일 임박순, popular=조회수 많은순, "
+			@Parameter(description = "정렬 코드. latest=시작일 최신순(기본), ending=종료일 임박순, popular=인기 점수 높은순(관심 수 × 0.7 + 조회수 × 0.3), "
 					+ "distance=거리순(lat·lng 필수)", example = "latest",
 					schema = @Schema(allowableValues = { "latest", "ending", "popular", "distance" })) String sort,
 			@Parameter(description = "위도(sort=distance 필수)", example = "37.5033") Double lat,

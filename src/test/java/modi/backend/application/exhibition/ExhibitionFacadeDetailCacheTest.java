@@ -26,7 +26,6 @@ import modi.backend.application.exhibition.custom.ExhibitionCustomService;
 import modi.backend.application.exhibition.detail.ExhibitionDetailService;
 import modi.backend.application.exhibition.list.ExhibitionListService;
 import modi.backend.application.exhibition.ranking.ExhibitionRankingService;
-import modi.backend.application.exhibition.view.ExhibitionViewCountService;
 import modi.backend.support.cache.CacheManager;
 import modi.backend.support.error.CoreException;
 import modi.backend.support.error.ErrorType;
@@ -50,8 +49,6 @@ class ExhibitionFacadeDetailCacheTest {
 	private ExhibitionDetailService exhibitionDetailService;
 	@Mock
 	private ExhibitionCustomService exhibitionCustomService;
-	@Mock
-	private ExhibitionViewCountService exhibitionViewCountService;
 	@Mock
 	private CacheManager cacheManager;
 

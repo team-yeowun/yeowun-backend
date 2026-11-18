@@ -16,8 +16,8 @@ public enum ExhibitionSort {
 	LATEST("latest", "startDate", false),
 	/** 종료 임박순 — 종료일 오름차순. */
 	ENDING("ending", "endDate", true),
-	/** 인기순 — 우리 앱 조회수 내림차순. */
-	POPULAR("popular", "ourViewCount", false),
+	/** 인기순 — 인기 점수(북마크 수 × 0.7 + 조회수 × 0.3, V62 생성 컬럼) 내림차순. */
+	POPULAR("popular", "popularityScore", false),
 	/** 거리순 — DB 정렬 아님(좌표는 전시장에 있어 앱에서 계산·정렬한다). */
 	DISTANCE("distance", null, false);
 
@@ -81,7 +81,8 @@ public enum ExhibitionSort {
 	public String cursorKeyOf(Exhibition exhibition) {
 		return switch (this) {
 			case ENDING -> exhibition.endDateKey().toString();
-			case POPULAR -> String.valueOf(exhibition.getOurViewCount());
+			// 점수는 소수 한 자리(decimal(22,1))다. 지수 표기 없이 저장값 그대로 싣는다.
+			case POPULAR -> exhibition.getPopularityScore().toPlainString();
 			case LATEST -> exhibition.startDateKey().toString();
 			case DISTANCE -> null; // 거리는 앱이 계산한 값이라 호출부가 직접 싣는다
 		};
