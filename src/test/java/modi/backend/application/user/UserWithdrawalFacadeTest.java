@@ -17,14 +17,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import modi.backend.domain.auth.RefreshTokenStore;
-import modi.backend.domain.bookmark.ExhibitionBookmark;
 import modi.backend.domain.notification.Notification;
 import modi.backend.domain.record.Record;
 import modi.backend.domain.remind.Remind;
 import modi.backend.domain.user.SocialAccount;
 import modi.backend.domain.user.User;
 import modi.backend.domain.user.UserRepository;
-import modi.backend.infra.bookmark.ExhibitionBookmarkJpaRepository;
+import modi.backend.domain.bookmark.ExhibitionBookmarkRepository;
+import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
 import modi.backend.infra.notification.NotificationJpaRepository;
 import modi.backend.infra.record.RecordJpaRepository;
 import modi.backend.infra.remind.RemindJpaRepository;
@@ -42,7 +42,8 @@ class UserWithdrawalFacadeTest {
 	private UserRepository userRepository;
 	private SocialAccountJpaRepository socialAccountJpaRepository;
 	private RecordJpaRepository recordJpaRepository;
-	private ExhibitionBookmarkJpaRepository bookmarkJpaRepository;
+	private ExhibitionBookmarkRepository bookmarkRepository;
+	private ExhibitionRepository exhibitionRepository;
 	private RemindJpaRepository remindJpaRepository;
 	private NotificationJpaRepository notificationJpaRepository;
 	private RefreshTokenStore refreshTokenStore;
@@ -53,19 +54,21 @@ class UserWithdrawalFacadeTest {
 		userRepository = mock(UserRepository.class);
 		socialAccountJpaRepository = mock(SocialAccountJpaRepository.class);
 		recordJpaRepository = mock(RecordJpaRepository.class);
-		bookmarkJpaRepository = mock(ExhibitionBookmarkJpaRepository.class);
+		bookmarkRepository = mock(ExhibitionBookmarkRepository.class);
+		exhibitionRepository = mock(ExhibitionRepository.class);
 		remindJpaRepository = mock(RemindJpaRepository.class);
 		notificationJpaRepository = mock(NotificationJpaRepository.class);
 		refreshTokenStore = mock(RefreshTokenStore.class);
 
 		given(recordJpaRepository.findByUserIdAndDeletedAtIsNull(anyLong())).willReturn(List.of());
-		given(bookmarkJpaRepository.findByUserIdAndDeletedAtIsNull(anyLong())).willReturn(List.of());
+		given(bookmarkRepository.removeAllOf(anyLong())).willReturn(List.of());
 		given(remindJpaRepository.findByUserIdAndDeletedAtIsNull(anyLong())).willReturn(List.of());
 		given(notificationJpaRepository.findByUserIdAndDeletedAtIsNull(anyLong())).willReturn(List.of());
 		given(socialAccountJpaRepository.findByUserIdAndDeletedAtIsNull(anyLong())).willReturn(List.of());
 
 		facade = new UserWithdrawalFacade(userRepository, socialAccountJpaRepository, recordJpaRepository,
-				bookmarkJpaRepository, remindJpaRepository, notificationJpaRepository, refreshTokenStore);
+				bookmarkRepository, exhibitionRepository, remindJpaRepository, notificationJpaRepository,
+				refreshTokenStore);
 	}
 
 	@Test
@@ -82,29 +85,37 @@ class UserWithdrawalFacadeTest {
 	}
 
 	@Test
-	@DisplayName("탈퇴: 사용자가 만든 기록·북마크·리마인드·알림도 함께 soft-delete")
+	@DisplayName("탈퇴: 사용자가 만든 기록, 리마인드, 알림도 함께 soft-delete")
 	void 탈퇴_콘텐츠_cascade() {
 		given(userRepository.findById(1L)).willReturn(Optional.of(User.createGuest()));
 		Record record = mock(Record.class);
-		ExhibitionBookmark bookmark = mock(ExhibitionBookmark.class);
 		Remind remind = mock(Remind.class);
 		Notification notification = mock(Notification.class);
 		given(recordJpaRepository.findByUserIdAndDeletedAtIsNull(1L)).willReturn(List.of(record));
-		given(bookmarkJpaRepository.findByUserIdAndDeletedAtIsNull(1L)).willReturn(List.of(bookmark));
 		given(remindJpaRepository.findByUserIdAndDeletedAtIsNull(1L)).willReturn(List.of(remind));
 		given(notificationJpaRepository.findByUserIdAndDeletedAtIsNull(1L)).willReturn(List.of(notification));
 
 		facade.withdraw(1L);
 
 		verify(record).delete();
-		verify(bookmark).delete();
 		verify(remind).delete();
 		verify(notification).delete();
 		// 저장 지점을 코드에 남긴다(dirty checking 의존 금지 — 컨벤션)
 		verify(recordJpaRepository).saveAll(List.of(record));
-		verify(bookmarkJpaRepository).saveAll(List.of(bookmark));
 		verify(remindJpaRepository).saveAll(List.of(remind));
 		verify(notificationJpaRepository).saveAll(List.of(notification));
+	}
+
+	@Test
+	@DisplayName("탈퇴: 북마크를 모두 해제하고, 해제한 전시마다 북마크 수(인기 점수)를 1씩 뺀다")
+	void 탈퇴_북마크_해제와_수_감소() {
+		given(userRepository.findById(1L)).willReturn(Optional.of(User.createGuest()));
+		given(bookmarkRepository.removeAllOf(1L)).willReturn(List.of(10L, 11L));
+
+		facade.withdraw(1L);
+
+		verify(exhibitionRepository).changeBookmarkCount(10L, -1);
+		verify(exhibitionRepository).changeBookmarkCount(11L, -1);
 	}
 
 	@Test

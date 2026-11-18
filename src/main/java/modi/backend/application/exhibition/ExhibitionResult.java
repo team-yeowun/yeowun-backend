@@ -2,6 +2,8 @@ package modi.backend.application.exhibition;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.domain.exhibition.catalog.ExhibitionCategory;
@@ -12,6 +14,8 @@ import modi.backend.domain.exhibition.catalog.ExhibitionPlace;
 import modi.backend.domain.exhibition.catalog.ExhibitionRegion;
 import modi.backend.domain.exhibition.catalog.ExhibitionRegionGroup;
 import modi.backend.domain.exhibition.hours.PlaceHours;
+import modi.backend.domain.exhibition.ranking.RankingEntry;
+import modi.backend.domain.exhibition.ranking.RankingType;
 
 /**
  * 전시 유스케이스 출력 모음. (Facade는 Result까지만)
@@ -33,7 +37,34 @@ public final class ExhibitionResult {
 	 * 구조 변경 비용 회피). 목록이 count 지연에 묶이는 대가는 count 자체를 싸게 만드는 것(커버링 인덱스·
 	 * 다중지역 힌트)으로 갚았다. 목록 없이 숫자만 필요한 화면(필터 시트)은 {@link Count}를 쓸 수 있다.
 	 */
-	public record ListPage(List<ListItem> content, String nextCursor, boolean hasNext, long totalCount) {
+	public record ListPage(List<ListItem> content, String nextCursor, boolean hasNext, long totalCount,
+			List<String> itemCursors) {
+
+		/**
+		 * - {@code itemCursors}: 항목마다 "이 항목 다음부터 읽는" 커서(content와 같은 순서·같은 길이)
+		 *   - 응답에는 나가지 않음. 마지막 항목의 커서가 곧 {@code nextCursor}
+		 *   - 작은 첫 페이지(홈 섹션 size=2 등)를 캐시된 기본 크기 페이지에서 잘라 줄 때, 자른 지점의 커서가 필요해 둠
+		 *   - 커서 값은 정렬 축마다 다르고 저장값(센티널 포함)을 실어야 해서 화면 쪽이 항목만 보고는 만들 수 없음
+		 *
+		 * - 없으면 빈 목록으로 둠
+		 *   - 이 필드가 생기기 전에 Redis에 담긴 페이지를 읽어도 깨지지 않게 하려는 것
+		 *   - 그때 자를 수 없다는 사실은 {@link #cursorAfter}가 빈 값으로 알려 줌
+		 */
+		public ListPage {
+			itemCursors = itemCursors == null ? List.of() : List.copyOf(itemCursors);
+		}
+
+		/** 항목별 커서를 들고 다니지 않는 페이지(자를 일이 없는 경로·테스트). */
+		public ListPage(List<ListItem> content, String nextCursor, boolean hasNext, long totalCount) {
+			this(content, nextCursor, hasNext, totalCount, List.of());
+		}
+
+		/** {@code index}번째 항목 다음부터 읽는 커서. 항목별 커서가 없으면 빈 값. */
+		public Optional<String> cursorAfter(int index) {
+			return index >= 0 && index < itemCursors.size()
+					? Optional.of(itemCursors.get(index))
+					: Optional.empty();
+		}
 	}
 
 	/**
@@ -157,8 +188,8 @@ public final class ExhibitionResult {
 		}
 
 		/**
-		 * 조회수만 갈아 끼운다. 정본은 배치가 6시간마다 반영하므로, 응답에는
-		 * <b>정본 + 아직 반영되지 않은 누산분</b>을 합쳐 내보내야 사용자가 보는 수가 즉시 오른다.
+		 * 조회수만 갈아 끼운다. 캐시된 공용 상세는 담길 때의 조회수를 들고 있으므로, 응답에는
+		 * 이번 조회를 더한 <b>DB의 현재 값</b>을 실어야 사용자가 보는 수가 바로 오른다.
 		 */
 		public Detail withViewCount(long value) {
 			return new Detail(exhibitionId, type, title, posterUrl, startDate, endDate, place, region, category,
@@ -200,10 +231,30 @@ public final class ExhibitionResult {
 	}
 
 	/**
-	 * 조회수 반영 결과(배치). {@code exhibitions}는 갱신된 전시 수, {@code views}는 반영한 조회 횟수 합계다.
-	 * 둘 다 0이면 그 창에 조회가 없었거나 다른 인스턴스가 이미 가져갔다는 뜻이다.
+	 * - 랭킹 재계산 결과(5분 배치)
+	 *   - {@code candidates}는 오늘 진행 중인 후보 수, {@code boards}는 순위판별로 다시 만든 전시 수
 	 */
-	public record ViewCountFlush(int exhibitions, long views) {
+	public record RankingRebuild(int candidates, Map<RankingType, Long> boards) {
+
+		public RankingRebuild {
+			boards = Map.copyOf(boards);
+		}
+	}
+
+	/** 순위판 한 칸(서비스 내부 기능, API 미노출). 순위는 1부터. */
+	public record Ranked(long rank, long exhibitionId, double score) {
+
+		public static Ranked from(RankingEntry entry) {
+			return new Ranked(entry.rank(), entry.exhibitionId(), entry.score());
+		}
+	}
+
+	/**
+	 * - 전시 하나의 순위(서비스 내부 기능, API 미노출)
+	 *   - 순위판에 없으면(종료·CUSTOM·날짜 미상) {@code rank}·{@code score}가 null
+	 *   - {@code total}은 같은 순위판에 오른 전시 수
+	 */
+	public record RankPosition(RankingType type, long exhibitionId, Long rank, Double score, long total) {
 	}
 
 	private static String name(ExhibitionRegion region) {

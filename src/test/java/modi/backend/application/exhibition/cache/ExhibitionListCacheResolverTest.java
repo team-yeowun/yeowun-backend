@@ -43,7 +43,7 @@ class ExhibitionListCacheResolverTest {
 		assertThat(ExhibitionListCacheResolver.resolve(search(null, "ending", null, null)))
 				.contains(ExhibitionCache.ExploreEndingP1.INSTANCE);
 		assertThat(ExhibitionListCacheResolver.resolve(search(null, "popular", null, null)))
-				.contains(ExhibitionCache.ExplorePopularP1.INSTANCE);
+				.contains(ExhibitionCache.ExplorePopularScoreP1.INSTANCE);
 	}
 
 	@Test
@@ -79,7 +79,7 @@ class ExhibitionListCacheResolverTest {
 
 		assertThat(첫화면요청.stream().map(ExhibitionListCacheResolver::resolve).flatMap(Optional::stream).toList())
 				.containsExactlyInAnyOrder(ExhibitionCache.ExploreLatestP1.INSTANCE,
-						ExhibitionCache.ExploreEndingP1.INSTANCE, ExhibitionCache.ExplorePopularP1.INSTANCE,
+						ExhibitionCache.ExploreEndingP1.INSTANCE, ExhibitionCache.ExplorePopularScoreP1.INSTANCE,
 						ExhibitionCache.HomeEndingSoon.INSTANCE, ExhibitionCache.HomeNewThisMonth.INSTANCE,
 						ExhibitionCache.HomeFree.INSTANCE);
 	}

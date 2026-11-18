@@ -48,6 +48,12 @@ public final class ExhibitionCriteria {
 					&& equals(new Search(null, section, null, null, null, null, sort, null, null, null, size,
 							requesterId));
 		}
+
+		/** 페이지 크기만 바꾼 같은 조회. {@code null}이면 기본 크기다. */
+		public Search withSize(Integer newSize) {
+			return new Search(keyword, section, period, region, category, date, sort, lat, lng, cursor, newSize,
+					requesterId);
+		}
 	}
 
 	/** 전시 상세 조회 입력. requesterId는 CUSTOM 접근 권한 판단 + 개인화(bookmarked/recorded)용. */

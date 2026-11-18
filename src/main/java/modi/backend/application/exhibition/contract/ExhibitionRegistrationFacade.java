@@ -4,10 +4,12 @@ import java.time.LocalDateTime;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
+import modi.backend.application.exhibition.cache.ExhibitionRegisteredEvent;
 import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlace;
 import modi.backend.domain.exhibition.catalog.ExhibitionPlaceRepository;
@@ -29,6 +31,8 @@ public class ExhibitionRegistrationFacade implements ExhibitionRegistrar {
 	private final ExhibitionRepository exhibitionRepository;
 	/** 전시장 애그리거트 루트 — resolve-or-create·상세 보강의 단일 진입점. */
 	private final ExhibitionPlaceRepository exhibitionPlaceRepository;
+	/** 등록 사실 발행 — 목록 캐시 삭제는 커밋 뒤 리스너(ExhibitionCacheEvictListener)가 한다. */
+	private final ApplicationEventPublisher eventPublisher;
 
 	@Override
 	@Transactional
@@ -51,6 +55,10 @@ public class ExhibitionRegistrationFacade implements ExhibitionRegistrar {
 		exhibitionRepository.applyGenre(promoted.getId(),
 				new GenreResult(r.genreKeyword(), r.genreProvider(), r.genreModel()), now);
 		log.info("전시 등록(externalId={} → exhibitionId={})", r.externalId(), promoted.getId());
+		// 새 전시가 목록에 들어가므로 커밋 뒤 Redis의 목록 캐시를 지운다(수집 쪽 무효화 지점).
+		// 수집 회차 완료 시점에는 아직 등록이 끝나지 않았다(등록은 이벤트 소비로 비동기) — 그래서 등록 커밋에 건다.
+		// 이미 있던 전시로 응답한 위 분기에서는 목록이 바뀌지 않으므로 발행하지 않는다.
+		eventPublisher.publishEvent(new ExhibitionRegisteredEvent(promoted.getId()));
 		return new Registered(promoted.getId());
 	}
 

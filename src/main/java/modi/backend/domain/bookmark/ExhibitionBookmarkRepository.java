@@ -6,18 +6,32 @@ import java.util.Set;
 
 /**
  * 전시 북마크 영속화 포트(도메인 소유, DIP). 구현은 infra.
- * 조회는 모두 살아있는(해제되지 않은) 북마크만 본다.
+ * 조회는 모두 살아있는(해제되지 않은) 북마크만 본다. 쓰기(등록, 해제, 전부 해제)는 행을 잠그므로
+ * 호출부 트랜잭션 안에서 부른다 — 북마크 수 변경과 같은 트랜잭션이어야 함께 커밋된다.
  */
 public interface ExhibitionBookmarkRepository {
 
 	/** 해당 사용자가 전시를 현재 관심 등록했는지. */
 	boolean existsActive(Long userId, Long exhibitionId);
 
-	/** 관심 등록(멱등) — 없으면 생성, soft-delete 상태면 복원, 이미 활성이면 무변경. */
-	void add(Long userId, Long exhibitionId);
+	/**
+	 * 관심 등록(멱등) — 없으면 생성, soft-delete 상태면 복원, 이미 활성이면 무변경.
+	 * 반환은 <b>이번 호출로 실제로 등록됐는가</b>(생성 또는 복원이면 true). 전시의 북마크 수는 이 값이 true일 때만 +1 한다.
+	 * 같은 (사용자, 전시) 행을 잠그고(SELECT … FOR UPDATE) 판정하므로, 동시 요청이 둘 다 "등록됨"을 받지 않는다.
+	 */
+	boolean add(Long userId, Long exhibitionId);
 
-	/** 관심 해제(멱등) — 활성이면 soft-delete, 이미 없으면 무변경. */
-	void remove(Long userId, Long exhibitionId);
+	/**
+	 * 관심 해제(멱등) — 활성이면 soft-delete, 이미 없으면 무변경.
+	 * 반환은 <b>이번 호출로 실제로 해제됐는가</b>. 잠금과 판정은 {@link #add}와 같다.
+	 */
+	boolean remove(Long userId, Long exhibitionId);
+
+	/**
+	 * 사용자의 활성 북마크를 잠그고 전부 해제한다(회원 탈퇴). 반환은 해제한 북마크의 전시 id들이다
+	 * — 호출부가 그 전시들의 북마크 수를 1씩 뺀다.
+	 */
+	List<Long> removeAllOf(Long userId);
 
 	/** 사용자의 활성 관심 전시 수(프로필 stats.bookmarkCount용). */
 	long countByUserId(Long userId);

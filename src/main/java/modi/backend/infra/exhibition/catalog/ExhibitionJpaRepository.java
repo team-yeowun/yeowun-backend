@@ -12,6 +12,7 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import modi.backend.domain.exhibition.catalog.Exhibition;
 import modi.backend.domain.exhibition.catalog.ExhibitionType;
+import modi.backend.domain.exhibition.ranking.RankingCandidate;
 
 /**
  * Spring Data JPA. 동적 필터(keyword·date·region·category·CUSTOM 노출)는
@@ -24,16 +25,25 @@ public interface ExhibitionJpaRepository
 	Optional<Exhibition> findByExternalIdAndDeletedAtIsNull(String externalId);
 
 	/**
-	 * 누산된 조회수 델타를 더한다(배치 반영). 읽지 않고 <b>제자리에서 더하는</b> 것이 요점이다 —
-	 * 두 인스턴스가 같은 행을 올려도 값이 덮어써지지 않는다.
+	 * 조회 1회를 더한다. 읽지 않고 <b>제자리에서 더하는</b> 것이 요점이다 — 동시 조회가 같은 행을 올려도
+	 * 값이 덮어써지지 않는다. 엔티티는 이 컬럼을 쓰지 않으므로(updatable = false) 네이티브 문장으로 더한다.
 	 *
 	 * <p>영속성 컨텍스트를 우회하는 벌크 갱신이라 {@code clearAutomatically}로 1차 캐시를 비운다.
 	 * 그러지 않으면 같은 트랜잭션에서 곧바로 읽은 엔티티가 <b>갱신 전 값</b>을 들고 있다.
 	 */
 	@Modifying(clearAutomatically = true, flushAutomatically = true)
-	@Query("update Exhibition e set e.ourViewCount = e.ourViewCount + :delta "
-			+ "where e.id = :id and e.deletedAt is null")
-	int increaseViewCount(@Param("id") Long id, @Param("delta") long delta);
+	@Query(value = "update exhibitions set our_view_count = our_view_count + 1 where id = :id", nativeQuery = true)
+	int increaseViewCount(@Param("id") Long id);
+
+	/** 조회수 한 값(방금 더한 값을 같은 트랜잭션에서 돌려줄 때). */
+	@Query(value = "select our_view_count from exhibitions where id = :id", nativeQuery = true)
+	Optional<Long> findViewCount(@Param("id") Long id);
+
+	/** 북마크 수를 제자리에서 바꾼다(엔티티는 이 컬럼을 매핑하지 않는다 — 점수로만 본다). */
+	@Modifying(clearAutomatically = true, flushAutomatically = true)
+	@Query(value = "update exhibitions set bookmark_count = bookmark_count + :delta where id = :id",
+			nativeQuery = true)
+	int changeBookmarkCount(@Param("id") Long id, @Param("delta") long delta);
 
 	/** 단건 조회(살아있는 행만). 필터를 앱이 아니라 WHERE에 둬 인덱스에 태운다. */
 	Optional<Exhibition> findByIdAndDeletedAtIsNull(Long id);
@@ -46,24 +56,24 @@ public interface ExhibitionJpaRepository
 			java.time.LocalDate from, java.time.LocalDate to);
 
 	/**
-	 * 홈 배너용 — 진행 중(startDate ≤ onDate ≤ endDate)인 CATALOG를 조회수 내림차순으로 페이지 크기만큼 조회(살아있는 행만).
-	 * 진행 중 조건은 두 날짜 파라미터에 동일한 오늘 값을 넘겨 표현한다.
+	 * - 랭킹 후보 — 진행 중(startDate ≤ onDate ≤ endDate)인 CATALOG의 id와 개막일(살아있는 행만)
+	 *   - 진행 중 조건은 두 날짜 파라미터에 같은 오늘 값을 넘겨 표현
+	 *   - 엔티티를 통째로 읽지 않고 두 값만 뽑음 (5분마다 앱 2대가 부르는 재계산 경로)
 	 *
-	 * <p><b>날짜 미상(센티널)은 배너에서 뺀다</b> — 파생 쿼리로 두면 표현할 수 없어 JPQL로 내렸다.
-	 * V47 이전에는 날짜가 {@code NULL}이라 3치 논리로 조용히 빠졌는데, 센티널로 바뀌면서
-	 * {@code 1000-01-01 ≤ 오늘 ≤ 9999-12-31}이 참이 되어 <b>미상 전시가 배너에 새로 들어왔다</b>.
-	 * 목록(Specification)은 미상을 포함하지만 배너는 포함하지 않는 것이 원래 동작이고, 그 동작을 유지한다
-	 * — 언제 시작하고 끝나는지 모르는 전시를 홈 대문에 올리지 않는다.
-	 * 시작·종료 중 <b>하나라도</b> 미상이면 뺀다(= NULL이던 시절의 3치 논리와 같은 결과).
+	 * - 날짜 미상(센티널)은 뺌 — 파생 쿼리로는 표현할 수 없어 JPQL로 내림
+	 *   - V47 이전에는 날짜가 NULL이라 3치 논리로 조용히 빠졌는데, 센티널로 바뀌면서
+	 *     1000-01-01 ≤ 오늘 ≤ 9999-12-31이 참이 되어 미상 전시가 배너에 새로 들어왔음
+	 *   - 목록(Specification)은 미상을 포함하지만 배너는 포함하지 않는 것이 원래 동작이고, 그 동작을 유지
+	 *   - 시작·종료 중 하나라도 미상이면 뺌 (NULL이던 시절의 3치 논리와 같은 결과)
 	 */
-	@Query("select e from Exhibition e where e.type = :type and e.deletedAt is null "
+	@Query("select new modi.backend.domain.exhibition.ranking.RankingCandidate(e.id, e.startDate) "
+			+ "from Exhibition e where e.type = :type and e.deletedAt is null "
 			+ "and e.startDate <= :onDate and e.endDate >= :onDate "
-			+ "and e.startDate <> :startUnknown and e.endDate <> :endUnknown "
-			+ "order by e.ourViewCount desc")
-	List<Exhibition> findOngoingCatalogTopByViews(@Param("type") ExhibitionType type,
+			+ "and e.startDate <> :startUnknown and e.endDate <> :endUnknown")
+	List<RankingCandidate> findOngoingCatalogCandidates(@Param("type") ExhibitionType type,
 			@Param("onDate") java.time.LocalDate onDate,
 			@Param("startUnknown") java.time.LocalDate startUnknown,
-			@Param("endUnknown") java.time.LocalDate endUnknown, Pageable pageable);
+			@Param("endUnknown") java.time.LocalDate endUnknown);
 
 	// ── 관리자 콘솔 전용 ───────────────────────────────
 

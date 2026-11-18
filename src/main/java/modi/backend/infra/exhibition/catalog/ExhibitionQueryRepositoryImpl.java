@@ -3,7 +3,6 @@ package modi.backend.infra.exhibition.catalog;
 import java.time.LocalDate;
 import java.util.List;
 
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.EntityManager;
@@ -19,6 +18,7 @@ import modi.backend.domain.exhibition.catalog.ExhibitionQuery;
 import modi.backend.domain.exhibition.catalog.ExhibitionQueryRepository;
 import modi.backend.domain.exhibition.catalog.ExhibitionSort;
 import modi.backend.domain.exhibition.catalog.ExhibitionType;
+import modi.backend.domain.exhibition.ranking.RankingCandidate;
 
 /**
  * {@link ExhibitionQueryRepository} 어댑터 — 서빙 목록/탐색을 Specification + 키셋(커서) 페이지네이션으로 처리한다.
@@ -33,6 +33,7 @@ public class ExhibitionQueryRepositoryImpl implements ExhibitionQueryRepository 
 	/**
 	 * <b>지역이 정확히 1개일 때만</b> 목록이 타야 하는 인덱스(V51) — 정렬 축별로 하나씩.
 	 * 슬라이스 SQL에 {@code USE INDEX (…)}로 실린다. 그 밖의 경우엔 힌트를 아예 붙이지 않는다.
+	 * 인기순은 V62부터 조회수 대신 인기 점수 인덱스 {@code (region, popularity_score DESC, id DESC)}를 지목한다.
 	 *
 	 * <p><b>왜 지역에만 힌트가 필요한가</b>: V49가 region을 이 테이블로 비정규화한 뒤 지역 술어는
 	 * 정렬 인덱스 스캔의 <b>잔여 필터</b>가 됐다. 그러면 정렬 순서대로 걸어가며 21건이 찰 때까지
@@ -64,7 +65,7 @@ public class ExhibitionQueryRepositoryImpl implements ExhibitionQueryRepository 
 	 */
 	static final String REGION_LATEST_INDEX = "idx_exhibitions_region_start_id";
 	static final String REGION_ENDING_INDEX = "idx_exhibitions_region_end_id";
-	static final String REGION_POPULAR_INDEX = "idx_exhibitions_region_views_id";
+	static final String REGION_POPULAR_INDEX = "idx_exhibitions_region_popularity";
 
 	/**
 	 * <b>지역이 2개 이상일 때만</b> count가 타야 하는 V50 커버링 인덱스. count SQL에 {@code USE INDEX (…)}로 실린다.
@@ -210,10 +211,9 @@ public class ExhibitionQueryRepositoryImpl implements ExhibitionQueryRepository 
 	}
 
 	@Override
-	public List<Exhibition> findOngoingCatalogTopByViews(LocalDate onDate, int limit) {
-		return jpaRepository.findOngoingCatalogTopByViews(ExhibitionType.CATALOG, onDate,
-				Exhibition.START_DATE_UNKNOWN, Exhibition.END_DATE_UNKNOWN,
-				PageRequest.of(0, Math.max(1, limit)));
+	public List<RankingCandidate> findOngoingCatalogCandidates(LocalDate onDate) {
+		return jpaRepository.findOngoingCatalogCandidates(ExhibitionType.CATALOG, onDate,
+				Exhibition.START_DATE_UNKNOWN, Exhibition.END_DATE_UNKNOWN);
 	}
 
 	/**

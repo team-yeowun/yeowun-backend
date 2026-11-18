@@ -2,11 +2,14 @@ package modi.backend.interfaces.exhibition.dto;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import modi.backend.application.exhibition.ExhibitionPageSize;
 import modi.backend.application.exhibition.ExhibitionResult;
+import modi.backend.interfaces.common.dto.CursorResponse;
 
 /**
  * 전시 API 요청/응답 DTO 모음(파일 수 절감을 위해 중첩 record로 묶음).
@@ -89,6 +92,50 @@ public final class ExhibitionDto {
 			return new ListItemResponse(result.exhibitionId(), result.type(), result.title(), result.posterUrl(),
 					result.startDate(), result.endDate(), result.place(), result.region(), result.category(),
 					result.artistSummary(), result.dDay(), result.free(), result.bookmarked());
+		}
+	}
+
+	/** 목록 한 페이지 응답(커서 봉투). 애플리케이션이 준 페이지를 그대로 옮긴다. */
+	public static CursorResponse<ListItemResponse> listPage(ExhibitionResult.ListPage page) {
+		return CursorResponse.of(page.content().stream().map(ListItemResponse::from).toList(),
+				page.nextCursor(), page.hasNext(), page.totalCount());
+	}
+
+	/**
+	 * - 작은 첫 페이지 자르기(홈 섹션 {@code size=2·5} 같은 요청)
+	 *   - 화면이 기본 크기(20)보다 작게 달라고 하면, 컨트롤러는 캐시된 기본 크기 페이지를 받아 여기서 잘라 준다
+	 *   - 캐시는 기본 크기 첫 페이지만 담으므로, 자르지 않으면 이런 요청은 매번 DB로 간다
+	 *
+	 * - 자른 응답은 그 크기로 DB에서 직접 읽은 응답과 같아야 함
+	 *   - 같은 항목·같은 순서·같은 총 건수
+	 *   - {@code hasNext}·{@code nextCursor}는 자른 지점 기준(다음 커서는 자른 마지막 항목의 커서)
+	 *
+	 * - 화면 크기에 맞추는 일이라 애플리케이션(파사드·캐시)이 아니라 응답 DTO에 둔다
+	 *   - 애플리케이션은 항목별 커서({@link ExhibitionResult.ListPage#cursorAfter})만 내주고 자를지·어디서 자를지는 모름
+	 *
+	 * @param limit 화면이 요청한 크기(1 이상, 기본 크기 미만)
+	 */
+	public record ListCut(int limit) {
+
+		/** 자를 대상인가: {@code 1 ≤ size < 기본 크기}. 크기 미지정·0 이하·기본 이상은 자르지 않는다. */
+		public static Optional<ListCut> of(Integer size) {
+			return size != null && size >= 1 && size < ExhibitionPageSize.DEFAULT
+					? Optional.of(new ListCut(size))
+					: Optional.empty();
+		}
+
+		/**
+		 * - 기본 크기 첫 페이지를 {@code limit}으로 자른 응답
+		 *   - 항목이 {@code limit} 이하면 자를 것이 없으니 그대로 옮김(그 페이지가 곧 전부라 hasNext도 그대로 맞음)
+		 *   - 자른 지점의 커서가 없으면(항목별 커서가 생기기 전에 캐시에 담긴 페이지) 빈 값 → 호출부가 원래 크기로 다시 읽음
+		 */
+		public Optional<CursorResponse<ListItemResponse>> cut(ExhibitionResult.ListPage page) {
+			if (page.content().size() <= limit) {
+				return Optional.of(listPage(page));
+			}
+			return page.cursorAfter(limit - 1).map(next -> CursorResponse.of(
+					page.content().subList(0, limit).stream().map(ListItemResponse::from).toList(),
+					next, true, page.totalCount()));
 		}
 	}
 

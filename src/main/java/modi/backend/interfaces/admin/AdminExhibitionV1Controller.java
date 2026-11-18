@@ -1,5 +1,6 @@
 package modi.backend.interfaces.admin;
 
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -44,17 +45,17 @@ public class AdminExhibitionV1Controller {
 	}
 
 	/**
-	 * - 목록 캐시 즉시 재적재(수동 워밍)
-	 *   - 무효화 방송이 유실됐을 때의 사후 복구 수단
-	 *   - 자동 재발행을 두지 않았으므로 이것이 유일한 즉시 복구 수단
-	 *   - {@code refresh}가 L2 갱신과 방송을 함께 다시 하므로 전 서버의 L1까지 정리됨
+	 * - 목록 캐시 7종 즉시 비우기(수동)
+	 *   - Redis의 목록과 이 요청을 받은 서버의 L1 목록을 지움
+	 *   - 다른 서버의 L1은 L1 TTL(10분) 안에 만료됨 — 무효화 방송은 두지 않는다
+	 *   - 다음 조회가 DB에서 읽어 다시 적재함(Cache-Aside)
 	 *
 	 * - 멱등이라 눌러도 손해가 없음
-	 *   - 덮어쓰기뿐이고 조회 쿼리 7건이 전부
+	 *   - 지우기뿐이고, 비용은 다음 조회 몇 건이 DB로 가는 것
 	 */
-	@PostMapping("/cache/warm")
-	public ApiResponse<Object> warmListCaches() {
-		exhibitionFacade.warmListCaches();
+	@DeleteMapping("/cache/lists")
+	public ApiResponse<Object> evictListCaches() {
+		exhibitionFacade.evictListCaches();
 		return ApiResponse.success();
 	}
 }

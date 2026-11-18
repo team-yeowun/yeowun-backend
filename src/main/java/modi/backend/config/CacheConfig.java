@@ -1,7 +1,7 @@
 package modi.backend.config;
 
 import java.time.Duration;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.List;
 
 import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
@@ -10,23 +10,15 @@ import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.cache.RedisCacheManager.RedisCacheManagerBuilder;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
-import org.springframework.data.redis.listener.ChannelTopic;
-import org.springframework.data.redis.listener.RedisMessageListenerContainer;
 import org.springframework.data.redis.serializer.JacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext.SerializationPair;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 
-import lombok.extern.slf4j.Slf4j;
-
-import io.micrometer.core.instrument.Gauge;
-import io.micrometer.core.instrument.MeterRegistry;
-
 import tools.jackson.databind.ObjectMapper;
 
 import modi.backend.application.exhibition.cache.ExhibitionCache;
-import modi.backend.infra.cache.RedisMessageListener;
-import modi.backend.infra.cache.RedisPublisher;
+import modi.backend.support.cache.CacheType;
 import modi.backend.support.cache.MyCache;
 
 /**
@@ -35,28 +27,35 @@ import modi.backend.support.cache.MyCache;
  *   - 캐시 선언 자체가 TTL을 가지고 있으므로 이 클래스에서는 값을 읽기만 함
  *   - 새로운 캐시가 추가되어도 이 파일은 수정할 필요가 없음
  *
+ * - 선언의 타입이 어느 매니저에 올라갈지를 정함
+ *   - L1(Caffeine)에는 TWO_TIER·LOCAL만, L2(Redis)에는 TWO_TIER·REDIS만 등록
+ *   - 상세(REDIS)는 L1에 등록되지 않으므로 로컬 복사본이 생길 수 없음
+ *
+ * - Redis TTL은 선언 값 그대로 씀(흩뜨림 없음)
+ *   - 목록 키는 7개뿐이고 각자 첫 조회 시점에 적재되어, 한꺼번에 만료될 일이 없음
+ *   - 30분 TTL에 분 단위 흩뜨림을 더하면 "삭제 누락 키가 남는 최대 시간"이 선언과 달라짐
+ *
  * - Spring Cache AOP는 사용하지 않음
  *   - 캐시 접근 로직을 직접 관리하므로 Spring Cache AOP가 필요하지 않음
  *   - {@code @EnableCaching}을 활성화하면 Spring Boot가 별도의 {@code CacheManager} 빈을 생성하려 할 수 있음
  *   - 따라서 현재 캐시 구조에서는 Spring Cache AOP를 활성화하지 않음
  */
-@Slf4j
 @Configuration
 public class CacheConfig {
 
     /** L1 크기 상한 */
 	private static final long LOCAL_MAX_SIZE = 1_000L;
 
-	/** 구독이 끊겼을 때 컨테이너가 스스로 재구독을 시도하는 간격(ms). */
-	private static final long RECOVERY_INTERVAL_MS = 5_000L;
-
-	/** L2 TTL에 더하는 흩뜨림 상한(분). 다른 키들과 같은 순간에 만료되는 것을 방지 용도 */
-	private static final long JITTER_MAX_MINUTES = 30L;
-
 	@Bean
 	public CaffeineCacheManager localCacheManager() {
 		CaffeineCacheManager manager = new CaffeineCacheManager();
+		// 정적 모드 — 등록하지 않은 이름으로는 L1을 만들지 않는다(상세가 실수로 L1에 담기는 것을 막는다).
+		// 등록보다 먼저 불러야 한다: 나중에 부르면 이름마다 기본 캐시(TTL 없음)로 덮어쓴다.
+		manager.setCacheNames(List.of());
 		for (MyCache cache : ExhibitionCache.ALL) {
+			if (cache.getType() == CacheType.REDIS) {
+				continue; // 로컬 복사본을 두지 않는 캐시
+			}
 			manager.registerCustomCache(cache.getName(),
 					Caffeine.newBuilder()
 							.maximumSize(LOCAL_MAX_SIZE)
@@ -71,67 +70,28 @@ public class CacheConfig {
 	public RedisCacheManager redisCacheManager(RedisConnectionFactory factory, ObjectMapper objectMapper) {
 		RedisCacheManagerBuilder builder = RedisCacheManager.builder(factory);
 		for (MyCache cache : ExhibitionCache.ALL) {
-			if (cache instanceof MyCache.TwoTierCache twoTier) {
-				// jitter: 워밍이 연속으로 실패했을 때 다른 키들이 같은 순간에 만료되지 않게 흩뜨린다.
-				Duration ttl = twoTier.getRedisTtl()
-						.plusMinutes(ThreadLocalRandom.current().nextLong(0, JITTER_MAX_MINUTES));
-
-				builder.withCacheConfiguration(cache.getName(),
-						RedisCacheConfiguration.defaultCacheConfig()
-								.prefixCacheNameWith("yeowun:")
-								.entryTtl(ttl)
-								.disableCachingNullValues()
-								// 값 타입에 바인딩한 직렬화기 — 선언이 타입을 들고 있어 가능하다.
-								.serializeValuesWith(SerializationPair.fromSerializer(
-										new JacksonJsonRedisSerializer<>(objectMapper, cache.getValueType()))));
+			Duration ttl = redisTtlOf(cache);
+			if (ttl == null) {
+				continue; // L1만 쓰는 캐시
 			}
+			builder.withCacheConfiguration(cache.getName(),
+					RedisCacheConfiguration.defaultCacheConfig()
+							.prefixCacheNameWith("yeowun:")
+							.entryTtl(ttl)
+							.disableCachingNullValues()
+							// 값 타입에 바인딩한 직렬화기 — 선언이 타입을 들고 있어 가능하다.
+							.serializeValuesWith(SerializationPair.fromSerializer(
+									new JacksonJsonRedisSerializer<>(objectMapper, cache.getValueType()))));
 		}
 		return builder.build();
 	}
 
-	/**
-	 * - 무효화 채널 구독
-	 *   - 전용 커넥션으로 채널 하나를 구독하다가 메시지가 오면 리스너를 부름
-	 *   - 커넥션이 끊기면 컨테이너가 스스로 재구독함(끊긴 동안의 메시지는 복구되지 않음)
-	 *
-	 * - 리스너를 {@code MessageListenerAdapter}로 감싸지 않고 직접 등록함
-	 *   - 컨테이너는 구독 확인 콜백을 등록된 리스너가 {@code SubscriptionListener}일 때만 보냄
-	 *   - 어댑터는 그 인터페이스를 구현하지 않아, 감싸는 순간 재구독 시 L1 전체 삭제가 조용히 죽음
-	 *   - 메시지 수신은 그대로 동작해서 테스트로도 잘 드러나지 않는 함정
-	 *
-	 * - {@code container.start()}를 부르지 않음
-	 *   - 컨테이너가 {@code SmartLifecycle}이라 스프링이 기동 때 알아서 시작함
-	 */
-	@Bean
-	public RedisMessageListenerContainer cacheInvalidationListenerContainer(
-			RedisConnectionFactory factory, RedisMessageListener listener, MeterRegistry meterRegistry) {
-		RedisMessageListenerContainer container = new RedisMessageListenerContainer() {
-			/**
-			 * - 기동 시 Redis에 못 붙어도 애플리케이션은 떠야 한다
-			 *   - 이 컨테이너는 SmartLifecycle이라 start()가 던지면 컨텍스트 기동이 통째로 실패한다
-			 *   - 그러면 "Redis가 죽으면 서버가 못 뜬다"가 되는데, 캐시는 느려질 뿐 서비스를 멈추면 안 되는 계층이다
-			 *   - 구독만 못 한 상태로 뜨면 그 서버의 L1은 TTL에만 의존한다(틈 ②와 같은 상태)
-			 *
-			 * - 붙을 때까지는 {@code CacheSubscriptionWatchdog}가 다시 시도한다
-			 */
-			@Override
-			public void start() {
-				try {
-					super.start();
-				} catch (RuntimeException e) {
-					log.warn("무효화 채널 구독 실패 — 구독 없이 기동한다(워치독이 재시도). L1은 TTL에만 의존한다", e);
-				}
-			}
+	/** 선언의 Redis TTL. TWO_TIER는 L2 TTL, REDIS는 선언 TTL, LOCAL은 Redis를 쓰지 않아 null. */
+	static Duration redisTtlOf(MyCache cache) {
+		return switch (cache.getType()) {
+			case TWO_TIER -> ((MyCache.TwoTierCache) cache).getRedisTtl();
+			case REDIS -> cache.getTtl();
+			case LOCAL -> null;
 		};
-		container.setConnectionFactory(factory);
-		// 붙은 뒤 끊기는 경우는 컨테이너가 이 간격으로 스스로 재구독한다.
-		container.setRecoveryInterval(RECOVERY_INTERVAL_MS);
-		// 토픽 상수는 RedisPublisher가 단일 출처다 — 발행과 구독이 같은 값을 보는 것이 요점이다.
-		container.addMessageListener(listener, ChannelTopic.of(RedisPublisher.TOPIC));
-		// "서버는 떠 있는데 구독만 끊긴" 상태를 밖에서 보게 하는 유일한 지표(1=구독 중, 0=끊김).
-		Gauge.builder("modi.cache.invalidation.subscribed", container, c -> c.isListening() ? 1 : 0)
-				.description("이 인스턴스가 무효화 채널을 구독 중인가")
-				.register(meterRegistry);
-		return container;
 	}
 }

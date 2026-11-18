@@ -56,6 +56,39 @@ class ExhibitionCacheSerializationTest {
 	}
 
 	@Test
+	@DisplayName("항목별 커서를 담은 목록 페이지도 왕복한다 — 작은 첫 페이지를 자를 때 쓰는 값")
+	void listPage_항목커서_왕복() {
+		ExhibitionResult.ListPage page = new ExhibitionResult.ListPage(
+				List.of(new ExhibitionResult.ListItem(1L, "CATALOG", "전시", "poster",
+						LocalDate.of(2026, 3, 1), LocalDate.of(2026, 4, 30), "전시장", "SEOUL", "ART",
+						null, 12, true, false)),
+				"cursor-1", true, 126L, List.of("cursor-1"));
+
+		ExhibitionResult.ListPage restored = 왕복(page, ExhibitionResult.ListPage.class);
+
+		assertThat(restored).isEqualTo(page);
+		assertThat(restored.cursorAfter(0)).contains("cursor-1");
+	}
+
+	@Test
+	@DisplayName("항목별 커서가 없던 때 담긴 값도 읽힌다 — 배포 직후 Redis에 남은 옛 페이지")
+	void listPage_옛모양_읽힘() {
+		ExhibitionResult.ListPage page = new ExhibitionResult.ListPage(List.of(), "cursor-1", true, 3L,
+				List.of("cursor-1"));
+		JacksonJsonRedisSerializer<ExhibitionResult.ListPage> serializer =
+				new JacksonJsonRedisSerializer<>(objectMapper, ExhibitionResult.ListPage.class);
+		tools.jackson.databind.node.ObjectNode old =
+				(tools.jackson.databind.node.ObjectNode) objectMapper.readTree(serializer.serialize(page));
+		old.remove("itemCursors");
+
+		ExhibitionResult.ListPage restored = serializer.deserialize(objectMapper.writeValueAsBytes(old));
+
+		assertThat(restored.itemCursors()).isEmpty();
+		assertThat(restored.cursorAfter(0)).isEmpty();
+		assertThat(restored.nextCursor()).isEqualTo("cursor-1");
+	}
+
+	@Test
 	@DisplayName("배너 목록이 Redis 직렬화를 왕복해도 그대로다")
 	void banners_왕복() {
 		ExhibitionResult.Banners banners = new ExhibitionResult.Banners(

@@ -15,7 +15,7 @@ TARGET_ROWS="${1:?usage: amplify.sh <target_rows> [batch_generations]}"
 BATCH="${2:-100}"
 
 DB=mydatabase
-MYSQL=(docker exec -i modi-mysql mysql -uroot -pverysecret --default-character-set=utf8mb4 "$DB")
+MYSQL=(docker exec -i "${MYSQL_CONTAINER:-modi-mysql}" mysql -uroot -pverysecret --default-character-set=utf8mb4 "$DB")
 
 q() { "${MYSQL[@]}" -N -B -e "$1" 2>/dev/null; }
 

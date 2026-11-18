@@ -14,7 +14,7 @@ import io.micrometer.core.instrument.MeterRegistry;
  *   - 창구({@link CacheManager})가 그 판정을 하는 유일한 자리라 여기서만 셀 수 있음
  *
  * - Redis의 {@code keyspace_hits}로는 이 값을 낼 수 없음
- *   - 그 지표는 인스턴스 전체 것이라 조회수 누산·AI 임시저장까지 섞여 있음
+ *   - 그 지표는 인스턴스 전체 것이라 랭킹 기록과 AI 임시저장까지 섞여 있음
  *   - 그걸 캐시 히트율이라고 부르면 틀린 숫자를 보고하게 됨
  *   - 그래서 창구가 직접 세고, 대시보드는 이 값을 읽음
  *

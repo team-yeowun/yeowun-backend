@@ -1,0 +1,44 @@
+# 캐시 on/off 지연 비교 전용 스택(MySQL + Redis). 기존 modi-mysql·modi-redis와 겹치지 않게
+# 프로젝트 이름·컨테이너 이름·호스트 포트·볼륨을 모두 따로 쓴다.
+#   docker compose -p yeowun-cachebench -f loadtest/cache/compose.cachebench.yaml up -d
+#   docker compose -p yeowun-cachebench -f loadtest/cache/compose.cachebench.yaml down -v   # 정리(이 스택 볼륨만)
+# 설정 값은 compose.yaml의 mysql·redis와 같게 둔다(시간대·GTID·Redis maxmemory 정책).
+services:
+  mysql:
+    image: 'mysql:8.4'
+    container_name: cachebench-mysql
+    command: ['--default-time-zone=+09:00', '--server-id=1', '--gtid_mode=ON', '--enforce_gtid_consistency=ON']
+    environment:
+      - 'MYSQL_DATABASE=mydatabase'
+      - 'MYSQL_PASSWORD=secret'
+      - 'MYSQL_ROOT_PASSWORD=verysecret'
+      - 'MYSQL_USER=myuser'
+      - 'TZ=Asia/Seoul'
+    ports:
+      - '127.0.0.1:13306:3306'
+    volumes:
+      - 'cachebench-mysql-data:/var/lib/mysql'
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-pverysecret']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  redis:
+    image: 'redis:7-alpine'
+    container_name: cachebench-redis
+    command: ['redis-server', '--save', '', '--appendonly', 'yes', '--maxmemory', '192mb', '--maxmemory-policy', 'volatile-lru']
+    ports:
+      - '127.0.0.1:16379:6379'
+    volumes:
+      - 'cachebench-redis-data:/data'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  cachebench-mysql-data:
+  cachebench-redis-data:

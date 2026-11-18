@@ -64,12 +64,14 @@ public class ExhibitionListService {
 		List<Exhibition> page = hasNext ? rows.subList(0, size) : rows;
 
 		List<ExhibitionResult.ListItem> content = listAssembler.assemble(page, today, criteria.requesterId());
-		String nextCursor = hasNext ? encodeCursor(sort, page.get(page.size() - 1)) : null;
+		// 항목마다 "이 항목 다음부터" 커서를 함께 만든다 — 작은 첫 페이지를 캐시된 페이지에서 잘라 줄 때 자른 지점의 커서다.
+		List<String> itemCursors = page.stream().map(e -> encodeCursor(sort, e)).toList();
+		String nextCursor = hasNext ? itemCursors.get(itemCursors.size() - 1) : null;
 
 		// 응답 계약 유지: totalCount를 목록에 함께 담는다. count는 filter 술어만 타므로(키셋 경계 무시)
 		// 커서가 담긴 같은 query를 넘겨도 "이 필터의 전체 건수"가 나온다.
 		return new ExhibitionResult.ListPage(content, nextCursor, hasNext,
-				exhibitionQueryRepository.count(query));
+				exhibitionQueryRepository.count(query), itemCursors);
 	}
 
 	/**
@@ -89,7 +91,7 @@ public class ExhibitionListService {
 			return page;
 		}
 		return new ExhibitionResult.ListPage(listAssembler.withBookmarks(page.content(), requesterId),
-				page.nextCursor(), page.hasNext(), page.totalCount());
+				page.nextCursor(), page.hasNext(), page.totalCount(), page.itemCursors());
 	}
 
 	/**
@@ -133,15 +135,16 @@ public class ExhibitionListService {
 				criteria.requesterId());
 
 		// 거리순 커서 값은 좌표에서 계산한 거리라 정렬 축이 아니라 이 경로만 안다.
-		String nextCursor = sliced.hasNext()
-				? Cursor.of(ExhibitionSort.DISTANCE.code(),
-						String.valueOf(distanceSq(placesById.get(sliced.lastItem().getExhibitionPlaceId()), lat, lng)),
-						sliced.lastItem().getId()).encode()
-				: null;
+		List<String> itemCursors = sliced.content().stream()
+				.map(e -> Cursor.of(ExhibitionSort.DISTANCE.code(),
+						String.valueOf(distanceSq(placesById.get(e.getExhibitionPlaceId()), lat, lng)), e.getId())
+						.encode())
+				.toList();
+		String nextCursor = sliced.hasNext() ? itemCursors.get(itemCursors.size() - 1) : null;
 
 		// ordered.size()는 추가 쿼리가 아니라 이미 메모리에 있는 후보 수다 — 거리순은 후보 전량을
 		// 앱에서 세우므로 총 건수도 공짜다(정렬 축이 달라도 목록 응답의 모양은 하나여야 한다).
-		return new ExhibitionResult.ListPage(content, nextCursor, sliced.hasNext(), ordered.size());
+		return new ExhibitionResult.ListPage(content, nextCursor, sliced.hasNext(), ordered.size(), itemCursors);
 	}
 
 	private static String encodeCursor(ExhibitionSort sort, Exhibition last) {

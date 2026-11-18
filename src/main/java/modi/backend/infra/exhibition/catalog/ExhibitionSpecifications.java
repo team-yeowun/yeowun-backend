@@ -1,5 +1,6 @@
 package modi.backend.infra.exhibition.catalog;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -133,10 +134,13 @@ final class ExhibitionSpecifications {
 		return switch (query.sort()) {
 			case ENDING -> endingBoundary(root, cb, key, id);
 			case POPULAR -> {
-				long viewCount = Long.parseLong(key);
+				// 인기 점수(소수 한 자리). V62 전에 발급된 커서(정수 조회수)도 오류 없이 읽히지만 뜻이 달라,
+				// 그 커서로 넘긴 다음 페이지 한 번은 순서가 어긋날 수 있다(새로 첫 페이지를 받으면 맞는다).
+				// OR 형식을 유지한다 — 행 생성자 (score, id) < (k, i)는 인덱스 범위 스캔을 타지 못한다(랩 측정).
+				BigDecimal score = new BigDecimal(key);
 				yield cb.or(
-						cb.lessThan(root.<Long>get("ourViewCount"), viewCount),
-						cb.and(cb.equal(root.get("ourViewCount"), viewCount),
+						cb.lessThan(root.<BigDecimal>get("popularityScore"), score),
+						cb.and(cb.equal(root.get("popularityScore"), score),
 								cb.lessThan(root.<Long>get("id"), id)));
 			}
 			// latest(기본): startDate desc nulls last, id desc. distance는 DB 정렬이 아니라 커서 경계도 없다.

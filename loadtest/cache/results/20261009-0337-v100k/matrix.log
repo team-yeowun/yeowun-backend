@@ -1,0 +1,19 @@
+[matrix] → loadtest/cache/results/20261009-0337-v100k  (VUS_LIST=50 REPS=2 WARMUP=30 DURATION=120)
+[03:40:04 off vu50] 완료 → loadtest/cache/results/20261009-0337-v100k/vu50-r1-off
+[v100k off vu50] measure 120s after 30s warmup, VUs=50
+list    n=10110 p50=349.98 p95=599.22 p99=792.20 max=1672.93 ms
+detail  n=5055 p50=448.81 p95=776.11 p99=1021.36 max=1508.68 ms
+[03:42:48 on vu50] 완료 → loadtest/cache/results/20261009-0337-v100k/vu50-r1-on
+[v100k on vu50] measure 120s after 30s warmup, VUs=50
+list    n=318498 p50=0.27 p95=0.62 p99=0.98 max=34.29 ms
+detail  n=159249 p50=34.40 p95=59.91 p99=85.26 max=251.80 ms
+[03:45:32 on vu50] 완료 → loadtest/cache/results/20261009-0337-v100k/vu50-r2-on
+[v100k on vu50] measure 120s after 30s warmup, VUs=50
+list    n=327592 p50=0.28 p95=0.61 p99=0.92 max=33.76 ms
+detail  n=163796 p50=33.95 p95=57.33 p99=80.21 max=246.15 ms
+[03:48:17 off vu50] 완료 → loadtest/cache/results/20261009-0337-v100k/vu50-r2-off
+[v100k off vu50] measure 120s after 30s warmup, VUs=50
+list    n=10016 p50=353.13 p95=608.58 p99=828.36 max=1361.18 ms
+detail  n=5008 p50=449.10 p95=783.16 p99=1024.99 max=1415.88 ms
+[matrix] 끝 03:48:17
+exit=0

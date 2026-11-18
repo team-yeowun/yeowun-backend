@@ -23,6 +23,7 @@ import modi.backend.domain.exhibition.catalog.ExhibitionPlaceRepository;
 import modi.backend.domain.exhibition.catalog.ExhibitionRegion;
 import modi.backend.domain.exhibition.catalog.ExhibitionRepository;
 import modi.backend.domain.exhibition.catalog.ExhibitionTestFactory;
+import modi.backend.domain.exhibition.ranking.RankingCandidate;
 import modi.backend.ingestion.domain.port.ExhibitionCatalogClient;
 import modi.backend.support.response.Cursor;
 import modi.backend.support.time.AppTime;
@@ -267,9 +268,8 @@ class ExhibitionPeriodSentinelTest {
 	 * 3치 논리로 저절로 빠졌는데, 센티널로 굳히면서 {@code 1000-01-01 ≤ 오늘 ≤ 9999-12-31}이 참이 되어
 	 * 미상 전시가 배너에 새로 들어왔다. 그 동작 변화를 되돌린 것을 여기서 고정한다.
 	 *
-	 * <p><b>limit을 크게 줘서 조회수 순위와 무관하게 만든다</b> — 미상 행의 조회수가 0이면
-	 * 상위 3개에 애초에 못 드니 "제외됐다"를 증명하지 못한다(아무것도 못 잡는 테스트가 된다).
-	 * 전량을 받아 <b>포함 여부</b>만 보면 순위와 무관하게 성립한다.
+	 * <p>배너는 랭킹 순위판에서 오고, 순위판에는 랭킹 후보만 오른다. 그래서 <b>후보 전량의 포함 여부</b>만 보면
+	 * 조회수 순위와 무관하게 "제외됐다"가 성립한다.
 	 */
 	@Test
 	@DisplayName("홈 배너: 날짜 미상 전시는 후보에 아예 들어오지 않는다(목록에는 들어온다)")
@@ -277,8 +277,8 @@ class ExhibitionPeriodSentinelTest {
 		Fixture f = 픽스처만든다();
 		LocalDate today = f.today;
 
-		List<Long> 배너후보 = exhibitionQueryRepository.findOngoingCatalogTopByViews(today, 10_000)
-				.stream().map(Exhibition::getId).toList();
+		List<Long> 배너후보 = exhibitionQueryRepository.findOngoingCatalogCandidates(today)
+				.stream().map(RankingCandidate::exhibitionId).toList();
 
 		List<Long> 미상들 = f.labelById.entrySet().stream()
 				.filter(e -> List.of("시작미상", "시작미상2", "종료미상", "종료미상2", "둘다미상").contains(e.getValue()))

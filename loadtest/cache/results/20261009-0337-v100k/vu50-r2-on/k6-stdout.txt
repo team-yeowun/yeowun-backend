@@ -1,0 +1,4 @@
+[v100k on vu50] measure 120s after 30s warmup, VUs=50
+list    n=327592 p50=0.28 p95=0.61 p99=0.92 max=33.76 ms
+detail  n=163796 p50=33.95 p95=57.33 p99=80.21 max=246.15 ms
+errors list=0 detail=0  rps=4094.9

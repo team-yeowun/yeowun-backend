@@ -2,6 +2,7 @@ package modi.backend.domain.exhibition.catalog;
 
 import modi.backend.domain.exhibition.hours.PlaceHours;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Optional;
 
@@ -153,14 +154,25 @@ public class Exhibition extends BaseEntity {
 	private String serviceName;
 
 	/**
-	 * 우리 앱 내 조회수(인기순 정렬축). 외부 API의 조회수와 별개다.
+	 * 우리 앱 내 조회수(인기 점수의 한 축). 외부 API의 조회수와 별개다.
 	 *
-	 * <p>이 값은 <b>엔티티 메서드로 올리지 않는다</b> — 조회 경로는 {@link ExhibitionViewCounter}에 누산만 하고,
-	 * 6시간마다 배치가 {@link ExhibitionRepository#increaseViewCounts}로 제자리에서 더한다.
-	 * 컬럼에 인덱스가 둘 걸려 있어(인기순) 요청마다 올리면 인기 있는 행일수록 쓰기가 몰리기 때문이다.
+	 * <p>이 값은 <b>엔티티 메서드로 올리지 않는다</b> — 상세 조회마다 {@link ExhibitionRepository#increaseViewCount}가
+	 * DB 안에서 제자리에서 더한다(count = count + 1). 읽어서 더해 저장하면 동시 조회끼리 값을 덮어쓴다.
+	 * 그래서 앱은 이 컬럼을 쓰지 않는다(updatable = false, 새 행은 DB 기본값 0).
 	 */
-	@Column(name = "our_view_count", nullable = false)
+	@Column(name = "our_view_count", nullable = false, updatable = false)
 	private long ourViewCount = 0;
+
+	/**
+	 * 인기 점수 = 북마크 수 × 0.7 + 조회수 × 0.3(인기순 정렬축, V62).
+	 *
+	 * <p>MySQL이 {@code bookmark_count}와 {@code our_view_count}에서 계산하는 <b>생성 컬럼</b>이라 앱은 읽기만 한다.
+	 * 북마크 수는 매핑하지 않는다 — 북마크 등록/해제 때 {@link ExhibitionRepository#changeBookmarkCount}가
+	 * DB 안에서 ±1 하고, 앱은 그 수를 점수로만 본다. 새 엔티티는 저장 전이라 DB 값이 없으므로 0.0으로 둔다.
+	 */
+	@Column(name = "popularity_score", nullable = false, insertable = false, updatable = false,
+			precision = 22, scale = 1)
+	private BigDecimal popularityScore = BigDecimal.ZERO.setScale(1);
 
 	private Exhibition(ExhibitionType type, String externalId, Long ownerId, String title, Long exhibitionPlaceId,
 			ExhibitionRegion region, LocalDate startDate, LocalDate endDate, ExhibitionCategory category,
