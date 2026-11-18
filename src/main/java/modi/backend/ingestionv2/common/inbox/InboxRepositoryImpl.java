@@ -16,35 +16,31 @@ public class InboxRepositoryImpl implements InboxRepository {
 	private final InboxJpaRepository inboxJpaRepository;
 
 	@Override
-	public InboxClaim claim(String subscriberKey, String eventId, String token,
-			LocalDateTime startedAt, LocalDateTime leaseUntil) {
-		int inserted = inboxJpaRepository.insertIfAbsent(subscriberKey, eventId, token, startedAt, leaseUntil);
+	public InboxClaim claim(String eventId, String token, LocalDateTime startedAt, LocalDateTime leaseUntil) {
+		int inserted = inboxJpaRepository.insertIfAbsent(eventId, token, startedAt, leaseUntil);
 		if (inserted == 1) {
-			return InboxClaim.acquired(subscriberKey, eventId, token);
+			return InboxClaim.acquired(eventId, token);
 		}
-		int reclaimed = inboxJpaRepository.reclaimIfAvailable(
-				subscriberKey, eventId, token, startedAt, leaseUntil);
+		int reclaimed = inboxJpaRepository.reclaimIfAvailable(eventId, token, startedAt, leaseUntil);
 		if (reclaimed == 1) {
-			return InboxClaim.acquired(subscriberKey, eventId, token);
+			return InboxClaim.acquired(eventId, token);
 		}
-		InboxStatus status = inboxJpaRepository.findStatus(subscriberKey, eventId)
+		InboxStatus status = inboxJpaRepository.findStatus(eventId)
 				.map(InboxStatus::valueOf)
 				.orElseThrow(() -> new IllegalStateException("Inbox 선점 결과 행을 찾을 수 없습니다. eventId=" + eventId));
 		return status.isTerminal()
-				? InboxClaim.terminal(subscriberKey, eventId)
-				: InboxClaim.inProgress(subscriberKey, eventId);
+				? InboxClaim.terminal(eventId)
+				: InboxClaim.inProgress(eventId);
 	}
 
 	@Override
 	public boolean finish(InboxClaim claim, InboxStatus terminalStatus, LocalDateTime completedAt) {
-		return inboxJpaRepository.finish(claim.subscriberKey(), claim.eventId(), claim.token(),
-				terminalStatus.name(), completedAt) == 1;
+		return inboxJpaRepository.finish(claim.eventId(), claim.token(), terminalStatus.name(), completedAt) == 1;
 	}
 
 	@Override
 	public boolean fail(InboxClaim claim, String lastError) {
-		return inboxJpaRepository.fail(
-				claim.subscriberKey(), claim.eventId(), claim.token(), lastError) == 1;
+		return inboxJpaRepository.fail(claim.eventId(), claim.token(), lastError) == 1;
 	}
 
 	@Override

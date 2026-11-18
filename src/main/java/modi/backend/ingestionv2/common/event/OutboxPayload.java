@@ -16,6 +16,7 @@ import modi.backend.support.error.CoreException;
  * <ul>
  *   <li>발행 쪽이 직렬화해 payload에 넣고, 컨슈머는 원장이 아니라 이 값을 읽어 처리 대상을 안다</li>
  *   <li>eventId는 Outbox 생성 시 한 번 정하고 같은 행의 재발행에도 유지 - Redis record ID는 전송 시도 식별자일 뿐이다</li>
+ *   <li>값은 시간순 UUID v7 - Inbox의 UNIQUE(event_id) 인덱스 끝에 생성 순서대로 쌓인다</li>
  *   <li>롤링 배포 중 구버전 소비자와 호환되도록 eventId는 기존 payload JSON에 넣지 않고 Outbox 컬럼과 Stream 필드로 운반한다</li>
  *   <li>배포 전부터 Redis에 남아 있던 레코드는 eventId가 없을 수 있어 null을 허용하고 소비자가 Inbox를 우회한다</li>
  *   <li>해석 실패는 예외 - 소비 쪽이 격리로 넘길 근거</li>
@@ -45,7 +46,7 @@ public record OutboxPayload(
 	}
 
 	public static OutboxPayload of(IngestionEventType eventType, String aggregateId, LocalDateTime occurredAt) {
-		return of(UUID.randomUUID().toString(), eventType, aggregateId, occurredAt);
+		return of(UuidV7.generate().toString(), eventType, aggregateId, occurredAt);
 	}
 
 	/** 테스트·복구 도구가 고정 eventId로 같은 사건의 재발행을 재현할 때 사용한다. */

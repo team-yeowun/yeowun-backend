@@ -122,8 +122,8 @@ class InboxIdempotencyIntegrationTest extends DeliveryTestSupport {
 				IngestionEventType.COLLECTED, vendorKey + "-done", IngestionClock.now()).eventId();
 		String failedId = OutboxPayload.of(
 				IngestionEventType.COLLECTED, vendorKey + "-failed", IngestionClock.now()).eventId();
-		InboxClaim succeeded = inboxService.claim("ingestion-v2", succeededId);
-		InboxClaim failed = inboxService.claim("ingestion-v2", failedId);
+		InboxClaim succeeded = inboxService.claim(succeededId);
+		InboxClaim failed = inboxService.claim(failedId);
 		assertThat(inboxService.succeed(succeeded)).isTrue();
 		assertThat(inboxService.fail(failed, new IllegalStateException("재시도 대상"))).isTrue();
 

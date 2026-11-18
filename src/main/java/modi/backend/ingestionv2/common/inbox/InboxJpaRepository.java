@@ -17,11 +17,10 @@ public interface InboxJpaRepository extends JpaRepository<InboxMessage, Long> {
 	@Modifying(clearAutomatically = true, flushAutomatically = true)
 	@Query(value = """
 			INSERT IGNORE INTO ingestion_inbox
-				(subscriber_key, event_id, status, claim_token, started_at, lease_until)
-			VALUES (:subscriberKey, :eventId, 'PROCESSING', :claimToken, :startedAt, :leaseUntil)
+				(event_id, status, claim_token, started_at, lease_until)
+			VALUES (:eventId, 'PROCESSING', :claimToken, :startedAt, :leaseUntil)
 			""", nativeQuery = true)
 	int insertIfAbsent(
-			@Param("subscriberKey") String subscriberKey,
 			@Param("eventId") String eventId,
 			@Param("claimToken") String claimToken,
 			@Param("startedAt") LocalDateTime startedAt,
@@ -32,11 +31,10 @@ public interface InboxJpaRepository extends JpaRepository<InboxMessage, Long> {
 			UPDATE ingestion_inbox
 			SET status = 'PROCESSING', claim_token = :claimToken, started_at = :startedAt,
 				lease_until = :leaseUntil, completed_at = NULL, last_error = NULL
-			WHERE subscriber_key = :subscriberKey AND event_id = :eventId
+			WHERE event_id = :eventId
 				AND (status = 'FAILED' OR (status = 'PROCESSING' AND lease_until <= :startedAt))
 			""", nativeQuery = true)
 	int reclaimIfAvailable(
-			@Param("subscriberKey") String subscriberKey,
 			@Param("eventId") String eventId,
 			@Param("claimToken") String claimToken,
 			@Param("startedAt") LocalDateTime startedAt,
@@ -44,21 +42,18 @@ public interface InboxJpaRepository extends JpaRepository<InboxMessage, Long> {
 
 	@Query(value = """
 			SELECT status FROM ingestion_inbox
-			WHERE subscriber_key = :subscriberKey AND event_id = :eventId
+			WHERE event_id = :eventId
 			""", nativeQuery = true)
-	Optional<String> findStatus(
-			@Param("subscriberKey") String subscriberKey,
-			@Param("eventId") String eventId);
+	Optional<String> findStatus(@Param("eventId") String eventId);
 
 	@Modifying(clearAutomatically = true, flushAutomatically = true)
 	@Query(value = """
 			UPDATE ingestion_inbox
 			SET status = :terminalStatus, lease_until = NULL, completed_at = :completedAt, last_error = NULL
-			WHERE subscriber_key = :subscriberKey AND event_id = :eventId
+			WHERE event_id = :eventId
 				AND status = 'PROCESSING' AND claim_token = :claimToken
 			""", nativeQuery = true)
 	int finish(
-			@Param("subscriberKey") String subscriberKey,
 			@Param("eventId") String eventId,
 			@Param("claimToken") String claimToken,
 			@Param("terminalStatus") String terminalStatus,
@@ -68,11 +63,10 @@ public interface InboxJpaRepository extends JpaRepository<InboxMessage, Long> {
 	@Query(value = """
 			UPDATE ingestion_inbox
 			SET status = 'FAILED', lease_until = NULL, completed_at = NULL, last_error = :lastError
-			WHERE subscriber_key = :subscriberKey AND event_id = :eventId
+			WHERE event_id = :eventId
 				AND status = 'PROCESSING' AND claim_token = :claimToken
 			""", nativeQuery = true)
 	int fail(
-			@Param("subscriberKey") String subscriberKey,
 			@Param("eventId") String eventId,
 			@Param("claimToken") String claimToken,
 			@Param("lastError") String lastError);
