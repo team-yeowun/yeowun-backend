@@ -2,6 +2,8 @@ package modi.backend.infra.exhibition.catalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +41,17 @@ class ExhibitionPopularityIndexTest {
 	@DisplayName("지역 인기 인덱스는 (region, popularity_score DESC, id DESC)다")
 	void 지역_인기_인덱스도_점수는_내림차순이다() {
 		assertThat(columnsOf("idx_exhibitions_region_popularity")).isEqualTo("region A,popularity_score D,id D");
+	}
+
+	@Test
+	@DisplayName("조회수만 보던 옛 인기순 인덱스는 지웠다(V63) — 쓰기마다 갱신 비용만 들고 읽는 쿼리가 없다")
+	void 옛_조회수_인덱스는_없다() {
+		List<String> indexes = jdbc.queryForList("""
+				select distinct index_name from information_schema.statistics
+				 where table_schema = database() and table_name = 'exhibitions'
+				""", String.class);
+
+		assertThat(indexes).doesNotContain("idx_exhibitions_view_count", "idx_exhibitions_region_views_id");
 	}
 
 	@Test

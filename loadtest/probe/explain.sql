@@ -12,7 +12,7 @@
 --      · 지역 목록이 지목하는 인덱스(정렬축별):
 --          최신순·거리순 -> idx_exhibitions_region_start_id
 --          종료순        -> idx_exhibitions_region_end_id
---          인기순        -> idx_exhibitions_region_views_id
+--          인기순        -> idx_exhibitions_region_popularity(V62, 점수 내림차순)
 -- 별칭은 e로 쓴다(앱은 e1_0). MySQL 테이블 힌트는 그 쿼리 자신의 별칭을 보므로 결과는 같다.
 SET NAMES utf8mb4;
 
@@ -37,12 +37,12 @@ EXPLAIN SELECT e.* FROM exhibitions e
    AND e.end_date >= CURDATE()
  ORDER BY e.end_date ASC, e.id ASC LIMIT 21;
 
-SELECT '=== S3 인기순 (idx_view_count 선두 일치) ===' AS ``;
+SELECT '=== S3 인기순 (idx_exhibitions_popularity 선두 일치, 정순) ===' AS ``;
 EXPLAIN SELECT e.* FROM exhibitions e
  WHERE e.deleted_at IS NULL AND e.type='CATALOG'
    AND e.start_date <= CURDATE()
    AND e.end_date >= CURDATE()
- ORDER BY e.our_view_count DESC, e.id DESC LIMIT 21;
+ ORDER BY e.popularity_score DESC, e.id DESC LIMIT 21;
 
 SELECT '=== X8 무료 × 종료순 (V49: is_free 컬럼) ===' AS ``;
 EXPLAIN SELECT e.* FROM exhibitions e
@@ -86,13 +86,13 @@ EXPLAIN ANALYZE SELECT e.* FROM exhibitions e
  ORDER BY e.start_date DESC, e.id DESC LIMIT 21;
 
 SELECT '=== F2-최악 지역=충남 × 인기순 (진행 중 0건 — 상한 없는 걷기의 최악) ===' AS ``;
--- 힌트 없이 our_view_count 인덱스를 걸으면 1M에서 50,505ms였다. V51 인덱스는 상한이 지역 크기다.
-EXPLAIN ANALYZE SELECT e.* FROM exhibitions e USE INDEX (idx_exhibitions_region_views_id)
+-- 힌트 없이 정렬 인덱스를 걸으면 1M에서 50,505ms였다(V62 전 our_view_count 기준). 지역 인덱스는 상한이 지역 크기다.
+EXPLAIN ANALYZE SELECT e.* FROM exhibitions e USE INDEX (idx_exhibitions_region_popularity)
  WHERE e.deleted_at IS NULL AND e.type='CATALOG'
    AND e.start_date <= CURDATE()
    AND e.end_date >= CURDATE()
    AND e.region IN ('CHUNGNAM')
- ORDER BY e.our_view_count DESC, e.id DESC LIMIT 21;
+ ORDER BY e.popularity_score DESC, e.id DESC LIMIT 21;
 
 SELECT '=== F-다중지역 서울,경기 · 힌트 없음 (앱도 안 붙인다 — 붙이면 1,339ms) ===' AS ``;
 EXPLAIN SELECT e.* FROM exhibitions e
@@ -119,6 +119,7 @@ EXPLAIN SELECT e.* FROM exhibitions e
  ORDER BY e.start_date DESC, e.id DESC LIMIT 21;
 
 SELECT '=== H4 배너 (진행 중 + 조회수 정렬 limit 3, 센티널 제외) ===' AS ``;
+-- #181부터 배너는 Redis 랭킹으로 고르므로 이 쿼리는 옛 배너 기록용이다(V63에서 조회수 인덱스를 지워 계획이 바뀐다).
 -- 배너는 Spring Data @Query라 힌트를 걸 통로가 없다.
 -- 커버링 인덱스가 이 계획을 흔드는지 여기서 본다(500k에서는 흔들지 않았다: 0.51ms, view_count 유지).
 EXPLAIN SELECT e.* FROM exhibitions e
