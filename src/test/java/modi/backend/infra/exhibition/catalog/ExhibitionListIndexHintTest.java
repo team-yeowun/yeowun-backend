@@ -91,7 +91,7 @@ class ExhibitionListIndexHintTest {
 	 */
 	private static final String REGION_LATEST_INDEX = "idx_exhibitions_region_start_id";
 	private static final String REGION_ENDING_INDEX = "idx_exhibitions_region_end_id";
-	private static final String REGION_POPULAR_INDEX = "idx_exhibitions_region_views_id";
+	private static final String REGION_POPULAR_INDEX = "idx_exhibitions_region_popularity";
 	private static final String COUNT_COVER_INDEX = "idx_exhibitions_count_cover";
 
 	@Test

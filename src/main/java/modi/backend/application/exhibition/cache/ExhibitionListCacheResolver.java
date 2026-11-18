@@ -55,7 +55,7 @@ public final class ExhibitionListCacheResolver {
         return switch (sort) {
             case LATEST -> Optional.of(ExhibitionCache.ExploreLatestP1.INSTANCE);
             case ENDING -> Optional.of(ExhibitionCache.ExploreEndingP1.INSTANCE);
-            case POPULAR -> Optional.of(ExhibitionCache.ExplorePopularP1.INSTANCE);
+            case POPULAR -> Optional.of(ExhibitionCache.ExplorePopularScoreP1.INSTANCE);
             case DISTANCE -> Optional.empty();      // 좌표 기준이라 사용자마다 결과가 다르다
         };
     }

@@ -66,12 +66,12 @@ public final class ExhibitionCache {
      */
     public static final List<MyCache> LISTS = List.of(
             HomeBanners.INSTANCE, HomeEndingSoon.INSTANCE, HomeFree.INSTANCE, HomeNewThisMonth.INSTANCE,
-            ExploreLatestP1.INSTANCE, ExploreEndingP1.INSTANCE, ExplorePopularP1.INSTANCE);
+            ExploreLatestP1.INSTANCE, ExploreEndingP1.INSTANCE, ExplorePopularScoreP1.INSTANCE);
 
     /** 조립(CacheConfig)이 순회할 전체 선언 목록. */
     public static final List<MyCache> ALL = List.of(
             HomeBanners.INSTANCE, HomeEndingSoon.INSTANCE, HomeFree.INSTANCE, HomeNewThisMonth.INSTANCE,
-            ExploreLatestP1.INSTANCE, ExploreEndingP1.INSTANCE, ExplorePopularP1.INSTANCE,
+            ExploreLatestP1.INSTANCE, ExploreEndingP1.INSTANCE, ExplorePopularScoreP1.INSTANCE,
             ExhibitionDetail.INSTANCE);
 
     private ExhibitionCache() {
@@ -137,10 +137,15 @@ public final class ExhibitionCache {
         }
     }
 
-    public static final class ExplorePopularP1 extends MyCache.TwoTierCache {
-        public static final ExplorePopularP1 INSTANCE = new ExplorePopularP1();
+    /**
+     * - 캐시 이름이 곧 Redis 키 접두라(클래스 이름), 인기순 기준이 조회수에서 인기 점수로 바뀐 V61에서 이름을 바꿈
+     *   - 롤링 배포 중 옛 앱이 담은 "조회수 순서 + 조회수 커서" 1페이지를 새 앱이 30분 동안 읽지 않게 하려는 것
+     *   - 옛 커서(정수 조회수)를 점수로 읽으면 2페이지가 첫머리부터 다시 나와 목록이 중복됨
+     */
+    public static final class ExplorePopularScoreP1 extends MyCache.TwoTierCache {
+        public static final ExplorePopularScoreP1 INSTANCE = new ExplorePopularScoreP1();
 
-        private ExplorePopularP1() {
+        private ExplorePopularScoreP1() {
             super("인기순 1페이지", Ttl.LIST_LOCAL, Ttl.LIST_REDIS, ExhibitionResult.ListPage.class);
         }
     }

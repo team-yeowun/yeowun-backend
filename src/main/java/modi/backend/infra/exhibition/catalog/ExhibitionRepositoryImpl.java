@@ -4,7 +4,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.data.domain.PageRequest;
@@ -58,20 +57,15 @@ public class ExhibitionRepositoryImpl implements ExhibitionRepository {
 	}
 
 	@Override
-	public int increaseViewCounts(Map<Long, Long> deltas) {
-		if (deltas == null || deltas.isEmpty()) {
-			return 0;
-		}
-		// 전시별 증가량이 제각각이라 한 문장으로 합칠 수 없다. 대상은 "그 창에 실제로 조회된 전시"뿐이라
-		// 문장 수가 전체 전시 수가 아니라 조회된 전시 수에 비례한다.
-		int updated = 0;
-		for (Map.Entry<Long, Long> delta : deltas.entrySet()) {
-			if (delta.getKey() == null || delta.getValue() == null || delta.getValue() <= 0) {
-				continue;
-			}
-			updated += jpaRepository.increaseViewCount(delta.getKey(), delta.getValue());
-		}
-		return updated;
+	public long increaseViewCount(Long exhibitionId) {
+		jpaRepository.increaseViewCount(exhibitionId);
+		// 같은 트랜잭션이라 방금 더한 값을 본다(다른 요청이 더한 값도 커밋됐으면 함께 보인다).
+		return jpaRepository.findViewCount(exhibitionId).orElse(0L);
+	}
+
+	@Override
+	public void changeBookmarkCount(Long exhibitionId, long delta) {
+		jpaRepository.changeBookmarkCount(exhibitionId, delta);
 	}
 
 	// ── 상세 satellite(1:1) ─────────────────────────────────────────────────────

@@ -188,8 +188,8 @@ public final class ExhibitionResult {
 		}
 
 		/**
-		 * 조회수만 갈아 끼운다. 정본은 배치가 6시간마다 반영하므로, 응답에는
-		 * <b>정본 + 아직 반영되지 않은 누산분</b>을 합쳐 내보내야 사용자가 보는 수가 즉시 오른다.
+		 * 조회수만 갈아 끼운다. 캐시된 공용 상세는 담길 때의 조회수를 들고 있으므로, 응답에는
+		 * 이번 조회를 더한 <b>DB의 현재 값</b>을 실어야 사용자가 보는 수가 바로 오른다.
 		 */
 		public Detail withViewCount(long value) {
 			return new Detail(exhibitionId, type, title, posterUrl, startDate, endDate, place, region, category,
@@ -228,13 +228,6 @@ public final class ExhibitionResult {
 		public static Created from(Exhibition exhibition) {
 			return new Created(exhibition.getId(), exhibition.getType().name());
 		}
-	}
-
-	/**
-	 * 조회수 반영 결과(배치). {@code exhibitions}는 갱신된 전시 수, {@code views}는 반영한 조회 횟수 합계다.
-	 * 둘 다 0이면 그 창에 조회가 없었거나 다른 인스턴스가 이미 가져갔다는 뜻이다.
-	 */
-	public record ViewCountFlush(int exhibitions, long views) {
 	}
 
 	/**
